@@ -1,17 +1,12 @@
-//
-//  MergeMoleApp.swift
-//  MergeMole
-//
-//  Created by Alex Whalen on 2026-06-18.
-//
-
 import SwiftUI
 
 @main
 struct MergeMoleApp: App {
     var body: some Scene {
-        WindowGroup {
+        MenuBarExtra("MergeMole", systemImage: "circle.grid.2x2") {
             ContentView()
+                .frame(width: 360, height: 420)
         }
+        .menuBarExtraStyle(.window)
     }
 }
