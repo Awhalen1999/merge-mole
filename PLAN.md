@@ -26,12 +26,30 @@ Older/Intel Macs still get the PR list, just no on-device AI.
 Build roughly one step at a time. Each should build and run before moving on.
 
 - [x] 0. Project created, MenuBarExtra (.window), LSUIElement=YES, builds & runs
-- [ ] 1. `PullRequest` model + fake sample data
-- [ ] 2. Card UI + tab bar, against fake data
+- [x] 1. `PullRequest` model + fake sample data (+ the structural seams below)
+- [~] 2. Card UI + tab bar, against fake data — working shell exists; needs polish
 - [ ] 3. GitHub GraphQL fetch + token in Keychain (real PRs)
 - [ ] 4. Cache + re-digest only when the diff actually changes
 - [ ] 5. On-device AI: effort tier first, then summary, then priority
 - [ ] 6. Icon states (mono → amber → red), then red badge, then one signature polish
+
+## Structure (the seams)
+Files are grouped under `MergeMole/` (file-system-synchronized — drop a file in
+and Xcode sees it). The point is that Steps 3 and 5 swap implementations, not
+rewrite callers:
+- `Models/` — `PullRequest`, `Verdict`, `SizeBucket`. Provider-agnostic.
+- `Sample/` — `SampleData`: the only fake data. Delete it when real data lands.
+- `Services/` — protocols + sample impls:
+  - `PRProvider` → `GitHubPRProvider` at Step 3
+  - `VerdictEngine` → on-device / BYO engines at Step 5 (AI-off = no engine)
+  - `SecretStore` → `KeychainSecretStore` at Step 3
+- `State/AppModel` — `@Observable`, the single source of truth. Holds PRs, a
+  `VerdictState` per PR, the tab, and the AI mode. Depends only on the protocols.
+- `Views/` — `RootView` → `TabBar` + `PRCard`. The card branches on one
+  `VerdictState` (`off`/`loading`/`ready`/`failed`) — never three layouts.
+
+Concurrency: target uses approachable concurrency (`SWIFT_DEFAULT_ACTOR_ISOLATION
+= MainActor`), so types are main-actor by default; mark real I/O `nonisolated`.
 
 ## AI modes (must feel seamless across all three)
 The user picks, in advanced settings, how AI runs. The card UI should read from a
