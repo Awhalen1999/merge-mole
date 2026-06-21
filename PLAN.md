@@ -36,8 +36,9 @@ Build roughly one step at a time. Each should build and run before moving on.
        availability fallback to data-only. Engine is selected from `aiMode`
        through the `VerdictEngine` seam (off / on-device live; BYO routed, stubbed).
        Done before 5 — caching is pointless until there are verdicts to cache.
-- [ ] 5b. Bring-your-own engine: `RemoteVerdictEngine` (OpenAI-compatible) + a
-       model-name field in Settings. Drops into the same seam.
+- [x] 5b. Bring-your-own engine: `RemoteVerdictEngine` (OpenAI-compatible chat
+       completions — hosted or local Ollama/LM Studio) + endpoint/model/key fields
+       and a Verify button. Per-engine cache so switching re-evaluates.
 - [x] 5. Cache: `VerdictCache` (JSON on disk, keyed by PR id + content signature).
        Unchanged PRs are served instantly; the model runs only on new/changed ones.
 - [ ] 7. Icon states (mono → amber → red), then red badge, then one signature polish

@@ -22,7 +22,7 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
     var detail: String {
         switch self {
         case .onDevice:     return "Apple's on-device model. Free, private, no key. Needs Apple Silicon."
-        case .bringYourOwn: return "Use your own API key + endpoint — a hosted model or local Ollama. (Coming soon.)"
+        case .bringYourOwn: return "Use your own API key + endpoint — a hosted model or local Ollama."
         case .off:          return "No AI. Cards show data only — title, repo, size, CI. Still a fast list."
         }
     }
@@ -91,10 +91,14 @@ final class AppModel {
         }
     }
 
-    /// BYO endpoint URL is not a secret, so it lives in UserDefaults. The BYO API
-    /// key and the GitHub token go through `secrets` (Keychain).
+    /// BYO endpoint + model name aren't secrets, so they live in UserDefaults.
+    /// The BYO API key and the GitHub token go through `secrets` (Keychain).
     var byoEndpoint: String {
         didSet { UserDefaults.standard.set(byoEndpoint, forKey: Key.byoEndpoint) }
+    }
+
+    var byoModel: String {
+        didSet { UserDefaults.standard.set(byoModel, forKey: Key.byoModel) }
     }
 
     private(set) var hasCompletedOnboarding: Bool
@@ -106,6 +110,7 @@ final class AppModel {
     private enum Key {
         static let aiMode = "aiMode"
         static let byoEndpoint = "byoEndpoint"
+        static let byoModel = "byoModel"
     }
 
     // MARK: Init
@@ -126,6 +131,7 @@ final class AppModel {
         let defaults = UserDefaults.standard
         self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
         self.byoEndpoint = defaults.string(forKey: Key.byoEndpoint) ?? ""
+        self.byoModel = defaults.string(forKey: Key.byoModel) ?? ""
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
     }
@@ -223,7 +229,22 @@ final class AppModel {
             return FoundationModelsEngine.isAvailable ? FoundationModelsEngine() : nil
         case .bringYourOwn:
             if let injectedEngine { return injectedEngine }
-            return nil   // real RemoteVerdictEngine is the next step
+            guard byoConfigured else { return nil }
+            return RemoteVerdictEngine(
+                endpoint: byoEndpoint.trimmingCharacters(in: .whitespaces),
+                model: byoModel.trimmingCharacters(in: .whitespaces),
+                apiKey: byoAPIKey
+            )
+        }
+    }
+
+    /// Identifies which engine produced a verdict, so the cache keeps them
+    /// separate (switching engines re-evaluates rather than serving stale output).
+    private var engineTag: String {
+        switch aiMode {
+        case .off:          return "off"
+        case .onDevice:     return "ondevice"
+        case .bringYourOwn: return "byo:\(byoModel)"
         }
     }
 
@@ -231,6 +252,34 @@ final class AppModel {
     /// Intelligence off). Surfaced in Settings; cards fall back to data-only.
     var onDeviceUnavailable: Bool {
         aiMode == .onDevice && injectedEngine == nil && !FoundationModelsEngine.isAvailable
+    }
+
+    /// BYO has both an endpoint and a model name (the minimum to run).
+    var byoConfigured: Bool {
+        !byoEndpoint.trimmingCharacters(in: .whitespaces).isEmpty
+            && !byoModel.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Verify the BYO endpoint/model/key (for the Settings "Verify" button).
+    /// Returns nil on success, or an error message.
+    func testRemoteModel() async -> String? {
+        guard byoConfigured else { return "Enter an endpoint and model first." }
+        let engine = RemoteVerdictEngine(
+            endpoint: byoEndpoint.trimmingCharacters(in: .whitespaces),
+            model: byoModel.trimmingCharacters(in: .whitespaces),
+            apiKey: byoAPIKey
+        )
+        do {
+            try await engine.validate()
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    /// Re-run verdicts with the current engine (e.g. after BYO config changes).
+    func refreshVerdicts() async {
+        await recomputeVerdicts()
     }
 
     // MARK: Loading
@@ -261,9 +310,10 @@ final class AppModel {
 
         // Serve unchanged PRs straight from cache; only run the model on the
         // ones whose content signature changed (or are new).
+        let tag = engineTag
         var stale: [PullRequest] = []
         for pr in pullRequests {
-            if let cached = verdictCache.verdict(for: pr) {
+            if let cached = verdictCache.verdict(for: pr, engine: tag) {
                 verdicts[pr.id] = .ready(cached)
             } else {
                 verdicts[pr.id] = .loading
@@ -288,7 +338,7 @@ final class AppModel {
             for _ in 0..<min(Self.maxConcurrentVerdicts, stale.count) { schedule() }
             for await (pr, state) in group {
                 verdicts[pr.id] = state
-                if case .ready(let verdict) = state { verdictCache.store(verdict, for: pr) }
+                if case .ready(let verdict) = state { verdictCache.store(verdict, for: pr, engine: tag) }
                 schedule()
             }
         }

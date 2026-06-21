@@ -19,16 +19,21 @@ final class VerdictCache {
     }
 
     /// The cached verdict, but only if the PR's content signature still matches.
-    /// A mismatch (or miss) means it must be re-run.
-    func verdict(for pr: PullRequest) -> Verdict? {
-        guard let entry = entries[pr.id], entry.signature == Self.signature(for: pr) else {
+    /// Keyed by `engine` too, so different engines (on-device vs a hosted model)
+    /// don't serve each other's verdicts. A mismatch (or miss) means re-run.
+    func verdict(for pr: PullRequest, engine: String) -> Verdict? {
+        guard let entry = entries[Self.key(pr, engine)], entry.signature == Self.signature(for: pr) else {
             return nil
         }
         return entry.verdict
     }
 
-    func store(_ verdict: Verdict, for pr: PullRequest) {
-        entries[pr.id] = Entry(signature: Self.signature(for: pr), verdict: verdict)
+    func store(_ verdict: Verdict, for pr: PullRequest, engine: String) {
+        entries[Self.key(pr, engine)] = Entry(signature: Self.signature(for: pr), verdict: verdict)
+    }
+
+    private static func key(_ pr: PullRequest, _ engine: String) -> String {
+        "\(engine)\u{1F}\(pr.id)"
     }
 
     /// Write the whole cache once (called after a recompute, not per entry).

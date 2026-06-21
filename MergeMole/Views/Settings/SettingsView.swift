@@ -142,6 +142,10 @@ private struct GitHubSettings: View {
 private struct AISettings: View {
     @Environment(AppModel.self) private var model
     @State private var apiKey = ""
+    @State private var verifying = false
+    @State private var feedback: Feedback?
+
+    private enum Feedback { case ok(String), error(String) }
 
     var body: some View {
         @Bindable var model = model
@@ -163,21 +167,55 @@ private struct AISettings: View {
 
             if model.aiMode == .bringYourOwn {
                 Section {
-                    TextField("https://api.example.com/v1  •  http://localhost:11434", text: $model.byoEndpoint)
-                    SecureField("API key", text: $apiKey)
-                    Button(model.byoAPIKey.isEmpty ? "Save key" : "Replace key") {
-                        model.setBYOAPIKey(apiKey)
-                        apiKey = ""
+                    TextField("Endpoint", text: $model.byoEndpoint,
+                              prompt: Text("https://api.openai.com/v1  •  http://localhost:11434/v1"))
+                    TextField("Model", text: $model.byoModel,
+                              prompt: Text("gpt-4o-mini  •  llama3.1"))
+                    SecureField("API key (leave blank for local)", text: $apiKey)
+
+                    Button("Verify connection") { verify() }
+                        .disabled(verifying || !model.byoConfigured)
+
+                    if verifying {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text("Verifying…").foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                    } else if let feedback {
+                        switch feedback {
+                        case .ok(let message):
+                            Label(message, systemImage: "checkmark.circle").foregroundStyle(.green).font(.caption)
+                        case .error(let message):
+                            Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.caption)
+                        }
                     }
-                    .disabled(apiKey.trimmingCharacters(in: .whitespaces).isEmpty)
                 } header: {
-                    Text("Endpoint")
+                    Text("Bring your own model")
                 } footer: {
-                    Text("Key is stored in your Keychain. Endpoint covers hosted models and local ones like Ollama.")
+                    Text("Any OpenAI-compatible Chat Completions endpoint — hosted (OpenAI, OpenRouter…) or local (Ollama, LM Studio). Key is stored in your Keychain.")
                 }
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func verify() {
+        Task {
+            if !apiKey.isEmpty {
+                model.setBYOAPIKey(apiKey)
+                apiKey = ""
+            }
+            verifying = true
+            feedback = nil
+            if let error = await model.testRemoteModel() {
+                feedback = .error(error)
+            } else {
+                feedback = .ok("Connected to \(model.byoModel)")
+                await model.refreshVerdicts()
+            }
+            verifying = false
+        }
     }
 }
 
