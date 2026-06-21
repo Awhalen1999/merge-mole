@@ -1,10 +1,12 @@
 import SwiftUI
+import AppKit
 
-/// First-run setup, shown inside the panel until `hasCompletedOnboarding`.
-/// Three short steps: welcome → connect GitHub → pick AI mode. Skippable, and
-/// re-doable indirectly via Settings. Kept deliberately small (PLAN: not a maze).
+/// First-run setup, shown in its own window (auto-presented at launch until
+/// `hasCompletedOnboarding`). Three short steps: welcome → connect GitHub → pick
+/// AI mode. Skippable; re-doable from Settings. Small by design (PLAN: not a maze).
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
 
     @State private var step = 0
     @State private var token = ""
@@ -16,7 +18,7 @@ struct OnboardingView: View {
         VStack(spacing: Layout.roomy) {
             progress
 
-            // Content area grows to fill; buttons stay pinned to the bottom.
+            // Content grows to fill; buttons stay pinned to the bottom.
             VStack(alignment: .leading, spacing: Layout.base) {
                 switch step {
                 case 0: welcome
@@ -29,6 +31,11 @@ struct OnboardingView: View {
             buttons
         }
         .padding(Layout.roomy + Layout.base)
+        .frame(width: 460, height: 420)
+        .background(Color.appBackground)
+        // Bring the window to the front at launch (the app is a menu-bar
+        // accessory, so it isn't frontmost by default).
+        .onAppear { NSApp.activate(ignoringOtherApps: true) }
     }
 
     // MARK: Steps
@@ -128,6 +135,7 @@ struct OnboardingView: View {
             if !token.isEmpty { model.setGitHubToken(token) }
             model.aiMode = mode
             model.completeOnboarding()
+            dismiss()
         }
     }
 }
@@ -135,6 +143,4 @@ struct OnboardingView: View {
 #Preview {
     OnboardingView()
         .environment(AppModel(secrets: InMemorySecretStore(), onboarded: false))
-        .frame(width: 360, height: 480)
-        .background(Color.appBackground)
 }

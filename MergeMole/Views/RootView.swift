@@ -1,28 +1,14 @@
 import SwiftUI
 import AppKit
 
-/// The dropdown panel's root. Reads the shared `AppModel`, shows onboarding until
-/// it's complete, then the header → tab bar → list. Painted on the Flexoki
-/// paper/ink background so the whole panel reads as one surface.
+/// The dropdown panel's root. Reads the shared `AppModel` and lays out
+/// header → tab bar → list. First-run onboarding is a separate window
+/// (`OnboardingView`), so the panel itself is always the main panel. Painted on
+/// the Flexoki paper/ink background so the whole panel reads as one surface.
 struct RootView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Group {
-            if model.hasCompletedOnboarding {
-                panel
-            } else {
-                OnboardingView()
-            }
-        }
-        .frame(width: 360, height: 480)
-        .background(Color.appBackground)
-        .task { await model.load() }
-    }
-
-    // MARK: Main panel
-
-    private var panel: some View {
         @Bindable var model = model
         return VStack(spacing: 0) {
             header
@@ -30,6 +16,9 @@ struct RootView: View {
             Hairline()
             content
         }
+        .frame(width: 360, height: 480)
+        .background(Color.appBackground)
+        .task { await model.load() }
     }
 
     private var header: some View {
@@ -100,12 +89,7 @@ struct RootView: View {
     }
 }
 
-#Preview("Panel") {
+#Preview {
     RootView()
         .environment(AppModel(secrets: InMemorySecretStore(), onboarded: true))
-}
-
-#Preview("Onboarding") {
-    RootView()
-        .environment(AppModel(secrets: InMemorySecretStore(), onboarded: false))
 }

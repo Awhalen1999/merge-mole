@@ -93,10 +93,12 @@ panel's Flexoki surface — most macOS-correct, lowest bug surface.
 The temporary AI-mode picker is gone from the panel header; AI mode now lives in
 Settings. The header carries refresh / settings / quit icon buttons instead.
 
-**First-run onboarding** — `OnboardingView`, shown *inside the panel* until
-`hasCompletedOnboarding` (no separate window = no window-lifecycle bugs). Three
-steps: Welcome → Connect GitHub (paste token + "create one" link, scopes
-`repo`, `read:org`; skippable) → Choose AI mode. PAT paste for v1; OAuth later.
+**First-run onboarding** — `OnboardingView`, a standalone `Window` scene that
+auto-presents at launch until `hasCompletedOnboarding` (via
+`defaultLaunchBehavior`, read from UserDefaults), then dismisses itself. Comes to
+front via `NSApp.activate`. Three steps: Welcome → Connect GitHub (paste token +
+"create one" link, scopes `repo`, `read:org`; skippable) → Choose AI mode. PAT
+paste for v1; OAuth later.
 
 **Persistence** — token + BYO API key via `KeychainSecretStore` (Security
 framework, delete-then-add), never UserDefaults. Non-secret prefs (AI mode, BYO
