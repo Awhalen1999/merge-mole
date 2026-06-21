@@ -21,45 +21,32 @@ struct FoundationModelsEngine: VerdictEngine {
     func verdict(for pr: PullRequest) async throws -> Verdict {
         let session = LanguageModelSession { Self.instructions }
         let response = try await session.respond(
-            to: Self.prompt(for: pr),
+            to: VerdictInput(pr).promptText,
             generating: GeneratedVerdict.self
         )
         return response.content.toVerdict
     }
 
     private static let instructions = """
-    You triage GitHub pull requests for a busy reviewer. From the metadata you are \
-    given, judge how much effort reviewing the PR will take, how urgently the \
-    reviewer should look at it, summarize what it does in one short sentence, and \
-    give one short clause explaining your call. Be concrete, and never invent \
-    details that aren't implied by the input.
+    You triage GitHub pull requests for a busy reviewer who wants, at a glance, to \
+    know what each PR is and whether to look now. From the metadata and description, \
+    judge the review effort and the priority, then write a one-line summary and one \
+    clause of why. Be specific and concrete; never invent details the input doesn't \
+    support. If the description is thin, judge from the title, size, and file count.
     """
-
-    private static func prompt(for pr: PullRequest) -> String {
-        """
-        Title: \(pr.title)
-        Repository: \(pr.repository)
-        Author: \(pr.author)
-        Branch: \(pr.headBranch) -> \(pr.baseBranch)
-        Draft: \(pr.isDraft)
-        Review state: \(pr.reviewState.rawValue)
-        CI: \(pr.checksState.rawValue)
-        Changes: +\(pr.additions) / -\(pr.deletions) across \(pr.changedFiles) files (size \(pr.sizeBucket.label))
-        """
-    }
 }
 
 // MARK: - Guided-generation type (maps to the domain Verdict)
 
 @Generable
 private struct GeneratedVerdict {
-    @Guide(description: "How much effort reviewing this PR will take.")
+    @Guide(description: "How much focused effort reviewing this PR will take.")
     let effort: GeneratedEffort
-    @Guide(description: "How urgently the reviewer should look at this PR.")
+    @Guide(description: "How urgently the reviewer should look, given review state, CI, size, and risk.")
     let priority: GeneratedPriority
-    @Guide(description: "One short sentence describing what the PR does.")
+    @Guide(description: "What the PR actually does, in one concrete line of at most 14 words. Start with a verb, no \"This PR\" preamble, and don't just repeat the title.")
     let summary: String
-    @Guide(description: "One short clause explaining the effort and priority call.")
+    @Guide(description: "The single most decision-relevant reason for the effort and priority call, as one short clause.")
     let rationale: String
 
     var toVerdict: Verdict {

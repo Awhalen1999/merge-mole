@@ -34,6 +34,27 @@ enum EffortTier: Int, CaseIterable, Sendable, Comparable, Codable {
         }
     }
 
+    /// The lowercase token a model emits / we parse. One source of truth for the
+    /// BYO prompt's allowed values *and* its parser, so they can never drift.
+    var wireName: String {
+        switch self {
+        case .trivial:  return "trivial"
+        case .easy:     return "easy"
+        case .moderate: return "moderate"
+        case .involved: return "involved"
+        case .heavy:    return "heavy"
+        }
+    }
+
+    /// Lenient parse from a model's reply; anything unrecognized falls to the
+    /// middle tier rather than failing the whole verdict.
+    init(wire raw: String?) {
+        self = EffortTier.allCases.first { $0.wireName == raw?.lowercased() } ?? .moderate
+    }
+
+    /// `"trivial|easy|moderate|involved|heavy"` — drop straight into a prompt.
+    static var wireList: String { allCases.map(\.wireName).joined(separator: "|") }
+
     static func < (lhs: EffortTier, rhs: EffortTier) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
@@ -54,6 +75,24 @@ enum Priority: Int, CaseIterable, Sendable, Comparable, Codable {
         case .urgent: return "Urgent"
         }
     }
+
+    /// The lowercase token a model emits / we parse (see `EffortTier.wireName`).
+    var wireName: String {
+        switch self {
+        case .low:    return "low"
+        case .normal: return "normal"
+        case .high:   return "high"
+        case .urgent: return "urgent"
+        }
+    }
+
+    /// Lenient parse; unrecognized values fall back to `.normal`.
+    init(wire raw: String?) {
+        self = Priority.allCases.first { $0.wireName == raw?.lowercased() } ?? .normal
+    }
+
+    /// `"low|normal|high|urgent"` — drop straight into a prompt.
+    static var wireList: String { allCases.map(\.wireName).joined(separator: "|") }
 
     static func < (lhs: Priority, rhs: Priority) -> Bool {
         lhs.rawValue < rhs.rawValue

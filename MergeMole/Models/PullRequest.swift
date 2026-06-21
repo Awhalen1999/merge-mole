@@ -9,16 +9,19 @@ struct PullRequest: Identifiable, Hashable, Sendable {
     let id: String          // GraphQL node id later; a stable string for samples
     var number: Int
     var title: String
+    var body: String        // PR description (plain text; may be empty)
     var repository: String  // "owner/name"
     var author: String
     var headBranch: String
     var baseBranch: String
+    var headOID: String     // head commit SHA — the source of truth for "content changed"
     var isDraft: Bool
     var reviewState: ReviewState
     var checksState: ChecksState
     var additions: Int
     var deletions: Int
     var changedFiles: Int
+    var labels: [String]    // e.g. "security", "bug" — high-signal for priority
     var url: URL
     var updatedAt: Date
 

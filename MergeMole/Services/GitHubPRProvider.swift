@@ -132,16 +132,19 @@ enum GitHubAPI {
             id: id,
             number: number,
             title: title,
+            body: node.bodyText ?? "",
             repository: repository,
             author: node.author?.login ?? "unknown",
             headBranch: node.headRefName ?? "",
             baseBranch: node.baseRefName ?? "",
+            headOID: node.headRefOid ?? "",
             isDraft: node.isDraft ?? false,
             reviewState: reviewState(node.reviewDecision),
             checksState: checksState(node.commits?.nodes.first?.commit.statusCheckRollup?.state),
             additions: node.additions ?? 0,
             deletions: node.deletions ?? 0,
             changedFiles: node.changedFiles ?? 0,
+            labels: node.labels?.nodes.compactMap(\.name) ?? [],
             url: url,
             updatedAt: node.updatedAt ?? .now
         )
@@ -173,6 +176,7 @@ enum GitHubAPI {
             id
             number
             title
+            bodyText
             isDraft
             url
             updatedAt
@@ -183,7 +187,9 @@ enum GitHubAPI {
             author { login }
             headRefName
             baseRefName
+            headRefOid
             reviewDecision
+            labels(first: 10) { nodes { name } }
             commits(last: 1) {
               nodes { commit { statusCheckRollup { state } } }
             }
@@ -217,6 +223,7 @@ private struct PRNode: Decodable {
     let id: String?
     let number: Int?
     let title: String?
+    let bodyText: String?
     let isDraft: Bool?
     let url: String?
     let updatedAt: Date?
@@ -227,11 +234,17 @@ private struct PRNode: Decodable {
     let author: Author?
     let headRefName: String?
     let baseRefName: String?
+    let headRefOid: String?
     let reviewDecision: String?
+    let labels: Labels?
     let commits: Commits?
 
     struct Repository: Decodable { let nameWithOwner: String }
     struct Author: Decodable { let login: String }
+    struct Labels: Decodable {
+        let nodes: [LabelNode]
+        struct LabelNode: Decodable { let name: String }
+    }
     struct Commits: Decodable {
         let nodes: [CommitNode]
         struct CommitNode: Decodable { let commit: Commit }

@@ -37,8 +37,9 @@ Build roughly one step at a time. Each should build and run before moving on.
        availability fallback to data-only
 - [x] 6. Bring-your-own — `RemoteVerdictEngine` (OpenAI-compatible, hosted or
        local Ollama/LM Studio) + endpoint/model/key fields and a Verify button
-- [x] 7. Cache — `VerdictCache` (JSON on disk, keyed by engine + content
-       signature); unchanged PRs served instantly, model runs only on change
+- [x] 7. Cache — `VerdictCache` (JSON on disk, keyed by engine + a content
+       signature that includes the head commit SHA); unchanged PRs served
+       instantly, model re-runs on any new commit or edited metadata
 - [ ] 8. Menu-bar icon states (mono → amber → red), red badge, one signature polish
 - [ ] UI pass — visual redesign once the logic is settled (user-driven; the data
       shown can grow/shrink to fit it)
@@ -53,6 +54,8 @@ sees it). The seams let backends swap without touching callers:
   - `PRProvider` → `GitHubPRProvider` (networking in `GitHubAPI`) · `SamplePRProvider`
   - `VerdictEngine` → `FoundationModelsEngine` (on-device) / `RemoteVerdictEngine`
     (BYO) / none (off) · `SampleVerdictEngine`
+  - `VerdictInput` — one value derived from a `PullRequest` that produces *both*
+    the engine prompt and the cache signature, so the two can never drift.
   - `SecretStore` → `KeychainSecretStore` · `InMemorySecretStore`
   - `VerdictCache`, `LoginItem`
 - `State/AppModel` — `@Observable`, the single source of truth, shared across all

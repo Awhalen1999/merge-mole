@@ -31,7 +31,7 @@ struct RemoteVerdictEngine: VerdictEngine {
     let apiKey: String
 
     func verdict(for pr: PullRequest) async throws -> Verdict {
-        let content = try await complete(system: Self.instructions, user: Self.prompt(for: pr))
+        let content = try await complete(system: Self.instructions, user: VerdictInput(pr).promptText)
         return try Self.parseVerdict(content)
     }
 
@@ -114,52 +114,27 @@ struct RemoteVerdictEngine: VerdictEngine {
         let summary = (object["summary"] as? String) ?? ""
         guard !summary.isEmpty else { throw RemoteModelError.badResponse }
 
+        // The allowed tokens (and their fallbacks) live on the enums — see
+        // `EffortTier.init(wire:)` / `Priority.init(wire:)`.
         return Verdict(
-            effort: effortTier(from: object["effort"] as? String),
-            priority: priority(from: object["priority"] as? String),
+            effort: EffortTier(wire: object["effort"] as? String),
+            priority: Priority(wire: object["priority"] as? String),
             summary: summary,
             rationale: (object["rationale"] as? String) ?? ""
         )
     }
 
-    private static func effortTier(from raw: String?) -> EffortTier {
-        switch raw?.lowercased() {
-        case "trivial":  return .trivial
-        case "easy":     return .easy
-        case "involved": return .involved
-        case "heavy":    return .heavy
-        default:         return .moderate
-        }
-    }
-
-    private static func priority(from raw: String?) -> Priority {
-        switch raw?.lowercased() {
-        case "low":    return .low
-        case "high":   return .high
-        case "urgent": return .urgent
-        default:       return .normal
-        }
-    }
-
     // MARK: Prompt
 
+    /// The allowed-value lists come straight from the enums, so the prompt and the
+    /// parser can't disagree about the vocabulary. The summary guidance matches the
+    /// on-device engine's, so verdicts read the same regardless of backend.
     private static let instructions = """
     You triage GitHub pull requests for a busy reviewer. Respond with ONLY a JSON \
-    object and no other text: {"effort": one of trivial|easy|moderate|involved|heavy, \
-    "priority": one of low|normal|high|urgent, "summary": one short sentence on what \
-    the PR does, "rationale": one short clause explaining the effort/priority call}.
+    object and no other text: {"effort": one of \(EffortTier.wireList), "priority": \
+    one of \(Priority.wireList), "summary": what the PR does in one concrete line of \
+    at most 14 words (start with a verb, no "This PR" preamble, don't just repeat the \
+    title), "rationale": one short clause giving the main reason for the effort and \
+    priority call}. Be specific; never invent details the input doesn't support.
     """
-
-    private static func prompt(for pr: PullRequest) -> String {
-        """
-        Title: \(pr.title)
-        Repository: \(pr.repository)
-        Author: \(pr.author)
-        Branch: \(pr.headBranch) -> \(pr.baseBranch)
-        Draft: \(pr.isDraft)
-        Review state: \(pr.reviewState.rawValue)
-        CI: \(pr.checksState.rawValue)
-        Changes: +\(pr.additions) / -\(pr.deletions) across \(pr.changedFiles) files (size \(pr.sizeBucket.label))
-        """
-    }
 }

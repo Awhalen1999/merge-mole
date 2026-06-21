@@ -70,6 +70,16 @@ final class AppModel {
     private let verdictCache = VerdictCache()
     private static let maxConcurrentVerdicts = 4
 
+    /// Bumped on each recompute. An in-flight pass re-checks it after every await
+    /// and bows out if a newer pass (e.g. the user just switched AI mode) has
+    /// superseded it — so a stale engine never writes verdicts over the current one.
+    private var recomputeGeneration = 0
+
+    /// Cached so the hot render path (`verdictState`) and `activeEngine` don't
+    /// re-probe Foundation Models on every access. Refreshed at the start of each
+    /// recompute, so it tracks Apple Intelligence being toggled between refreshes.
+    private(set) var onDeviceAvailable = FoundationModelsEngine.isAvailable
+
     private(set) var currentUser: String
 
     // MARK: PR state
@@ -214,7 +224,18 @@ final class AppModel {
     }
 
     func verdictState(for pr: PullRequest) -> VerdictState {
-        verdicts[pr.id] ?? (activeEngine == nil ? .off : .loading)
+        verdicts[pr.id] ?? (aiEnabled ? .loading : .off)
+    }
+
+    /// Whether verdicts should compute at all. Mirrors `activeEngine != nil` but
+    /// builds no engine and probes no framework, so it's safe to call while views
+    /// render — `activeEngine` constructs an engine and must stay off that path.
+    private var aiEnabled: Bool {
+        switch aiMode {
+        case .off:          return false
+        case .onDevice:     return injectedEngine != nil || onDeviceAvailable
+        case .bringYourOwn: return injectedEngine != nil || byoConfigured
+        }
     }
 
     /// The engine for the current mode, or nil when verdicts should be `.off`
@@ -226,7 +247,7 @@ final class AppModel {
             return nil
         case .onDevice:
             if let injectedEngine { return injectedEngine }
-            return FoundationModelsEngine.isAvailable ? FoundationModelsEngine() : nil
+            return onDeviceAvailable ? FoundationModelsEngine() : nil
         case .bringYourOwn:
             if let injectedEngine { return injectedEngine }
             guard byoConfigured else { return nil }
@@ -241,17 +262,20 @@ final class AppModel {
     /// Identifies which engine produced a verdict, so the cache keeps them
     /// separate (switching engines re-evaluates rather than serving stale output).
     private var engineTag: String {
+        // Bump when the prompt or output contract changes materially, so verdicts
+        // cached under an older prompt are re-run rather than served stale.
+        let version = "v2"
         switch aiMode {
         case .off:          return "off"
-        case .onDevice:     return "ondevice"
-        case .bringYourOwn: return "byo:\(byoModel)"
+        case .onDevice:     return "ondevice@\(version)"
+        case .bringYourOwn: return "byo:\(byoModel)@\(version)"
         }
     }
 
     /// On-device AI was chosen but this Mac can't run it (Intel, or Apple
     /// Intelligence off). Surfaced in Settings; cards fall back to data-only.
     var onDeviceUnavailable: Bool {
-        aiMode == .onDevice && injectedEngine == nil && !FoundationModelsEngine.isAvailable
+        aiMode == .onDevice && injectedEngine == nil && !onDeviceAvailable
     }
 
     /// BYO has both an endpoint and a model name (the minimum to run).
@@ -303,6 +327,10 @@ final class AppModel {
     // MARK: Verdicts
 
     private func recomputeVerdicts() async {
+        onDeviceAvailable = FoundationModelsEngine.isAvailable   // refresh before we resolve
+        recomputeGeneration += 1
+        let generation = recomputeGeneration
+
         guard let engine = activeEngine else {
             for pr in pullRequests { verdicts[pr.id] = .off }
             return
@@ -337,11 +365,15 @@ final class AppModel {
             }
             for _ in 0..<min(Self.maxConcurrentVerdicts, stale.count) { schedule() }
             for await (pr, state) in group {
+                // A newer recompute superseded us (mode/config changed): drain the
+                // in-flight tasks without writing, and schedule no more.
+                guard generation == recomputeGeneration else { continue }
                 verdicts[pr.id] = state
                 if case .ready(let verdict) = state { verdictCache.store(verdict, for: pr, engine: tag) }
                 schedule()
             }
         }
+        guard generation == recomputeGeneration else { return }
         verdictCache.persist()
     }
 
