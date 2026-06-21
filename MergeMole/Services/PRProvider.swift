@@ -1,19 +1,27 @@
 import Foundation
 
-/// Source of pull requests. The whole app talks to this protocol, never to a
-/// concrete backend — so Step 3 swaps `SamplePRProvider` for a GraphQL-backed
-/// `GitHubPRProvider` without touching AppModel or the views.
-protocol PRProvider: Sendable {
-    func fetchPullRequests() async throws -> [PullRequest]
+/// The result of a fetch: the PRs plus who the signed-in user is, so AppModel can
+/// resolve `currentUser` (drives the Mine / Needs Review filters) from the same
+/// round-trip.
+struct PRFetchResult: Sendable {
+    var viewer: String?
+    var pullRequests: [PullRequest]
 }
 
-/// Returns the fixed fake set. Stand-in until real GitHub fetching lands.
+/// Source of pull requests. The whole app talks to this protocol, never to a
+/// concrete backend — so the sample provider and `GitHubPRProvider` are
+/// interchangeable and AppModel/the views don't care which is wired in.
+protocol PRProvider: Sendable {
+    func fetchPullRequests() async throws -> PRFetchResult
+}
+
+/// Returns the fixed fake set. Used by previews/tests; production uses GitHub.
 struct SamplePRProvider: PRProvider {
     /// Simulated network latency so the loading state is visible during dev.
     var latency: Duration = .milliseconds(300)
 
-    func fetchPullRequests() async throws -> [PullRequest] {
+    func fetchPullRequests() async throws -> PRFetchResult {
         try await Task.sleep(for: latency)
-        return SampleData.pullRequests
+        return PRFetchResult(viewer: SampleData.currentUser, pullRequests: SampleData.pullRequests)
     }
 }

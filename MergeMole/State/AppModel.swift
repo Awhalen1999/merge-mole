@@ -112,7 +112,7 @@ final class AppModel {
         onboarded: Bool? = nil      // overridable for previews/tests
     ) {
         let secrets = secrets ?? KeychainSecretStore()
-        self.prProvider = prProvider ?? SamplePRProvider()
+        self.prProvider = prProvider ?? GitHubPRProvider(secrets: secrets)
         self.verdictEngine = verdictEngine ?? SampleVerdictEngine()
         self.secrets = secrets
         self.currentUser = currentUser ?? SampleData.currentUser
@@ -131,11 +131,17 @@ final class AppModel {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         secrets.set(trimmed.isEmpty ? nil : trimmed, for: .githubToken)
         isGitHubConnected = !trimmed.isEmpty
+        if isGitHubConnected {
+            Task { await load() }   // pick up real PRs right after connecting
+        }
     }
 
     func disconnectGitHub() {
         secrets.set(nil, for: .githubToken)
         isGitHubConnected = false
+        pullRequests = []
+        verdicts = [:]
+        loadError = nil
     }
 
     // MARK: BYO API key (non-displayed; lives in Keychain)
@@ -194,10 +200,13 @@ final class AppModel {
     // MARK: Loading
 
     func load() async {
+        guard isGitHubConnected else { return }   // RootView shows the connect state
         isLoading = true
         loadError = nil
         do {
-            pullRequests = try await prProvider.fetchPullRequests()
+            let result = try await prProvider.fetchPullRequests()
+            if let viewer = result.viewer { currentUser = viewer }
+            pullRequests = result.pullRequests
             isLoading = false
             await recomputeVerdicts()
         } catch {

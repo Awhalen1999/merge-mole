@@ -31,7 +31,7 @@ Build roughly one step at a time. Each should build and run before moving on.
        the PR), hover affordance, relative time, trimmed pills, layout scale
 - [x] 3. Onboarding + Settings: native Settings window + in-panel first-run flow.
        GitHub token in Keychain, prefs persisted. Unblocks real data (Step 4).
-- [ ] 4. GitHub GraphQL fetch using the stored token → real PRs
+- [x] 4. GitHub GraphQL fetch using the stored token → real PRs (involves:@me)
 - [ ] 5. Cache + re-digest only when the diff actually changes
 - [ ] 6. On-device AI: effort tier first, then summary, then priority
        (wire the BYO key + endpoint from Settings here)

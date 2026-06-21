@@ -60,7 +60,19 @@ struct RootView: View {
 
     @ViewBuilder
     private var content: some View {
-        if model.isLoading && model.pullRequests.isEmpty {
+        if !model.isGitHubConnected {
+            centered {
+                ContentUnavailableView {
+                    Label("Connect GitHub", systemImage: "point.3.connected.trianglepath.dotted")
+                } description: {
+                    Text("Add a GitHub token to see your pull requests.")
+                } actions: {
+                    SettingsLink { Text("Open Settings") }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.appAccent)
+                }
+            }
+        } else if model.isLoading && model.pullRequests.isEmpty {
             centered { ProgressView("Loading pull requests…") }
         } else if let error = model.loadError {
             centered {
@@ -90,6 +102,8 @@ struct RootView: View {
 }
 
 #Preview {
-    RootView()
-        .environment(AppModel(secrets: InMemorySecretStore(), onboarded: true))
+    let secrets = InMemorySecretStore()
+    secrets.set("preview-token", for: .githubToken)   // simulate connected
+    return RootView()
+        .environment(AppModel(prProvider: SamplePRProvider(), secrets: secrets, onboarded: true))
 }
