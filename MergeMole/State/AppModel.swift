@@ -1,9 +1,8 @@
 import Foundation
 import Observation
 
-/// How the user wants AI to run (chosen in advanced settings, per PLAN.md).
-/// All three must feel seamless — that seamlessness is enforced by funnelling
-/// every mode through one `VerdictState` the card branches on.
+/// How the user wants AI to run (chosen in Settings → AI). All three funnel
+/// through one `VerdictState` the card branches on, so they stay seamless.
 enum AIMode: String, CaseIterable, Identifiable, Sendable {
     case onDevice       // Foundation Models (default)
     case bringYourOwn   // user-supplied key + endpoint (hosted or Ollama)
@@ -16,6 +15,15 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
         case .onDevice:     return "On-device"
         case .bringYourOwn: return "Bring your own"
         case .off:          return "Off"
+        }
+    }
+
+    /// One-line explanation for the Settings / onboarding UI.
+    var detail: String {
+        switch self {
+        case .onDevice:     return "Apple's on-device model. Free, private, no key. Needs Apple Silicon."
+        case .bringYourOwn: return "Use your own API key + endpoint — a hosted model or local Ollama."
+        case .off:          return "No AI. Cards show data only — title, repo, size, CI. Still a fast list."
         }
     }
 }
@@ -37,10 +45,10 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// The single source of truth the UI observes. Owns the PR list, each PR's
-/// verdict state, the selected tab, and the AI mode. It depends only on the
-/// service *protocols*, so swapping fakes for real implementations (Steps 3, 5)
-/// is a one-line change in `init` — the views never notice.
+/// The single source of truth, shared across the menu-bar panel and the Settings
+/// window via `.environment`. Owns the PR list + verdicts, the selected tab, and
+/// the user's persisted preferences. Depends only on the service *protocols*, so
+/// swapping fakes for real backends (Steps 4, 6) is a one-line change.
 @MainActor
 @Observable
 final class AppModel {
@@ -51,10 +59,9 @@ final class AppModel {
     private let verdictEngine: VerdictEngine
     let secrets: SecretStore
 
-    /// Resolved from `provider` later; the signed-in GitHub user. Fixed for now.
     private(set) var currentUser: String
 
-    // MARK: Observable state
+    // MARK: PR state
 
     private(set) var pullRequests: [PullRequest] = []
     private(set) var verdicts: [PullRequest.ID: VerdictState] = [:]
@@ -63,37 +70,90 @@ final class AppModel {
 
     var selectedTab: PRTab = .needsReview
 
+    // MARK: Persisted preferences
+
     var aiMode: AIMode {
         didSet {
             guard aiMode != oldValue else { return }
+            UserDefaults.standard.set(aiMode.rawValue, forKey: Key.aiMode)
             Task { await recomputeVerdicts() }
         }
     }
 
+    /// BYO endpoint URL is not a secret, so it lives in UserDefaults. The BYO API
+    /// key and the GitHub token go through `secrets` (Keychain).
+    var byoEndpoint: String {
+        didSet { UserDefaults.standard.set(byoEndpoint, forKey: Key.byoEndpoint) }
+    }
+
+    var refreshMinutes: Int {
+        didSet { UserDefaults.standard.set(refreshMinutes, forKey: Key.refreshMinutes) }
+    }
+
+    private(set) var hasCompletedOnboarding: Bool
+    private(set) var isGitHubConnected: Bool
+
+    private enum Key {
+        static let aiMode = "aiMode"
+        static let byoEndpoint = "byoEndpoint"
+        static let refreshMinutes = "refreshMinutes"
+        static let onboarded = "hasCompletedOnboarding"
+    }
+
     // MARK: Init
 
-    /// Dependencies default to the sample wiring. They're resolved here in the
-    /// init body (which is main-actor-isolated) rather than as default argument
-    /// values (whose generators are nonisolated) — injecting any one for tests
-    /// or the real backends still works.
     init(
         prProvider: PRProvider? = nil,
         verdictEngine: VerdictEngine? = nil,
         secrets: SecretStore? = nil,
-        aiMode: AIMode = .onDevice,
-        currentUser: String? = nil
+        currentUser: String? = nil,
+        onboarded: Bool? = nil      // overridable for previews/tests
     ) {
+        let secrets = secrets ?? KeychainSecretStore()
         self.prProvider = prProvider ?? SamplePRProvider()
         self.verdictEngine = verdictEngine ?? SampleVerdictEngine()
-        self.secrets = secrets ?? InMemorySecretStore()
-        self.aiMode = aiMode
+        self.secrets = secrets
         self.currentUser = currentUser ?? SampleData.currentUser
+
+        let defaults = UserDefaults.standard
+        self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
+        self.byoEndpoint = defaults.string(forKey: Key.byoEndpoint) ?? ""
+        self.refreshMinutes = defaults.object(forKey: Key.refreshMinutes) as? Int ?? 5
+        self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Key.onboarded)
+        self.isGitHubConnected = secrets.string(for: .githubToken) != nil
+    }
+
+    // MARK: GitHub connection
+
+    func setGitHubToken(_ token: String) {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        secrets.set(trimmed.isEmpty ? nil : trimmed, for: .githubToken)
+        isGitHubConnected = !trimmed.isEmpty
+    }
+
+    func disconnectGitHub() {
+        secrets.set(nil, for: .githubToken)
+        isGitHubConnected = false
+    }
+
+    // MARK: BYO API key (non-displayed; lives in Keychain)
+
+    var byoAPIKey: String { secrets.string(for: .remoteModelAPIKey) ?? "" }
+
+    func setBYOAPIKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        secrets.set(trimmed.isEmpty ? nil : trimmed, for: .remoteModelAPIKey)
+    }
+
+    // MARK: Onboarding
+
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        UserDefaults.standard.set(true, forKey: Key.onboarded)
     }
 
     // MARK: Derived views of state
 
-    /// PRs for the selected tab, highest priority first (falls back to recency
-    /// when verdicts aren't ready / AI is off).
     var visiblePullRequests: [PullRequest] {
         pullRequests(for: selectedTab).sorted { lhs, rhs in
             let lp = priority(of: lhs), rp = priority(of: rhs)
@@ -119,7 +179,6 @@ final class AppModel {
         Dictionary(uniqueKeysWithValues: PRTab.allCases.map { ($0, pullRequests(for: $0).count) })
     }
 
-    /// The one value the card reads. Defaults sensibly before the map is filled.
     func verdictState(for pr: PullRequest) -> VerdictState {
         verdicts[pr.id] ?? (aiMode == .off ? .off : .loading)
     }

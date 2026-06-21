@@ -29,9 +29,8 @@ Build roughly one step at a time. Each should build and run before moving on.
 - [x] 1. `PullRequest` model + fake sample data (+ the structural seams below)
 - [x] 2. Card UI + tab bar, against fake data — polished: clickable cards (open
        the PR), hover affordance, relative time, trimmed pills, layout scale
-- [ ] 3. Onboarding + Settings: native Settings window + short first-run flow.
-       Stores the GitHub token in Keychain and persists prefs (AI mode, etc).
-       This is what unblocks real data — see "Onboarding & Settings" below.
+- [x] 3. Onboarding + Settings: native Settings window + in-panel first-run flow.
+       GitHub token in Keychain, prefs persisted. Unblocks real data (Step 4).
 - [ ] 4. GitHub GraphQL fetch using the stored token → real PRs
 - [ ] 5. Cache + re-digest only when the diff actually changes
 - [ ] 6. On-device AI: effort tier first, then summary, then priority
@@ -79,33 +78,30 @@ color is used sparingly and only where it means something.
 - **Type**: native macOS text styles (`.headline` title, `.caption`/`.caption2`
   metadata) — a clean built-in hierarchy, no custom font sizes to drift.
 
-## Onboarding & Settings
-Feel target: Rectangle / Obsidian. A real, native, sectioned Settings window —
-not a cramped popover — plus a short first-run flow that gets you to value fast.
+## Onboarding & Settings  (built — Step 3)
+Feel target: Rectangle / Obsidian. Native, sectioned Settings; a short first-run
+flow that gets to value fast.
 
-**Settings window** — a native SwiftUI `Settings` scene (opens with ⌘, ), sidebar
-sections:
-- General — launch at login, refresh interval, appearance.
-- GitHub — connection status, paste/replace token, sign out.
-- AI — the mode picker (on-device / BYO / off). When BYO: endpoint URL + API key
-  fields. Note that on-device needs Apple Silicon + a supported macOS.
-- About — version, links.
+**Settings window** — native SwiftUI `Settings` scene (⌘, ), a `TabView` with
+tabbed sections. Kept system-native (`Form` controls + blue accent), not the
+panel's Flexoki surface — most macOS-correct, lowest bug surface.
+- General — launch at login (`SMAppService`), refresh interval.
+- GitHub — connection status, paste/replace token, disconnect.
+- AI — mode picker (on-device / BYO / off). BYO reveals endpoint URL + API key.
+- About — version, privacy line, repo link.
 
-This is the permanent home for the AI-mode control that currently lives as a
-temporary picker in `RootView`'s header — remove that once Settings owns it.
+The temporary AI-mode picker is gone from the panel header; AI mode now lives in
+Settings. The header carries refresh / settings / quit icon buttons instead.
 
-**First-run onboarding** — a short, skippable sheet shown when no token is
-stored. Keep it to ~3 steps, never a wizard maze:
-1. Welcome — one line on what MergeMole does.
-2. Connect GitHub — paste a token, with a "create one" link + the scopes needed
-   (`repo`, `read:org`). PAT paste for v1; OAuth device flow is a later nicety.
-3. Choose AI mode — default on-device; explain the three in a sentence each.
-Re-openable from Settings. Completing it just means "token present + mode picked."
+**First-run onboarding** — `OnboardingView`, shown *inside the panel* until
+`hasCompletedOnboarding` (no separate window = no window-lifecycle bugs). Three
+steps: Welcome → Connect GitHub (paste token + "create one" link, scopes
+`repo`, `read:org`; skippable) → Choose AI mode. PAT paste for v1; OAuth later.
 
-**Persistence** — token and BYO API key go through `SecretStore` → Keychain,
-never UserDefaults. Non-secret prefs (AI mode, refresh interval, launch-at-login,
-`hasCompletedOnboarding`) via `@AppStorage`/UserDefaults. Likely new groups:
-`Settings/` (SettingsView + per-section views) and `Onboarding/`.
+**Persistence** — token + BYO API key via `KeychainSecretStore` (Security
+framework, delete-then-add), never UserDefaults. Non-secret prefs (AI mode, BYO
+endpoint, refresh interval, `hasCompletedOnboarding`) are AppModel properties
+backed by UserDefaults. AppModel is shared across both scenes via `.environment`.
 
 ## AI modes (must feel seamless across all three)
 The user picks, in advanced settings, how AI runs. The card UI should read from a

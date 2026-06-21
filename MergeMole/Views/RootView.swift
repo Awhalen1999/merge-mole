@@ -1,24 +1,36 @@
 import SwiftUI
+import AppKit
 
-/// The dropdown panel's root. Owns the `AppModel`, lays out header → tab bar →
-/// list, and kicks off the initial load. Painted on the Flexoki paper/ink
-/// background so the whole panel reads as one surface.
+/// The dropdown panel's root. Reads the shared `AppModel`, shows onboarding until
+/// it's complete, then the header → tab bar → list. Painted on the Flexoki
+/// paper/ink background so the whole panel reads as one surface.
 struct RootView: View {
-    @State private var model = AppModel()
+    @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            TabBar(selection: $model.selectedTab, counts: model.tabCounts)
-            Hairline()
-            content
+        Group {
+            if model.hasCompletedOnboarding {
+                panel
+            } else {
+                OnboardingView()
+            }
         }
         .frame(width: 360, height: 480)
         .background(Color.appBackground)
         .task { await model.load() }
     }
 
-    // MARK: Header
+    // MARK: Main panel
+
+    private var panel: some View {
+        @Bindable var model = model
+        return VStack(spacing: 0) {
+            header
+            TabBar(selection: $model.selectedTab, counts: model.tabCounts)
+            Hairline()
+            content
+        }
+    }
 
     private var header: some View {
         HStack(spacing: Layout.base) {
@@ -28,18 +40,31 @@ struct RootView: View {
                 .font(.headline)
                 .foregroundStyle(.appText)
             Spacer()
-            // Temporary AI-mode control — moves to the Settings window at Step 3.
-            Picker("AI", selection: $model.aiMode) {
-                ForEach(AIMode.allCases) { Text($0.label).tag($0) }
+
+            iconButton("arrow.clockwise", help: "Refresh") {
+                Task { await model.load() }
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .controlSize(.small)
-            .fixedSize()
-            .tint(.appAccent)
+            SettingsLink {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.appTextSecondary)
+            .help("Settings")
+            iconButton("power", help: "Quit MergeMole") {
+                NSApp.terminate(nil)
+            }
         }
         .padding(.horizontal, Layout.roomy)
         .padding(.top, Layout.roomy)
+    }
+
+    private func iconButton(_ systemName: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.appTextSecondary)
+        .help(help)
     }
 
     // MARK: Content
@@ -75,6 +100,12 @@ struct RootView: View {
     }
 }
 
-#Preview {
+#Preview("Panel") {
     RootView()
+        .environment(AppModel(secrets: InMemorySecretStore(), onboarded: true))
+}
+
+#Preview("Onboarding") {
+    RootView()
+        .environment(AppModel(secrets: InMemorySecretStore(), onboarded: false))
 }
