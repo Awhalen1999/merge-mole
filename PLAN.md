@@ -28,20 +28,24 @@ Build roughly one step at a time. Each should build and run before moving on.
 - [x] 0. Project created, MenuBarExtra (.window), LSUIElement=YES, builds & runs
 - [x] 1. `PullRequest` model + fake sample data (+ the structural seams below)
 - [~] 2. Card UI + tab bar, against fake data — working shell exists; needs polish
-- [ ] 3. GitHub GraphQL fetch + token in Keychain (real PRs)
-- [ ] 4. Cache + re-digest only when the diff actually changes
-- [ ] 5. On-device AI: effort tier first, then summary, then priority
-- [ ] 6. Icon states (mono → amber → red), then red badge, then one signature polish
+- [ ] 3. Onboarding + Settings: native Settings window + short first-run flow.
+       Stores the GitHub token in Keychain and persists prefs (AI mode, etc).
+       This is what unblocks real data — see "Onboarding & Settings" below.
+- [ ] 4. GitHub GraphQL fetch using the stored token → real PRs
+- [ ] 5. Cache + re-digest only when the diff actually changes
+- [ ] 6. On-device AI: effort tier first, then summary, then priority
+       (wire the BYO key + endpoint from Settings here)
+- [ ] 7. Icon states (mono → amber → red), then red badge, then one signature polish
 
 ## Structure (the seams)
 Files are grouped under `MergeMole/` (file-system-synchronized — drop a file in
-and Xcode sees it). The point is that Steps 3 and 5 swap implementations, not
+and Xcode sees it). The point is that later steps swap implementations, not
 rewrite callers:
 - `Models/` — `PullRequest`, `Verdict`, `SizeBucket`. Provider-agnostic.
 - `Sample/` — `SampleData`: the only fake data. Delete it when real data lands.
 - `Services/` — protocols + sample impls:
-  - `PRProvider` → `GitHubPRProvider` at Step 3
-  - `VerdictEngine` → on-device / BYO engines at Step 5 (AI-off = no engine)
+  - `PRProvider` → `GitHubPRProvider` at Step 4
+  - `VerdictEngine` → on-device / BYO engines at Step 6 (AI-off = no engine)
   - `SecretStore` → `KeychainSecretStore` at Step 3
 - `State/AppModel` — `@Observable`, the single source of truth. Holds PRs, a
   `VerdictState` per PR, the tab, and the AI mode. Depends only on the protocols.
@@ -50,6 +54,34 @@ rewrite callers:
 
 Concurrency: target uses approachable concurrency (`SWIFT_DEFAULT_ACTOR_ISOLATION
 = MainActor`), so types are main-actor by default; mark real I/O `nonisolated`.
+
+## Onboarding & Settings
+Feel target: Rectangle / Obsidian. A real, native, sectioned Settings window —
+not a cramped popover — plus a short first-run flow that gets you to value fast.
+
+**Settings window** — a native SwiftUI `Settings` scene (opens with ⌘, ), sidebar
+sections:
+- General — launch at login, refresh interval, appearance.
+- GitHub — connection status, paste/replace token, sign out.
+- AI — the mode picker (on-device / BYO / off). When BYO: endpoint URL + API key
+  fields. Note that on-device needs Apple Silicon + a supported macOS.
+- About — version, links.
+
+This is the permanent home for the AI-mode control that currently lives as a
+temporary picker in `RootView`'s header — remove that once Settings owns it.
+
+**First-run onboarding** — a short, skippable sheet shown when no token is
+stored. Keep it to ~3 steps, never a wizard maze:
+1. Welcome — one line on what MergeMole does.
+2. Connect GitHub — paste a token, with a "create one" link + the scopes needed
+   (`repo`, `read:org`). PAT paste for v1; OAuth device flow is a later nicety.
+3. Choose AI mode — default on-device; explain the three in a sentence each.
+Re-openable from Settings. Completing it just means "token present + mode picked."
+
+**Persistence** — token and BYO API key go through `SecretStore` → Keychain,
+never UserDefaults. Non-secret prefs (AI mode, refresh interval, launch-at-login,
+`hasCompletedOnboarding`) via `@AppStorage`/UserDefaults. Likely new groups:
+`Settings/` (SettingsView + per-section views) and `Onboarding/`.
 
 ## AI modes (must feel seamless across all three)
 The user picks, in advanced settings, how AI runs. The card UI should read from a
@@ -87,3 +119,5 @@ cost ever lands on us.
 - Analytics / dashboards
 - Paid tier / billing
 BYO-key, custom endpoint, and AI-off *are* in scope — they're core to "use it however you want."
+A short onboarding flow and a native Settings window *are* in scope too (Step 3).
+OAuth (vs. paste-a-token) and launch-at-login can come after v1 if they slip.
