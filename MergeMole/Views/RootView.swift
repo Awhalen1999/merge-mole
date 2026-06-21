@@ -21,7 +21,7 @@ struct RootView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Layout.base) {
             Image(systemName: "circle.grid.2x2.fill")
                 .foregroundStyle(Color.appAccent)
             Text("MergeMole")
@@ -38,8 +38,8 @@ struct RootView: View {
             .fixedSize()
             .tint(.appAccent)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 12)
+        .padding(.horizontal, Layout.roomy)
+        .padding(.top, Layout.roomy)
     }
 
     // MARK: Content
@@ -58,12 +58,12 @@ struct RootView: View {
             }
         } else {
             ScrollView {
-                LazyVStack(spacing: 10) {
+                LazyVStack(spacing: Layout.roomy) {
                     ForEach(model.visiblePullRequests) { pr in
                         PRCard(pr: pr, verdict: model.verdictState(for: pr))
                     }
                 }
-                .padding(12)
+                .padding(Layout.roomy)
             }
             .scrollContentBackground(.hidden)
         }

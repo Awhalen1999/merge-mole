@@ -140,10 +140,9 @@ enum SampleData {
         "Touches \(pr.changedFiles) file\(pr.changedFiles == 1 ? "" : "s") in \(pr.repository.split(separator: "/").last.map(String.init) ?? pr.repository)."
     }
 
-    /// Sample timestamps relative to a *fixed* anchor so previews and tests stay
-    /// deterministic. (Real PRs use live `updatedAt` from the API.)
+    /// Sample timestamps as live ages so the demo reads naturally ("18m", "4h").
+    /// Real PRs use `updatedAt` straight from the API.
     private static func date(minutesAgo minutes: Int) -> Date {
-        let anchor = Date(timeIntervalSince1970: 1_750_000_000) // fixed reference
-        return anchor.addingTimeInterval(TimeInterval(-minutes * 60))
+        Date.now.addingTimeInterval(TimeInterval(-minutes * 60))
     }
 }

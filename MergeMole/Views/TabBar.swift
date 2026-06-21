@@ -8,13 +8,13 @@ struct TabBar: View {
     var counts: [PRTab: Int]
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Layout.tight) {
             ForEach(PRTab.allCases) { tab in
                 let isSelected = selection == tab
                 Button {
                     selection = tab
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: Layout.snug) {
                         Text(tab.title)
                         if let count = counts[tab], count > 0 {
                             Text("\(count)")
@@ -23,8 +23,8 @@ struct TabBar: View {
                         }
                     }
                     .font(.callout.weight(isSelected ? .semibold : .regular))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .padding(.horizontal, Layout.base)
+                    .padding(.vertical, Layout.tight)
                     .background(
                         isSelected ? Color.appAccent.opacity(0.14) : .clear,
                         in: RoundedRectangle(cornerRadius: 7)
@@ -35,7 +35,7 @@ struct TabBar: View {
             }
             Spacer()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Layout.roomy)
+        .padding(.vertical, Layout.base)
     }
 }

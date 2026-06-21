@@ -27,7 +27,8 @@ Build roughly one step at a time. Each should build and run before moving on.
 
 - [x] 0. Project created, MenuBarExtra (.window), LSUIElement=YES, builds & runs
 - [x] 1. `PullRequest` model + fake sample data (+ the structural seams below)
-- [~] 2. Card UI + tab bar, against fake data — working shell exists; needs polish
+- [x] 2. Card UI + tab bar, against fake data — polished: clickable cards (open
+       the PR), hover affordance, relative time, trimmed pills, layout scale
 - [ ] 3. Onboarding + Settings: native Settings window + short first-run flow.
        Stores the GitHub token in Keychain and persists prefs (AI mode, etc).
        This is what unblocks real data — see "Onboarding & Settings" below.
@@ -73,7 +74,10 @@ color is used sparingly and only where it means something.
 - **Effort = neutral gauge** (intensity from the needle, no hue) so the signature
   feature doesn't collide with status colors. **Priority colors only high/urgent**
   (amber/red); low/normal stay quiet since the list is already priority-sorted.
-- Still open: type scale, corner radius, spacing/density. Card radius is 10 today.
+- **Spacing/radius**: `DesignSystem/Layout.swift` holds the scale (hair/tight/
+  snug/base/roomy + `cardRadius` 10). Views use the names, never raw numbers.
+- **Type**: native macOS text styles (`.headline` title, `.caption`/`.caption2`
+  metadata) — a clean built-in hierarchy, no custom font sizes to drift.
 
 ## Onboarding & Settings
 Feel target: Rectangle / Obsidian. A real, native, sectioned Settings window —
