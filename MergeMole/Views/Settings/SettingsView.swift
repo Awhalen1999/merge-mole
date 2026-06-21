@@ -153,6 +153,12 @@ private struct AISettings: View {
                 Text(model.aiMode.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if model.onDeviceUnavailable {
+                    Label("On-device AI isn't available on this Mac. Cards show data only.",
+                          systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
 
             if model.aiMode == .bringYourOwn {

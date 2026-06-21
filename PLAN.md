@@ -32,9 +32,13 @@ Build roughly one step at a time. Each should build and run before moving on.
 - [x] 3. Onboarding + Settings: native Settings window + in-panel first-run flow.
        GitHub token in Keychain, prefs persisted. Unblocks real data (Step 4).
 - [x] 4. GitHub GraphQL fetch using the stored token → real PRs (involves:@me)
-- [ ] 5. Cache + re-digest only when the diff actually changes
-- [ ] 6. On-device AI: effort tier first, then summary, then priority
-       (wire the BYO key + endpoint from Settings here)
+- [x] 6. On-device AI: `FoundationModelsEngine` (guided generation → `Verdict`),
+       availability fallback to data-only. Engine is selected from `aiMode`
+       through the `VerdictEngine` seam (off / on-device live; BYO routed, stubbed).
+       Done before 5 — caching is pointless until there are verdicts to cache.
+- [ ] 5b. Bring-your-own engine: `RemoteVerdictEngine` (OpenAI-compatible) + a
+       model-name field in Settings. Drops into the same seam.
+- [ ] 5. Cache + re-digest only when the diff actually changes (caches verdicts)
 - [ ] 7. Icon states (mono → amber → red), then red badge, then one signature polish
 
 ## Structure (the seams)

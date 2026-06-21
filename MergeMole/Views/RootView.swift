@@ -105,5 +105,10 @@ struct RootView: View {
     let secrets = InMemorySecretStore()
     secrets.set("preview-token", for: .githubToken)   // simulate connected
     return RootView()
-        .environment(AppModel(prProvider: SamplePRProvider(), secrets: secrets, onboarded: true))
+        .environment(AppModel(
+            prProvider: SamplePRProvider(),
+            verdictEngine: SampleVerdictEngine(),   // canned verdicts (no Foundation Models in previews)
+            secrets: secrets,
+            onboarded: true
+        ))
 }

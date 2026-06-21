@@ -22,7 +22,7 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
     var detail: String {
         switch self {
         case .onDevice:     return "Apple's on-device model. Free, private, no key. Needs Apple Silicon."
-        case .bringYourOwn: return "Use your own API key + endpoint — a hosted model or local Ollama."
+        case .bringYourOwn: return "Use your own API key + endpoint — a hosted model or local Ollama. (Coming soon.)"
         case .off:          return "No AI. Cards show data only — title, repo, size, CI. Still a fast list."
         }
     }
@@ -62,8 +62,12 @@ final class AppModel {
     // MARK: Dependencies (the seams)
 
     private let prProvider: PRProvider
-    private let verdictEngine: VerdictEngine
+    /// An explicitly injected engine (previews/tests). In production this is nil
+    /// and `activeEngine` resolves the real engine from `aiMode`.
+    private let injectedEngine: VerdictEngine?
     let secrets: SecretStore
+
+    private static let maxConcurrentVerdicts = 4
 
     private(set) var currentUser: String
 
@@ -114,7 +118,7 @@ final class AppModel {
     ) {
         let secrets = secrets ?? KeychainSecretStore()
         self.prProvider = prProvider ?? GitHubPRProvider(secrets: secrets)
-        self.verdictEngine = verdictEngine ?? SampleVerdictEngine()
+        self.injectedEngine = verdictEngine
         self.secrets = secrets
         self.currentUser = currentUser ?? SampleData.currentUser
 
@@ -203,7 +207,29 @@ final class AppModel {
     }
 
     func verdictState(for pr: PullRequest) -> VerdictState {
-        verdicts[pr.id] ?? (aiMode == .off ? .off : .loading)
+        verdicts[pr.id] ?? (activeEngine == nil ? .off : .loading)
+    }
+
+    /// The engine for the current mode, or nil when verdicts should be `.off`
+    /// (mode off, on-device unavailable, or BYO not yet wired). An injected
+    /// engine (previews/tests) overrides the on-device / BYO resolution.
+    private var activeEngine: VerdictEngine? {
+        switch aiMode {
+        case .off:
+            return nil
+        case .onDevice:
+            if let injectedEngine { return injectedEngine }
+            return FoundationModelsEngine.isAvailable ? FoundationModelsEngine() : nil
+        case .bringYourOwn:
+            if let injectedEngine { return injectedEngine }
+            return nil   // real RemoteVerdictEngine is the next step
+        }
+    }
+
+    /// On-device AI was chosen but this Mac can't run it (Intel, or Apple
+    /// Intelligence off). Surfaced in Settings; cards fall back to data-only.
+    var onDeviceUnavailable: Bool {
+        aiMode == .onDevice && injectedEngine == nil && !FoundationModelsEngine.isAvailable
     }
 
     // MARK: Loading
@@ -227,26 +253,31 @@ final class AppModel {
     // MARK: Verdicts
 
     private func recomputeVerdicts() async {
-        guard aiMode != .off else {
+        guard let engine = activeEngine else {
             for pr in pullRequests { verdicts[pr.id] = .off }
             return
         }
 
-        for pr in pullRequests { verdicts[pr.id] = .loading }
+        let prs = pullRequests
+        for pr in prs { verdicts[pr.id] = .loading }
 
-        let engine = verdictEngine
+        // Bounded concurrency: the on-device model shouldn't be hit with dozens
+        // of requests at once. Cards fill in as each verdict lands.
         await withTaskGroup(of: (PullRequest.ID, VerdictState).self) { group in
-            for pr in pullRequests {
+            var next = 0
+            func schedule() {
+                guard next < prs.count else { return }
+                let pr = prs[next]
+                next += 1
                 group.addTask {
-                    do {
-                        return (pr.id, .ready(try await engine.verdict(for: pr)))
-                    } catch {
-                        return (pr.id, .failed("Couldn't analyze this PR."))
-                    }
+                    do { return (pr.id, .ready(try await engine.verdict(for: pr))) }
+                    catch { return (pr.id, .failed("Couldn't analyze this PR.")) }
                 }
             }
+            for _ in 0..<min(Self.maxConcurrentVerdicts, prs.count) { schedule() }
             for await (id, state) in group {
                 verdicts[id] = state
+                schedule()
             }
         }
     }
