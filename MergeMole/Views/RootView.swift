@@ -33,18 +33,22 @@ struct RootView: View {
             iconButton("arrow.clockwise", help: "Refresh") {
                 Task { await model.load() }
             }
-            SettingsLink {
-                Image(systemName: "gearshape")
+            iconButton("gearshape", help: "Settings") {
+                openSettings()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.appTextSecondary)
-            .help("Settings")
             iconButton("power", help: "Quit MergeMole") {
                 NSApp.terminate(nil)
             }
         }
         .padding(.horizontal, Layout.roomy)
         .padding(.top, Layout.roomy)
+    }
+
+    /// SettingsLink is unreliable inside a MenuBarExtra for accessory apps, so
+    /// open Settings via the AppKit action and activate the app ourselves.
+    private func openSettings() {
+        NSApp.activate()
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     private func iconButton(_ systemName: String, help: String, action: @escaping () -> Void) -> some View {

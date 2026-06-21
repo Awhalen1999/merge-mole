@@ -35,7 +35,7 @@ struct OnboardingView: View {
         .background(Color.appBackground)
         // Bring the window to the front at launch (the app is a menu-bar
         // accessory, so it isn't frontmost by default).
-        .onAppear { NSApp.activate(ignoringOtherApps: true) }
+        .onAppear { NSApp.activate() }
     }
 
     // MARK: Steps
