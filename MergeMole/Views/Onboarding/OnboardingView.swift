@@ -11,6 +11,8 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var token = ""
     @State private var mode: AIMode = .onDevice
+    @State private var connecting = false
+    @State private var connectError: String?
 
     private let lastStep = 2
 
@@ -66,12 +68,19 @@ struct OnboardingView: View {
             SecureField("ghp_…", text: $token)
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospaced())
+                .disabled(connecting)
+
+            if let connectError {
+                Label(connectError, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.appRed)
+            }
 
             Link(destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org&description=MergeMole")!) {
                 Label("Create a token", systemImage: "arrow.up.right.square")
                     .font(.caption)
             }
-            Text("Scopes needed: repo, read:org. Stored in your Keychain.")
+            Text("Scopes needed: repo, read:org. Verified with GitHub, then stored in your Keychain.")
                 .font(.caption2)
                 .foregroundStyle(.appTextTertiary)
         }
@@ -100,9 +109,9 @@ struct OnboardingView: View {
 
     private var progress: some View {
         HStack(spacing: Layout.snug) {
-            ForEach(0...lastStep, id: \.self) { i in
+            ForEach(0...lastStep, id: \.self) { index in
                 Circle()
-                    .fill(i <= step ? Color.appAccent : .appHairline)
+                    .fill(index <= step ? Color.appAccent : .appHairline)
                     .frame(width: 7, height: 7)
             }
             Spacer()
@@ -112,7 +121,7 @@ struct OnboardingView: View {
     private var buttons: some View {
         HStack(spacing: Layout.base) {
             if step > 0 {
-                Button("Back") { step -= 1 }
+                Button("Back") { back() }
                     .buttonStyle(.plain)
                     .foregroundStyle(.appTextSecondary)
             }
@@ -122,21 +131,48 @@ struct OnboardingView: View {
                     .foregroundStyle(.appTextSecondary)
             }
             Spacer()
+            if connecting { ProgressView().controlSize(.small) }
             Button(step == lastStep ? "Get started" : "Continue") { advance() }
                 .buttonStyle(.borderedProminent)
                 .tint(.appAccent)
+                .disabled(connecting)
         }
     }
 
+    // MARK: Flow
+
     private func advance() {
-        if step < lastStep {
+        switch step {
+        case 1 where !GitHubToken.sanitize(token).isEmpty:
+            Task { await connectThenContinue() }   // verify the token before moving on
+        case lastStep:
+            finish()
+        default:
             step += 1
-        } else {
-            if !token.isEmpty { model.setGitHubToken(token) }
-            model.aiMode = mode
-            model.completeOnboarding()
-            dismiss()
         }
+    }
+
+    private func connectThenContinue() async {
+        connecting = true
+        connectError = nil
+        switch await model.connect(rawToken: token) {
+        case .connected:
+            step += 1
+        case .failed(let message):
+            connectError = message
+        }
+        connecting = false
+    }
+
+    private func back() {
+        connectError = nil
+        step -= 1
+    }
+
+    private func finish() {
+        model.aiMode = mode
+        model.completeOnboarding()
+        dismiss()
     }
 }
 

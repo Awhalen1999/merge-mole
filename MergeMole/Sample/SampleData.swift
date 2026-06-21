@@ -47,7 +47,7 @@ enum SampleData {
             number: 77,
             title: "Bump SwiftLint to 0.55 and fix new warnings",
             repository: "acme/ios-app",
-            author: "currentUserPlaceholder",
+            author: currentUser,
             headBranch: "chore/swiftlint-0.55",
             baseBranch: "develop",
             isDraft: false,
@@ -62,7 +62,7 @@ enum SampleData {
             number: 305,
             title: "WIP: redesign onboarding flow",
             repository: "acme/ios-app",
-            author: "currentUserPlaceholder",
+            author: currentUser,
             headBranch: "feat/onboarding-redesign",
             baseBranch: "develop",
             isDraft: true,
@@ -87,12 +87,7 @@ enum SampleData {
             url: URL(string: "https://github.com/acme/design-system/pull/56")!,
             updatedAt: date(minutesAgo: 30)
         ),
-    ].map { pr in
-        // Resolve the placeholder author to the current user so "Mine" has rows.
-        var pr = pr
-        if pr.author == "currentUserPlaceholder" { pr.author = currentUser }
-        return pr
-    }
+    ]
 
     /// A deterministic stand-in for a real AI verdict. Derives effort from the
     /// native size and priority from review/CI signals — close enough to make

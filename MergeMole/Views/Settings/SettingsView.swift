@@ -28,17 +28,9 @@ private struct GeneralSettings: View {
     @State private var confirmingReset = false
 
     var body: some View {
-        @Bindable var model = model
         Form {
             Toggle("Launch at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
-
-            Picker("Refresh every", selection: $model.refreshMinutes) {
-                Text("1 minute").tag(1)
-                Text("5 minutes").tag(5)
-                Text("15 minutes").tag(15)
-                Text("30 minutes").tag(30)
-            }
 
             Section {
                 Button("Reset MergeMole…", role: .destructive) {
@@ -70,6 +62,10 @@ private struct GeneralSettings: View {
 private struct GitHubSettings: View {
     @Environment(AppModel.self) private var model
     @State private var token = ""
+    @State private var connecting = false
+    @State private var feedback: Feedback?
+
+    private enum Feedback { case ok(String), error(String) }
 
     var body: some View {
         Form {
@@ -86,6 +82,7 @@ private struct GitHubSettings: View {
                 if model.isGitHubConnected {
                     Button("Disconnect", role: .destructive) {
                         model.disconnectGitHub()
+                        feedback = nil
                     }
                 }
             }
@@ -93,21 +90,50 @@ private struct GitHubSettings: View {
             Section {
                 SecureField("ghp_…", text: $token)
                     .font(.body.monospaced())
-                Button(model.isGitHubConnected ? "Replace token" : "Save token") {
-                    model.setGitHubToken(token)
-                    token = ""
+
+                Button(model.isGitHubConnected ? "Replace token" : "Save token") { connect() }
+                    .disabled(connecting || GitHubToken.sanitize(token).isEmpty)
+
+                if connecting {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text("Verifying…").foregroundStyle(.secondary)
+                    }
+                    .font(.caption)
+                } else if let feedback {
+                    switch feedback {
+                    case .ok(let message):
+                        Label(message, systemImage: "checkmark.circle").foregroundStyle(.green).font(.caption)
+                    case .error(let message):
+                        Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.caption)
+                    }
                 }
-                .disabled(token.trimmingCharacters(in: .whitespaces).isEmpty)
+
                 Link("Create a token (scopes: repo, read:org)",
                      destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org&description=MergeMole")!)
                     .font(.caption)
             } header: {
                 Text("Token")
             } footer: {
-                Text("Stored in your Keychain. The token is validated when PRs first load.")
+                Text("Verified with GitHub, then stored in your Keychain.")
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func connect() {
+        Task {
+            connecting = true
+            feedback = nil
+            switch await model.connect(rawToken: token) {
+            case .connected(let login):
+                feedback = .ok("Connected as \(login)")
+                token = ""
+            case .failed(let message):
+                feedback = .error(message)
+            }
+            connecting = false
+        }
     }
 }
 
@@ -153,9 +179,9 @@ private struct AISettings: View {
 
 private struct AboutSettings: View {
     private var version: String {
-        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
-        return "Version \(v) (\(b))"
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+        return "Version \(short) (\(build))"
     }
 
     var body: some View {

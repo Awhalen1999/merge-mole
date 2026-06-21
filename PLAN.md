@@ -85,8 +85,8 @@ flow that gets to value fast.
 **Settings window** — native SwiftUI `Settings` scene (⌘, ), a `TabView` with
 tabbed sections. Kept system-native (`Form` controls + blue accent), not the
 panel's Flexoki surface — most macOS-correct, lowest bug surface.
-- General — launch at login (`SMAppService`), refresh interval.
-- GitHub — connection status, paste/replace token, disconnect.
+- General — launch at login (`SMAppService`), Reset MergeMole (replay setup).
+- GitHub — connection status, paste/replace token (verified before saving), disconnect.
 - AI — mode picker (on-device / BYO / off). BYO reveals endpoint URL + API key.
 - About — version, privacy line, repo link.
 
@@ -100,10 +100,18 @@ front via `NSApp.activate`. Three steps: Welcome → Connect GitHub (paste token
 "create one" link, scopes `repo`, `read:org`; skippable) → Choose AI mode. PAT
 paste for v1; OAuth later.
 
+**Token safety** — a token is *never* stored unverified. `AppModel.connect`
+sanitizes the input (strips whitespace), calls `GitHubAPI.viewerLogin` to verify
+it, and only then saves to the Keychain — so a stray paste can't silently break
+auth. Settings and onboarding both surface "Connected as *login*" or the error.
+All GitHub networking flows through one `GitHubAPI.send` (auth header, HTTP
+status, GraphQL errors handled once).
+
 **Persistence** — token + BYO API key via `KeychainSecretStore` (Security
 framework, delete-then-add), never UserDefaults. Non-secret prefs (AI mode, BYO
-endpoint, refresh interval, `hasCompletedOnboarding`) are AppModel properties
-backed by UserDefaults. AppModel is shared across both scenes via `.environment`.
+endpoint, `hasCompletedOnboarding`) are AppModel properties backed by
+UserDefaults. AppModel is shared across both scenes via `.environment`.
+(Auto-refresh + a refresh-interval setting return with the badge work, Step 7.)
 
 ## AI modes (must feel seamless across all three)
 The user picks, in advanced settings, how AI runs. The card UI should read from a

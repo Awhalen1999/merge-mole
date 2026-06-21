@@ -45,6 +45,12 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// Outcome of a connect attempt, for inline UI feedback.
+enum GitHubConnection: Sendable {
+    case connected(login: String)
+    case failed(message: String)
+}
+
 /// The single source of truth, shared across the menu-bar panel and the Settings
 /// window via `.environment`. Owns the PR list + verdicts, the selected tab, and
 /// the user's persisted preferences. Depends only on the service *protocols*, so
@@ -86,10 +92,6 @@ final class AppModel {
         didSet { UserDefaults.standard.set(byoEndpoint, forKey: Key.byoEndpoint) }
     }
 
-    var refreshMinutes: Int {
-        didSet { UserDefaults.standard.set(refreshMinutes, forKey: Key.refreshMinutes) }
-    }
-
     private(set) var hasCompletedOnboarding: Bool
     private(set) var isGitHubConnected: Bool
 
@@ -99,7 +101,6 @@ final class AppModel {
     private enum Key {
         static let aiMode = "aiMode"
         static let byoEndpoint = "byoEndpoint"
-        static let refreshMinutes = "refreshMinutes"
     }
 
     // MARK: Init
@@ -120,19 +121,27 @@ final class AppModel {
         let defaults = UserDefaults.standard
         self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
         self.byoEndpoint = defaults.string(forKey: Key.byoEndpoint) ?? ""
-        self.refreshMinutes = defaults.object(forKey: Key.refreshMinutes) as? Int ?? 5
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
     }
 
     // MARK: GitHub connection
 
-    func setGitHubToken(_ token: String) {
-        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        secrets.set(trimmed.isEmpty ? nil : trimmed, for: .githubToken)
-        isGitHubConnected = !trimmed.isEmpty
-        if isGitHubConnected {
-            Task { await load() }   // pick up real PRs right after connecting
+    /// Sanitize → verify with GitHub → store only if valid → load. A token is
+    /// never saved without GitHub confirming it, so the "garbage token" failure
+    /// mode can't happen. Returns the outcome for inline UI feedback.
+    func connect(rawToken: String) async -> GitHubConnection {
+        let token = GitHubToken.sanitize(rawToken)
+        guard !token.isEmpty else { return .failed(message: "Enter a token.") }
+        do {
+            let login = try await GitHubAPI.viewerLogin(token: token)
+            secrets.set(token, for: .githubToken)
+            isGitHubConnected = true
+            currentUser = login
+            await load()
+            return .connected(login: login)
+        } catch {
+            return .failed(message: error.localizedDescription)
         }
     }
 
