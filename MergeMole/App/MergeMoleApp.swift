@@ -31,7 +31,7 @@ struct MergeMoleApp: App {
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
         .defaultLaunchBehavior(
-            UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") ? .suppressed : .presented
+            UserDefaults.standard.bool(forKey: AppModel.onboardedDefaultsKey) ? .suppressed : .presented
         )
 
         Settings {

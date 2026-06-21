@@ -93,11 +93,13 @@ final class AppModel {
     private(set) var hasCompletedOnboarding: Bool
     private(set) var isGitHubConnected: Bool
 
+    /// Public so the App scene's `defaultLaunchBehavior` reads the exact same key.
+    static let onboardedDefaultsKey = "hasCompletedOnboarding"
+
     private enum Key {
         static let aiMode = "aiMode"
         static let byoEndpoint = "byoEndpoint"
         static let refreshMinutes = "refreshMinutes"
-        static let onboarded = "hasCompletedOnboarding"
     }
 
     // MARK: Init
@@ -119,7 +121,7 @@ final class AppModel {
         self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
         self.byoEndpoint = defaults.string(forKey: Key.byoEndpoint) ?? ""
         self.refreshMinutes = defaults.object(forKey: Key.refreshMinutes) as? Int ?? 5
-        self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Key.onboarded)
+        self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
     }
 
@@ -149,7 +151,13 @@ final class AppModel {
 
     func completeOnboarding() {
         hasCompletedOnboarding = true
-        UserDefaults.standard.set(true, forKey: Key.onboarded)
+        UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
+    }
+
+    /// Replay first-run setup. Pair with opening the onboarding window.
+    func resetOnboarding() {
+        hasCompletedOnboarding = false
+        UserDefaults.standard.set(false, forKey: Self.onboardedDefaultsKey)
     }
 
     // MARK: Derived views of state

@@ -23,7 +23,9 @@ struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @State private var launchAtLogin = LoginItem.isEnabled
+    @State private var confirmingReset = false
 
     var body: some View {
         @Bindable var model = model
@@ -37,9 +39,29 @@ private struct GeneralSettings: View {
                 Text("15 minutes").tag(15)
                 Text("30 minutes").tag(30)
             }
+
+            Section {
+                Button("Reset MergeMole…", role: .destructive) {
+                    confirmingReset = true
+                }
+            } footer: {
+                Text("Forgets your GitHub token and replays first-run setup.")
+            }
         }
         .formStyle(.grouped)
         .onAppear { launchAtLogin = LoginItem.isEnabled }
+        .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
+            Button("Reset", role: .destructive) { reset() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This disconnects GitHub and runs onboarding again.")
+        }
+    }
+
+    private func reset() {
+        model.disconnectGitHub()
+        model.resetOnboarding()
+        openWindow(id: WindowID.onboarding)
     }
 }
 
