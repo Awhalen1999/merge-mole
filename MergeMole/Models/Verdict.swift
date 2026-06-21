@@ -5,7 +5,7 @@ import Foundation
 /// The shape is identical regardless of backend — on-device Foundation Models,
 /// a bring-your-own hosted model, or local Ollama all produce a `Verdict`. The
 /// card never knows (or cares) which one did.
-struct Verdict: Hashable, Sendable {
+struct Verdict: Codable, Hashable, Sendable {
     var effort: EffortTier
     var priority: Priority
     /// One-line, plain-language summary of what the PR *is*.
@@ -17,7 +17,7 @@ struct Verdict: Hashable, Sendable {
 
 /// How much work reviewing/understanding this PR will actually take — the AI's
 /// judgement, shown alongside the native `SizeBucket`, not derived from it.
-enum EffortTier: Int, CaseIterable, Sendable, Comparable {
+enum EffortTier: Int, CaseIterable, Sendable, Comparable, Codable {
     case trivial
     case easy
     case moderate
@@ -40,7 +40,7 @@ enum EffortTier: Int, CaseIterable, Sendable, Comparable {
 }
 
 /// What to look at first. Drives ordering and (later) the menu-bar badge.
-enum Priority: Int, CaseIterable, Sendable, Comparable {
+enum Priority: Int, CaseIterable, Sendable, Comparable, Codable {
     case low
     case normal
     case high

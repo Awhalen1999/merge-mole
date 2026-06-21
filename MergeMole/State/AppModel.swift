@@ -67,6 +67,7 @@ final class AppModel {
     private let injectedEngine: VerdictEngine?
     let secrets: SecretStore
 
+    private let verdictCache = VerdictCache()
     private static let maxConcurrentVerdicts = 4
 
     private(set) var currentUser: String
@@ -258,28 +259,40 @@ final class AppModel {
             return
         }
 
-        let prs = pullRequests
-        for pr in prs { verdicts[pr.id] = .loading }
+        // Serve unchanged PRs straight from cache; only run the model on the
+        // ones whose content signature changed (or are new).
+        var stale: [PullRequest] = []
+        for pr in pullRequests {
+            if let cached = verdictCache.verdict(for: pr) {
+                verdicts[pr.id] = .ready(cached)
+            } else {
+                verdicts[pr.id] = .loading
+                stale.append(pr)
+            }
+        }
+        guard !stale.isEmpty else { return }
 
         // Bounded concurrency: the on-device model shouldn't be hit with dozens
         // of requests at once. Cards fill in as each verdict lands.
-        await withTaskGroup(of: (PullRequest.ID, VerdictState).self) { group in
+        await withTaskGroup(of: (PullRequest, VerdictState).self) { group in
             var next = 0
             func schedule() {
-                guard next < prs.count else { return }
-                let pr = prs[next]
+                guard next < stale.count else { return }
+                let pr = stale[next]
                 next += 1
                 group.addTask {
-                    do { return (pr.id, .ready(try await engine.verdict(for: pr))) }
-                    catch { return (pr.id, .failed("Couldn't analyze this PR.")) }
+                    do { return (pr, .ready(try await engine.verdict(for: pr))) }
+                    catch { return (pr, .failed("Couldn't analyze this PR.")) }
                 }
             }
-            for _ in 0..<min(Self.maxConcurrentVerdicts, prs.count) { schedule() }
-            for await (id, state) in group {
-                verdicts[id] = state
+            for _ in 0..<min(Self.maxConcurrentVerdicts, stale.count) { schedule() }
+            for await (pr, state) in group {
+                verdicts[pr.id] = state
+                if case .ready(let verdict) = state { verdictCache.store(verdict, for: pr) }
                 schedule()
             }
         }
+        verdictCache.persist()
     }
 
     private func priority(of pr: PullRequest) -> Priority {

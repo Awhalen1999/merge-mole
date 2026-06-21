@@ -38,7 +38,8 @@ Build roughly one step at a time. Each should build and run before moving on.
        Done before 5 — caching is pointless until there are verdicts to cache.
 - [ ] 5b. Bring-your-own engine: `RemoteVerdictEngine` (OpenAI-compatible) + a
        model-name field in Settings. Drops into the same seam.
-- [ ] 5. Cache + re-digest only when the diff actually changes (caches verdicts)
+- [x] 5. Cache: `VerdictCache` (JSON on disk, keyed by PR id + content signature).
+       Unchanged PRs are served instantly; the model runs only on new/changed ones.
 - [ ] 7. Icon states (mono → amber → red), then red badge, then one signature polish
 
 ## Structure (the seams)
