@@ -1,13 +1,23 @@
 import SwiftUI
 
+/// A 1px theme-aware divider. Replaces the default `Divider()` so separators use
+/// the Flexoki hairline tone instead of the system gray.
+struct Hairline: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.appHairline)
+            .frame(height: 1)
+    }
+}
+
 /// A small rounded label. The one primitive every status badge is built from,
 /// so spacing and shape stay consistent across the card.
 struct Pill: View {
     let text: String
     var systemImage: String?
-    var tint: Color = .secondary
+    var tint: Color
 
-    init(_ text: String, systemImage: String? = nil, tint: Color = .secondary) {
+    init(_ text: String, systemImage: String? = nil, tint: Color = .appTextSecondary) {
         self.text = text
         self.systemImage = systemImage
         self.tint = tint
@@ -26,27 +36,32 @@ struct Pill: View {
     }
 }
 
+/// Native, AI-free size — always neutral; it's reference data, not a signal.
 struct SizeBadge: View {
     let bucket: SizeBucket
-    var body: some View { Pill(bucket.label, tint: .secondary) }
+    var body: some View { Pill(bucket.label, tint: .appTextSecondary) }
 }
 
+/// The signature feature: AI effort. Intensity reads from the gauge needle, not
+/// a hue — keeping it clear of the red/amber/green status spectrum. Carries a
+/// touch more weight (primary ink) than the neutral badges around it.
 struct EffortBadge: View {
     let effort: EffortTier
-    var body: some View {
-        Pill(effort.label, systemImage: "gauge.with.dots.needle.50percent", tint: tint)
-    }
-    private var tint: Color {
+    var body: some View { Pill(effort.label, systemImage: gauge, tint: .appText) }
+
+    private var gauge: String {
         switch effort {
-        case .trivial:  return .green
-        case .easy:     return .mint
-        case .moderate: return .yellow
-        case .involved: return .orange
-        case .heavy:    return .red
+        case .trivial:  return "gauge.with.dots.needle.0percent"
+        case .easy:     return "gauge.with.dots.needle.33percent"
+        case .moderate: return "gauge.with.dots.needle.50percent"
+        case .involved: return "gauge.with.dots.needle.67percent"
+        case .heavy:    return "gauge.with.dots.needle.100percent"
         }
     }
 }
 
+/// Priority colors only when it wants attention — high/urgent. Low/normal stay
+/// quiet (the list is already priority-sorted). Never blue: that's the accent.
 struct PriorityBadge: View {
     let priority: Priority
     var body: some View {
@@ -54,10 +69,10 @@ struct PriorityBadge: View {
     }
     private var tint: Color {
         switch priority {
-        case .low:    return .secondary
-        case .normal: return .blue
-        case .high:   return .orange
-        case .urgent: return .red
+        case .low:    return .appTextTertiary
+        case .normal: return .appTextSecondary
+        case .high:   return .appAmber
+        case .urgent: return .appRed
         }
     }
 }
@@ -66,9 +81,9 @@ struct ReviewBadge: View {
     let state: PullRequest.ReviewState
     var body: some View {
         switch state {
-        case .pending:          Pill("Review pending", systemImage: "clock", tint: .secondary)
-        case .changesRequested: Pill("Changes requested", systemImage: "exclamationmark.bubble", tint: .orange)
-        case .approved:         Pill("Approved", systemImage: "checkmark.seal", tint: .green)
+        case .pending:          Pill("Review pending", systemImage: "clock", tint: .appTextSecondary)
+        case .changesRequested: Pill("Changes requested", systemImage: "exclamationmark.bubble", tint: .appAmber)
+        case .approved:         Pill("Approved", systemImage: "checkmark.seal", tint: .appGreen)
         }
     }
 }
@@ -78,9 +93,9 @@ struct ChecksBadge: View {
     var body: some View {
         switch state {
         case .unknown: EmptyView()
-        case .pending: Pill("CI running", systemImage: "circle.dashed", tint: .secondary)
-        case .passing: Pill("CI green", systemImage: "checkmark.circle", tint: .green)
-        case .failing: Pill("CI failing", systemImage: "xmark.circle", tint: .red)
+        case .pending: Pill("CI running", systemImage: "circle.dashed", tint: .appTextSecondary)
+        case .passing: Pill("CI green", systemImage: "checkmark.circle", tint: .appGreen)
+        case .failing: Pill("CI failing", systemImage: "xmark.circle", tint: .appRed)
         }
     }
 }

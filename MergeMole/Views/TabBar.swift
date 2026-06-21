@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The panel's top filter bar. Deliberately dumb: it shows the tabs with counts
 /// and reports selection back through a binding — AppModel owns what each tab
-/// means and how many PRs it holds.
+/// means and how many PRs it holds. Active tab carries the Flexoki blue accent.
 struct TabBar: View {
     @Binding var selection: PRTab
     var counts: [PRTab: Int]
@@ -10,6 +10,7 @@ struct TabBar: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(PRTab.allCases) { tab in
+                let isSelected = selection == tab
                 Button {
                     selection = tab
                 } label: {
@@ -18,17 +19,17 @@ struct TabBar: View {
                         if let count = counts[tab], count > 0 {
                             Text("\(count)")
                                 .font(.caption2.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(isSelected ? Color.appAccent : .appTextSecondary)
                         }
                     }
-                    .font(.callout.weight(selection == tab ? .semibold : .regular))
+                    .font(.callout.weight(isSelected ? .semibold : .regular))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(
-                        selection == tab ? Color.accentColor.opacity(0.16) : .clear,
+                        isSelected ? Color.appAccent.opacity(0.14) : .clear,
                         in: RoundedRectangle(cornerRadius: 7)
                     )
-                    .foregroundStyle(selection == tab ? Color.accentColor : .primary)
+                    .foregroundStyle(isSelected ? Color.appAccent : .appText)
                 }
                 .buttonStyle(.plain)
             }

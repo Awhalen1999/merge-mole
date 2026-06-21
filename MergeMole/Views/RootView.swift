@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The dropdown panel's root. Owns the `AppModel`, lays out header → tab bar →
-/// list, and kicks off the initial load. Replaces the template `ContentView`.
+/// list, and kicks off the initial load. Painted on the Flexoki paper/ink
+/// background so the whole panel reads as one surface.
 struct RootView: View {
     @State private var model = AppModel()
 
@@ -9,10 +10,11 @@ struct RootView: View {
         VStack(spacing: 0) {
             header
             TabBar(selection: $model.selectedTab, counts: model.tabCounts)
-            Divider()
+            Hairline()
             content
         }
         .frame(width: 360, height: 480)
+        .background(Color.appBackground)
         .task { await model.load() }
     }
 
@@ -21,12 +23,12 @@ struct RootView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: "circle.grid.2x2.fill")
-                .foregroundStyle(.tint)
+                .foregroundStyle(Color.appAccent)
             Text("MergeMole")
                 .font(.headline)
+                .foregroundStyle(.appText)
             Spacer()
-            // AI-mode toggle lives here for now so the seam is exercisable in dev;
-            // real placement is advanced settings (PLAN.md).
+            // Temporary AI-mode control — moves to the Settings window at Step 3.
             Picker("AI", selection: $model.aiMode) {
                 ForEach(AIMode.allCases) { Text($0.label).tag($0) }
             }
@@ -34,6 +36,7 @@ struct RootView: View {
             .labelsHidden()
             .controlSize(.small)
             .fixedSize()
+            .tint(.appAccent)
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -62,6 +65,7 @@ struct RootView: View {
                 }
                 .padding(12)
             }
+            .scrollContentBackground(.hidden)
         }
     }
 

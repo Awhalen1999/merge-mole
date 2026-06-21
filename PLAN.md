@@ -55,6 +55,26 @@ rewrite callers:
 Concurrency: target uses approachable concurrency (`SWIFT_DEFAULT_ACTOR_ISOLATION
 = MainActor`), so types are main-actor by default; mark real I/O `nonisolated`.
 
+## Design language
+Feel target: **Obsidian + Xcode**, on the **Flexoki** palette (by Obsidian's
+creator Steph Ango — same DNA). Warm paper/ink neutrals carry the layout;
+color is used sparingly and only where it means something.
+
+- **Primary accent: Flexoki Blue** (`#205EA6` light / `#4385BE` dark). Reserved
+  for interactive + selection state only — never status, so it can't be mistaken
+  for urgency. Xcode-native, calm.
+- **Status is reserved**: red / amber / green carry CI, review, and the
+  mono→amber→red escalation. The accent stays out of that lane.
+- **Tokens, not hex**: `DesignSystem/Color+Flexoki.swift` holds the raw ramp plus
+  *semantic* tokens (`.appAccent`, `.appBackground`, `.appSurface`, `.appText`,
+  `.appTextSecondary`, `.appHairline`, `.appRed/Amber/Green`). Views reference the
+  semantic names — a re-tune touches one file. AccentColor asset is set to blue
+  so system controls inherit it. All tokens are light/dark adaptive.
+- **Effort = neutral gauge** (intensity from the needle, no hue) so the signature
+  feature doesn't collide with status colors. **Priority colors only high/urgent**
+  (amber/red); low/normal stay quiet since the list is already priority-sorted.
+- Still open: type scale, corner radius, spacing/density. Card radius is 10 today.
+
 ## Onboarding & Settings
 Feel target: Rectangle / Obsidian. A real, native, sectioned Settings window —
 not a cramped popover — plus a short first-run flow that gets you to value fast.
