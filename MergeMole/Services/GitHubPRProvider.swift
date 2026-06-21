@@ -4,7 +4,7 @@ import Foundation
 enum GitHubError: LocalizedError {
     case notConnected
     case badToken
-    case http(Int)
+    case http(Int, String?)
     case graphQL(String)
     case network
 
@@ -12,7 +12,9 @@ enum GitHubError: LocalizedError {
         switch self {
         case .notConnected: return "Not connected to GitHub."
         case .badToken:     return "Your GitHub token was rejected. Add a new one in Settings."
-        case .http(let c):  return "GitHub returned an error (HTTP \(c))."
+        case .http(let code, let message):
+            if let message, !message.isEmpty { return "GitHub error (HTTP \(code)): \(message)" }
+            return "GitHub returned an error (HTTP \(code))."
         case .graphQL(let m): return m
         case .network:      return "Couldn't reach GitHub. Check your connection."
         }
@@ -79,7 +81,7 @@ struct GitHubPRProvider: PRProvider {
         switch http.statusCode {
         case 200: break
         case 401: throw GitHubError.badToken
-        default:  throw GitHubError.http(http.statusCode)
+        default:  throw GitHubError.http(http.statusCode, Self.message(from: data))
         }
 
         let decoder = JSONDecoder()
@@ -95,6 +97,12 @@ struct GitHubPRProvider: PRProvider {
 
         let prs = payload.search.nodes.compactMap(Self.pullRequest(from:))
         return PRFetchResult(viewer: payload.viewer.login, pullRequests: prs)
+    }
+
+    /// GitHub error bodies are `{"message": "...", "documentation_url": "..."}`.
+    private static func message(from data: Data) -> String? {
+        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return object?["message"] as? String
     }
 
     // MARK: Mapping
