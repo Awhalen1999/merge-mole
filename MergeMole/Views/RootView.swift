@@ -22,7 +22,7 @@ struct RootView: View {
     }
 
     private var header: some View {
-        HStack(spacing: Layout.base) {
+        HStack(spacing: Layout.tight) {
             Image(systemName: "circle.grid.2x2.fill")
                 .foregroundStyle(Color.appAccent)
             Text("MergeMole")
@@ -30,30 +30,64 @@ struct RootView: View {
                 .foregroundStyle(.appText)
             Spacer()
 
-            iconButton("arrow.clockwise", help: "Refresh") {
+            Button {
                 Task { await model.load() }
+            } label: {
+                Label {
+                    Text("Refresh")
+                } icon: {
+                    // Swap the arrow for a spinner while fetching, so a manual
+                    // refresh visibly does something even when the list is full.
+                    if model.isLoading {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
             }
-            SettingsLink {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.appTextSecondary)
-            .help("Settings")
-            iconButton("power", help: "Quit MergeMole") {
-                NSApp.terminate(nil)
-            }
+            .buttonStyle(HeaderButtonStyle())
+            .disabled(model.isLoading)
+            .help("Refresh pull requests")
+
+            settingsMenu
         }
         .padding(.horizontal, Layout.roomy)
         .padding(.top, Layout.roomy)
     }
 
-    private func iconButton(_ systemName: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
+    /// The gear opens a small menu rather than being three separate icons: a
+    /// settings entry point, About, and Quit — with the standard ⌘, / ⌘Q
+    /// shortcuts surfaced right in the menu (and live whenever the panel is open).
+    private var settingsMenu: some View {
+        Menu {
+            SettingsLink {
+                Label("Preferences…", systemImage: "gearshape")
+            }
+            .keyboardShortcut(",", modifiers: .command)
+
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.orderFrontStandardAboutPanel(nil)
+            } label: {
+                Label("About MergeMole", systemImage: "info.circle")
+            }
+
+            Divider()
+
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Label("Quit MergeMole", systemImage: "power")
+            }
+            .keyboardShortcut("q", modifiers: .command)
+        } label: {
+            Image(systemName: "gearshape")
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.appTextSecondary)
-        .help(help)
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(HeaderButtonStyle())
+        .fixedSize()
+        .help("Settings")
     }
 
     // MARK: Content

@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The native Settings window (⌘,). Intentionally system-native — `Form`
-/// controls + our blue accent — rather than the panel's Flexoki surface. The
-/// four sections map to the plan: General / GitHub / AI / About.
+/// The Settings window (⌘,). Reskinned to match the panel: the same Flexoki
+/// paper/ink surface, `appSurface` section cards, and blue accent — so Settings
+/// reads as the same app as the dropdown rather than a bare system form. Still a
+/// four-tab `TabView` (General / GitHub / AI / About) for the macOS-correct shape.
 struct SettingsView: View {
     var body: some View {
         TabView {
@@ -15,7 +16,100 @@ struct SettingsView: View {
             AboutSettings()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 480, height: 420)
+        .tint(.appAccent)
+        .frame(width: 500, height: 480)
+    }
+}
+
+// MARK: - Shared chrome
+
+/// A tab body: the content scrolls on the Flexoki background with even padding.
+private struct SettingsScaffold<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Layout.roomy) {
+                content
+            }
+            .padding(Layout.roomy)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color.appBackground)
+    }
+}
+
+/// A titled card — the same surface + hairline as the panel's PR cards, with an
+/// uppercase section label above and optional footer note below.
+private struct SettingsSection<Content: View>: View {
+    let title: String
+    var footer: String?
+    @ViewBuilder var content: Content
+
+    init(_ title: String, footer: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.footer = footer
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Layout.snug) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(0.6)
+                .foregroundStyle(.appTextTertiary)
+
+            VStack(alignment: .leading, spacing: Layout.base) {
+                content
+            }
+            .foregroundStyle(.appText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Layout.roomy)
+            .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Layout.cardRadius)
+                    .strokeBorder(Color.appHairline, lineWidth: 1)
+            )
+
+            if let footer {
+                Text(footer)
+                    .font(.caption)
+                    .foregroundStyle(.appTextTertiary)
+                    .padding(.horizontal, Layout.tight)
+            }
+        }
+    }
+}
+
+private extension View {
+    /// Flexoki text-field chrome: inset on the panel background with a hairline.
+    func flexokiField() -> some View {
+        textFieldStyle(.plain)
+            .padding(.horizontal, Layout.base)
+            .padding(.vertical, Layout.snug)
+            .background(Color.appBackground, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.appHairline, lineWidth: 1))
+    }
+}
+
+/// A small inline status line (✓/✗ + message) shared by the connect / verify flows.
+private struct InlineStatus: View {
+    enum Kind { case progress(String), ok(String), error(String) }
+    let kind: Kind
+    var body: some View {
+        HStack(spacing: Layout.snug) {
+            switch kind {
+            case .progress(let message):
+                ProgressView().controlSize(.small)
+                Text(message).foregroundStyle(.appTextSecondary)
+            case .ok(let message):
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.appGreen)
+                Text(message).foregroundStyle(.appTextSecondary)
+            case .error(let message):
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.appRed)
+                Text(message).foregroundStyle(.appTextSecondary)
+            }
+        }
+        .font(.caption)
     }
 }
 
@@ -28,29 +122,28 @@ private struct GeneralSettings: View {
     @State private var confirmingReset = false
 
     var body: some View {
-        Form {
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
-
-            Section {
-                ForEach(PRTab.allCases) { tab in
-                    Toggle(tab.title, isOn: tabBinding(tab))
+        SettingsScaffold {
+            SettingsSection("Startup") {
+                Toggle(isOn: $launchAtLogin) {
+                    Text("Launch at login").foregroundStyle(.appText)
                 }
-            } header: {
-                Text("Tabs")
-            } footer: {
-                Text("Choose which tabs appear in the panel. At least one stays on.")
+                .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
             }
 
-            Section {
-                Button("Reset MergeMole…", role: .destructive) {
-                    confirmingReset = true
+            SettingsSection("Tabs", footer: "Choose which tabs appear in the panel. At least one stays on.") {
+                ForEach(Array(PRTab.allCases.enumerated()), id: \.element) { index, tab in
+                    if index > 0 { Hairline() }
+                    Toggle(isOn: tabBinding(tab)) {
+                        Text(tab.title).foregroundStyle(.appText)
+                    }
                 }
-            } footer: {
-                Text("Forgets your GitHub token and replays first-run setup.")
+            }
+
+            SettingsSection("Reset", footer: "Forgets your GitHub token and replays first-run setup.") {
+                Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
+                    .buttonStyle(.bordered)
             }
         }
-        .formStyle(.grouped)
         .onAppear { launchAtLogin = LoginItem.isEnabled }
         .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
             Button("Reset", role: .destructive) { reset() }
@@ -66,8 +159,6 @@ private struct GeneralSettings: View {
         openWindow(id: WindowID.onboarding)
     }
 
-    /// Reads/writes a tab's visibility through AppModel. Hiding the last visible
-    /// tab is refused there, so the Toggle simply springs back on — no extra UI.
     private func tabBinding(_ tab: PRTab) -> Binding<Bool> {
         Binding(
             get: { model.visibleTabs.contains(tab) },
@@ -87,57 +178,55 @@ private struct GitHubSettings: View {
     private enum Feedback { case ok(String), error(String) }
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Status") {
+        SettingsScaffold {
+            SettingsSection("Connection") {
+                HStack(spacing: Layout.snug) {
                     if model.isGitHubConnected {
-                        Label("Connected", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.appGreen)
+                        Text("Connected as @\(model.currentUser)").foregroundStyle(.appText)
                     } else {
-                        Label("Not connected", systemImage: "circle")
-                            .foregroundStyle(.secondary)
+                        Image(systemName: "circle").foregroundStyle(.appTextTertiary)
+                        Text("Not connected").foregroundStyle(.appTextSecondary)
                     }
-                }
-                if model.isGitHubConnected {
-                    Button("Disconnect", role: .destructive) {
-                        model.disconnectGitHub()
-                        feedback = nil
+                    Spacer()
+                    if model.isGitHubConnected {
+                        Button("Disconnect", role: .destructive) {
+                            model.disconnectGitHub()
+                            feedback = nil
+                        }
+                        .buttonStyle(.bordered)
                     }
                 }
             }
 
-            Section {
+            SettingsSection(
+                "Token",
+                footer: "Verified with GitHub, then stored in your Keychain — never in plain text."
+            ) {
                 SecureField("ghp_…", text: $token)
                     .font(.body.monospaced())
+                    .flexokiField()
 
-                Button(model.isGitHubConnected ? "Replace token" : "Save token") { connect() }
-                    .disabled(connecting || GitHubToken.sanitize(token).isEmpty)
+                HStack(spacing: Layout.base) {
+                    Button(model.isGitHubConnected ? "Replace token" : "Save token") { connect() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.appAccent)
+                        .disabled(connecting || GitHubToken.sanitize(token).isEmpty)
 
-                if connecting {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small)
-                        Text("Verifying…").foregroundStyle(.secondary)
-                    }
-                    .font(.caption)
-                } else if let feedback {
-                    switch feedback {
-                    case .ok(let message):
-                        Label(message, systemImage: "checkmark.circle").foregroundStyle(.green).font(.caption)
-                    case .error(let message):
-                        Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.caption)
+                    if connecting { InlineStatus(kind: .progress("Verifying…")) }
+                    else if let feedback {
+                        switch feedback {
+                        case .ok(let m): InlineStatus(kind: .ok(m))
+                        case .error(let m): InlineStatus(kind: .error(m))
+                        }
                     }
                 }
 
                 Link("Create a token (scopes: repo, read:org)",
                      destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org&description=MergeMole")!)
                     .font(.caption)
-            } header: {
-                Text("Token")
-            } footer: {
-                Text("Verified with GitHub, then stored in your Keychain.")
             }
         }
-        .formStyle(.grouped)
     }
 
     private func connect() {
@@ -146,7 +235,7 @@ private struct GitHubSettings: View {
             feedback = nil
             switch await model.connect(rawToken: token) {
             case .connected(let login):
-                feedback = .ok("Connected as \(login)")
+                feedback = .ok("Connected as @\(login)")
                 token = ""
             case .failed(let message):
                 feedback = .error(message)
@@ -168,55 +257,66 @@ private struct AISettings: View {
 
     var body: some View {
         @Bindable var model = model
-        Form {
-            Section {
-                Picker("Mode", selection: $model.aiMode) {
+        SettingsScaffold {
+            SettingsSection("Mode") {
+                Picker("", selection: $model.aiMode) {
                     ForEach(AIMode.allCases) { Text($0.label).tag($0) }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
                 Text(model.aiMode.detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.appTextSecondary)
+
                 if model.onDeviceUnavailable {
-                    Label("On-device AI isn't available on this Mac. Cards show data only.",
-                          systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InlineStatus(kind: .error("On-device AI isn't available on this Mac. Cards show data only."))
                 }
             }
 
             if model.aiMode == .bringYourOwn {
-                Section {
-                    TextField("Endpoint", text: $model.byoEndpoint,
-                              prompt: Text("https://api.openai.com/v1  •  http://localhost:11434/v1"))
-                    TextField("Model", text: $model.byoModel,
-                              prompt: Text("gpt-4o-mini  •  llama3.1"))
-                    SecureField("API key (leave blank for local)", text: $apiKey)
+                SettingsSection(
+                    "Bring your own model",
+                    footer: "Any OpenAI-compatible Chat Completions endpoint — hosted (OpenAI, OpenRouter…) or local (Ollama, LM Studio). The key is stored in your Keychain."
+                ) {
+                    labeledField("Endpoint") {
+                        TextField("", text: $model.byoEndpoint,
+                                  prompt: Text("https://api.openai.com/v1  •  http://localhost:11434/v1"))
+                            .flexokiField()
+                    }
+                    labeledField("Model") {
+                        TextField("", text: $model.byoModel, prompt: Text("gpt-4o-mini  •  llama3.1"))
+                            .flexokiField()
+                    }
+                    labeledField("API key") {
+                        SecureField("", text: $apiKey, prompt: Text("leave blank for local"))
+                            .flexokiField()
+                    }
 
-                    Button("Verify connection") { verify() }
-                        .disabled(verifying || !model.byoConfigured)
+                    HStack(spacing: Layout.base) {
+                        Button("Verify connection") { verify() }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.appAccent)
+                            .disabled(verifying || !model.byoConfigured)
 
-                    if verifying {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("Verifying…").foregroundStyle(.secondary)
-                        }
-                        .font(.caption)
-                    } else if let feedback {
-                        switch feedback {
-                        case .ok(let message):
-                            Label(message, systemImage: "checkmark.circle").foregroundStyle(.green).font(.caption)
-                        case .error(let message):
-                            Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.caption)
+                        if verifying { InlineStatus(kind: .progress("Verifying…")) }
+                        else if let feedback {
+                            switch feedback {
+                            case .ok(let m): InlineStatus(kind: .ok(m))
+                            case .error(let m): InlineStatus(kind: .error(m))
+                            }
                         }
                     }
-                } header: {
-                    Text("Bring your own model")
-                } footer: {
-                    Text("Any OpenAI-compatible Chat Completions endpoint — hosted (OpenAI, OpenRouter…) or local (Ollama, LM Studio). Key is stored in your Keychain.")
                 }
             }
         }
-        .formStyle(.grouped)
+    }
+
+    private func labeledField<Field: View>(_ label: String, @ViewBuilder _ field: () -> Field) -> some View {
+        VStack(alignment: .leading, spacing: Layout.tight) {
+            Text(label).font(.caption).foregroundStyle(.appTextSecondary)
+            field()
+        }
     }
 
     private func verify() {
@@ -249,24 +349,28 @@ private struct AboutSettings: View {
 
     var body: some View {
         VStack(spacing: Layout.base) {
+            Spacer()
             Image(systemName: "circle.grid.2x2.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
+                .font(.system(size: 52))
+                .foregroundStyle(Color.appAccent)
             Text("MergeMole")
                 .font(.title2.weight(.semibold))
+                .foregroundStyle(.appText)
             Text(version)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.appTextSecondary)
             Text("PR triage in your menu bar — on-device, private, free.")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.appTextSecondary)
                 .multilineTextAlignment(.center)
             Link("github.com/Awhalen1999/merge-mole",
                  destination: URL(string: "https://github.com/Awhalen1999/merge-mole")!)
                 .font(.caption)
+            Spacer()
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.appBackground)
     }
 }
 

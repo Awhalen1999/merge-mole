@@ -94,9 +94,10 @@ struct PRCard: View {
                 // raw size pill when there's no effort badge (AI off/loading/failed).
                 // The +/− line counts stay either way — that's the raw size signal.
                 if !showsEffort { SizeBadge(bucket: pr.sizeBucket) }
-                Text("+\(pr.additions) −\(pr.deletions)")
+                // GitHub-style diffstat: additions green, deletions red.
+                (Text("+\(pr.additions)").foregroundStyle(Color.appGreen)
+                 + Text(" −\(pr.deletions)").foregroundStyle(Color.appRed))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.appTextSecondary)
                 if pr.commitCount > 0 {
                     Text("\(pr.commitCount) commits")
                         .font(.caption2)

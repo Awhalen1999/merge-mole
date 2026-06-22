@@ -115,16 +115,19 @@ is used sparingly and only where it means something.
 Feel target: Rectangle / Obsidian. Native, sectioned Settings; a short first-run
 flow that gets to value fast.
 
-**Settings window** — native SwiftUI `Settings` scene (⌘,), a `TabView` of
-system-native sections (`Form` controls + blue accent), not the panel's Flexoki
-surface — most macOS-correct, lowest bug surface.
-- General — launch at login (`SMAppService`), Reset MergeMole (replay setup).
-- GitHub — connection status, paste/replace token (verified before saving), disconnect.
-- AI — mode picker; BYO reveals endpoint + model + key, with a Verify button.
+**Settings window** — SwiftUI `Settings` scene (⌘,), a `TabView` of four sections,
+reskinned to the panel's Flexoki surface (`appSurface` section cards on
+`appBackground`, our type/accent) so it reads as the same app — `Views/Settings/
+SettingsView.swift` holds the shared `SettingsSection`/`SettingsScaffold` chrome.
+- General — launch at login (`SMAppService`), tab visibility, Reset MergeMole.
+- GitHub — connection status ("Connected as @login"), paste/replace token
+  (verified before saving), disconnect.
+- AI — segmented mode picker; BYO reveals endpoint + model + key, with a Verify button.
 - About — version, privacy line, repo link.
 
-The panel header carries refresh / settings / quit icon buttons (AI mode lives in
-Settings, not the header).
+The panel header carries a labeled **Refresh** button (spins while fetching) and a
+**gear menu** (Preferences ⌘, / About / Quit ⌘Q) — both using `HeaderButtonStyle`'s
+hover highlight. AI mode lives in Settings, not the header.
 
 **First-run onboarding** — `OnboardingView`, a standalone `Window` scene that
 auto-presents at launch until `hasCompletedOnboarding` (via `defaultLaunchBehavior`,
