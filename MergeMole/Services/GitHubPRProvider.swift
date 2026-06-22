@@ -174,6 +174,7 @@ enum GitHubAPI {
             body: node.bodyText ?? "",
             repository: repository,
             author: node.author?.login ?? "unknown",
+            authorAvatarURL: node.author?.avatarUrl.flatMap(URL.init(string:)),
             headBranch: node.headRefName ?? "",
             baseBranch: node.baseRefName ?? "",
             headOID: node.headRefOid ?? "",
@@ -251,7 +252,7 @@ enum GitHubAPI {
       viewerDidAuthor
       reviewThreads(first: 100) { nodes { isResolved } }
       repository { nameWithOwner }
-      author { login }
+      author { login avatarUrl(size: 64) }
       headRefName
       baseRefName
       headRefOid
@@ -317,7 +318,7 @@ private struct PRNode: Decodable {
         let nodes: [Thread]
         struct Thread: Decodable { let isResolved: Bool? }
     }
-    struct Author: Decodable { let login: String }
+    struct Author: Decodable { let login: String; let avatarUrl: String? }
     struct Labels: Decodable {
         let nodes: [LabelNode]
         struct LabelNode: Decodable { let name: String }

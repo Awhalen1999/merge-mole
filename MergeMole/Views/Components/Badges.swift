@@ -112,38 +112,18 @@ struct ConflictBadge: View {
     }
 }
 
-/// Review-conversation resolution at a glance: open threads in amber (the
-/// actionable count), resolved in muted green — or all-green when nothing's left
-/// open. Silent when a PR has no review threads at all.
+/// The actionable review signal: how many conversations still need addressing.
+/// Amber, like the other "needs attention" pills. Silent when nothing's open —
+/// a PR with no unresolved threads doesn't need to say anything. The resolved
+/// count lives in the tooltip so the progress context is a hover away.
 struct ConversationsBadge: View {
     let resolved: Int
     let unresolved: Int
 
     var body: some View {
-        let total = resolved + unresolved
-        if total > 0 {
-            HStack(spacing: Layout.snug) {
-                if unresolved > 0 {
-                    segment("\(unresolved)", systemImage: "bubble.left.fill", tint: .appAmber)
-                }
-                if resolved > 0 {
-                    segment("\(resolved)", systemImage: "checkmark.bubble.fill",
-                            tint: unresolved == 0 ? .appGreen : .appTextSecondary)
-                }
-            }
-            .font(.caption2.weight(.medium))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.appText.opacity(0.06), in: Capsule())
-            .help("\(unresolved) unresolved · \(resolved) resolved conversation\(total == 1 ? "" : "s")")
+        if unresolved > 0 {
+            Pill("\(unresolved) unresolved", systemImage: "bubble.left.fill", tint: .appAmber)
+                .help("\(unresolved) unresolved of \(resolved + unresolved) review conversations")
         }
-    }
-
-    private func segment(_ text: String, systemImage: String, tint: Color) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: systemImage)
-            Text(text).monospacedDigit()
-        }
-        .foregroundStyle(tint)
     }
 }

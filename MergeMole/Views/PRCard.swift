@@ -43,7 +43,9 @@ struct PRCard: View {
     // MARK: Always-present data
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Layout.tight) {
+        HStack(alignment: .top, spacing: Layout.snug) {
+            Avatar(url: pr.authorAvatarURL)
+                .help(pr.author)
             Text(pr.title)
                 .font(.headline)
                 .foregroundStyle(.appText)

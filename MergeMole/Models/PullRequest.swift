@@ -12,6 +12,7 @@ struct PullRequest: Identifiable, Hashable, Sendable {
     var body: String        // PR description (plain text; may be empty)
     var repository: String  // "owner/name"
     var author: String
+    var authorAvatarURL: URL? = nil   // GitHub avatar; nil falls back to a glyph
     var headBranch: String
     var baseBranch: String
     var headOID: String     // head commit SHA — the source of truth for "content changed"
