@@ -167,7 +167,7 @@ enum GitHubAPI {
               let url = URL(string: urlString)
         else { return nil }
 
-        return PullRequest(
+        var pr = PullRequest(
             id: id,
             number: number,
             title: title,
@@ -194,6 +194,19 @@ enum GitHubAPI {
             updatedAt: node.updatedAt ?? .now,
             relationships: [relationship]
         )
+
+        // Extra triage signals (defaulted on the model, set here from the API).
+        pr.commitCount = node.commits?.totalCount ?? 0
+        pr.approvals = (node.latestOpinionatedReviews?.nodes ?? []).filter { $0.state == "APPROVED" }.count
+        pr.isBehindBase = node.mergeStateStatus == "BEHIND"
+        pr.isFirstTimeContributor = node.authorAssociation == "FIRST_TIME_CONTRIBUTOR"
+            || node.authorAssociation == "FIRST_TIMER"
+        pr.isFromFork = node.isCrossRepository ?? false
+        pr.requestedReviewers = (node.reviewRequests?.nodes ?? []).compactMap { node in
+            guard let login = node.requestedReviewer?.login else { return nil }   // users only; skip teams/bots
+            return PRReviewer(login: login, avatarURL: node.requestedReviewer?.avatarUrl.flatMap(URL.init(string:)))
+        }
+        return pr
     }
 
     private static func reviewState(_ decision: String?) -> PullRequest.ReviewState {
@@ -248,9 +261,16 @@ enum GitHubAPI {
       deletions
       changedFiles
       mergeable
+      mergeStateStatus
+      authorAssociation
+      isCrossRepository
       totalCommentsCount
       viewerDidAuthor
       reviewThreads(first: 100) { nodes { isResolved } }
+      latestOpinionatedReviews(first: 20) { nodes { state } }
+      reviewRequests(first: 10) {
+        nodes { requestedReviewer { __typename ... on User { login avatarUrl(size: 64) } } }
+      }
       repository { nameWithOwner }
       author { login avatarUrl(size: 64) }
       headRefName
@@ -259,6 +279,7 @@ enum GitHubAPI {
       reviewDecision
       labels(first: 10) { nodes { name } }
       commits(last: 1) {
+        totalCount
         nodes { commit { statusCheckRollup { state } } }
       }
     }
@@ -301,9 +322,14 @@ private struct PRNode: Decodable {
     let deletions: Int?
     let changedFiles: Int?
     let mergeable: String?
+    let mergeStateStatus: String?
+    let authorAssociation: String?
+    let isCrossRepository: Bool?
     let totalCommentsCount: Int?
     let viewerDidAuthor: Bool?
     let reviewThreads: ReviewThreads?
+    let latestOpinionatedReviews: Reviews?
+    let reviewRequests: ReviewRequests?
     let repository: Repository?
     let author: Author?
     let headRefName: String?
@@ -318,12 +344,22 @@ private struct PRNode: Decodable {
         let nodes: [Thread]
         struct Thread: Decodable { let isResolved: Bool? }
     }
+    struct Reviews: Decodable {
+        let nodes: [Review]
+        struct Review: Decodable { let state: String? }
+    }
+    struct ReviewRequests: Decodable {
+        let nodes: [Node]
+        struct Node: Decodable { let requestedReviewer: Reviewer? }
+        struct Reviewer: Decodable { let login: String?; let avatarUrl: String? }
+    }
     struct Author: Decodable { let login: String; let avatarUrl: String? }
     struct Labels: Decodable {
         let nodes: [LabelNode]
         struct LabelNode: Decodable { let name: String }
     }
     struct Commits: Decodable {
+        let totalCount: Int?
         let nodes: [CommitNode]
         struct CommitNode: Decodable { let commit: Commit }
         struct Commit: Decodable { let statusCheckRollup: Rollup? }

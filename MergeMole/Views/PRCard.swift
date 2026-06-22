@@ -59,6 +59,7 @@ struct PRCard: View {
 
     private var metadata: some View {
         VStack(alignment: .leading, spacing: Layout.tight) {
+            // Repo · comments ···· last-updated
             HStack(spacing: Layout.snug) {
                 Text("\(pr.repository) #\(pr.number)")
                 if pr.commentCount > 0 {
@@ -72,12 +73,22 @@ struct PRCard: View {
             .font(.caption)
             .foregroundStyle(.appTextTertiary)
 
-            Label("\(pr.headBranch) → \(pr.baseBranch)", systemImage: "arrow.triangle.branch")
-                .labelStyle(.titleAndIcon)
-                .font(.caption2)
-                .foregroundStyle(.appTextSecondary)
-                .lineLimit(1)
+            // Branch ···· pending reviewers · age-since-opened
+            HStack(spacing: Layout.snug) {
+                Label("\(pr.headBranch) → \(pr.baseBranch)", systemImage: "arrow.triangle.branch")
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                Spacer(minLength: Layout.tight)
+                if !pr.requestedReviewers.isEmpty {
+                    ReviewerAvatars(reviewers: pr.requestedReviewers)
+                }
+                Text("opened \(pr.createdAt.relativeShort)")
+                    .fixedSize()
+            }
+            .font(.caption2)
+            .foregroundStyle(.appTextSecondary)
 
+            // Stats + status — wraps as it fills.
             FlowLayout {
                 // The AI effort tier subsumes the size bucket, so we only show the
                 // raw size pill when there's no effort badge (AI off/loading/failed).
@@ -86,10 +97,26 @@ struct PRCard: View {
                 Text("+\(pr.additions) −\(pr.deletions)")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.appTextSecondary)
+                if pr.commitCount > 0 {
+                    Text("\(pr.commitCount) commits")
+                        .font(.caption2)
+                        .foregroundStyle(.appTextTertiary)
+                }
+                if pr.reviewState != .approved { ApprovalsBadge(count: pr.approvals) }
                 ReviewBadge(state: pr.reviewState)
                 ChecksBadge(state: pr.checksState)
                 ConflictBadge(state: pr.mergeable)
+                BehindBadge(isBehind: pr.isBehindBase)
                 ConversationsBadge(resolved: pr.resolvedThreads, unresolved: pr.unresolvedThreads)
+                FirstTimerBadge(isFirstTime: pr.isFirstTimeContributor)
+                ForkBadge(isFromFork: pr.isFromFork)
+            }
+
+            // Labels — their own wrapping row, only when present.
+            if !pr.labels.isEmpty {
+                FlowLayout {
+                    ForEach(pr.labels, id: \.self) { LabelPill(text: $0) }
+                }
             }
         }
     }

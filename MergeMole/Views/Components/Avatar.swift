@@ -31,3 +31,29 @@ struct Avatar: View {
             )
     }
 }
+
+/// A compact, overlapping stack of requested-reviewer avatars — "who still owes a
+/// review." Caps at four with a +N overflow so a crowded PR doesn't run wide.
+struct ReviewerAvatars: View {
+    let reviewers: [PRReviewer]
+    var size: CGFloat = 16
+
+    private var shown: [PRReviewer] { Array(reviewers.prefix(4)) }
+    private var overflow: Int { reviewers.count - shown.count }
+
+    var body: some View {
+        HStack(spacing: -size * 0.35) {
+            ForEach(shown) { reviewer in
+                Avatar(url: reviewer.avatarURL, size: size)
+                    .overlay(Circle().strokeBorder(Color.appSurface, lineWidth: 1.5))
+                    .help(reviewer.login)
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.appTextSecondary)
+                    .padding(.leading, size * 0.35 + 3)
+            }
+        }
+    }
+}

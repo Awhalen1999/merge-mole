@@ -26,6 +26,16 @@ struct PullRequest: Identifiable, Hashable, Sendable {
     var commentCount: Int   // total comments incl. review comments — how much discussion
     var resolvedThreads: Int    // review conversations marked resolved
     var unresolvedThreads: Int  // review conversations still open — the actionable count
+
+    // Extra triage signals. All default-valued, so samples/tests can omit them and
+    // the provider sets them by mutation (no big-initializer argument shuffling).
+    var commitCount: Int = 0
+    var approvals: Int = 0              // count of the latest APPROVED reviews
+    var isBehindBase: Bool = false      // head branch trails base — wants an update/rebase
+    var isFirstTimeContributor: Bool = false   // author's first contribution here — review with care
+    var isFromFork: Bool = false        // PR opened from a fork
+    var requestedReviewers: [PRReviewer] = []  // whose review is still pending
+
     var labels: [String]    // e.g. "security", "bug" — high-signal for priority
     var url: URL
     var createdAt: Date     // when the PR was opened — lets us read true age, not just "updated"
@@ -66,6 +76,13 @@ extension PullRequest {
         case clean          // GitHub `MERGEABLE`
         case conflicting    // GitHub `CONFLICTING`
     }
+}
+
+/// A person whose review is requested on a PR — just what the avatar row needs.
+struct PRReviewer: Hashable, Sendable, Identifiable {
+    let login: String
+    let avatarURL: URL?
+    var id: String { login }
 }
 
 /// Why a PR involves you — the search bucket GitHub returned it in. Tabs are a

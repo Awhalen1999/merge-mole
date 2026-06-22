@@ -112,6 +112,60 @@ struct ConflictBadge: View {
     }
 }
 
+/// How many approvals so far — green, a sense of how close to merge. Hidden at
+/// zero. Shown only while not yet fully approved, so it reads as progress rather
+/// than echoing the "Approved" review badge.
+struct ApprovalsBadge: View {
+    let count: Int
+    var body: some View {
+        if count > 0 {
+            Pill("\(count) approved", systemImage: "checkmark.circle.fill", tint: .appGreen)
+                .help("\(count) approval\(count == 1 ? "" : "s") so far")
+        }
+    }
+}
+
+/// Head branch trails base — wants an update/rebase before it can merge. Amber,
+/// like Conflicts: author action, not a hard failure. Silent otherwise.
+struct BehindBadge: View {
+    let isBehind: Bool
+    var body: some View {
+        if isBehind {
+            Pill("Behind base", systemImage: "arrow.down", tint: .appAmber)
+                .help("This branch is behind its base — needs an update or rebase")
+        }
+    }
+}
+
+/// Quiet nudges that a PR deserves a closer look: a first-time contributor or a
+/// PR from a fork. Neutral, not status — they inform, they don't alarm.
+struct FirstTimerBadge: View {
+    let isFirstTime: Bool
+    var body: some View {
+        if isFirstTime {
+            Pill("First-timer", systemImage: "hand.wave", tint: .appTextSecondary)
+                .help("First-time contributor to this repository")
+        }
+    }
+}
+
+struct ForkBadge: View {
+    let isFromFork: Bool
+    var body: some View {
+        if isFromFork {
+            Pill("Fork", systemImage: "arrow.triangle.branch", tint: .appTextTertiary)
+                .help("Opened from a fork")
+        }
+    }
+}
+
+/// A repo label. Neutral on purpose — color is reserved for status in this app,
+/// so the label's text carries the meaning, not an arbitrary GitHub hue.
+struct LabelPill: View {
+    let text: String
+    var body: some View { Pill(text, tint: .appTextSecondary) }
+}
+
 /// The actionable review signal: how many conversations still need addressing.
 /// Amber, like the other "needs attention" pills. Silent when nothing's open —
 /// a PR with no unresolved threads doesn't need to say anything. The resolved
