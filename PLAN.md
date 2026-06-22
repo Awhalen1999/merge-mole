@@ -32,7 +32,12 @@ Build roughly one step at a time. Each should build and run before moving on.
        trimmed pills, shared layout scale
 - [x] 3. Onboarding + Settings — standalone onboarding window + native Settings;
        GitHub token in Keychain, prefs persisted
-- [x] 4. GitHub GraphQL fetch (`involves:@me`) → real PRs
+- [x] 4. GitHub GraphQL fetch → real PRs. One query, five aliased searches
+       (`review-requested` / `assignee` / `author` / `mentions` / `reviewed-by` `:@me`),
+       deduped into one list; each PR carries its `relationships`. Tabs are one
+       per relationship, with a configurable visible set (Settings → General → Tabs;
+       default: Review Requested / Assigned / Created). Per-PR fields also include
+       merge-conflict state, comment count, and createdAt.
 - [x] 5. On-device AI — `FoundationModelsEngine` (guided generation → `Verdict`),
        availability fallback to data-only
 - [x] 6. Bring-your-own — `RemoteVerdictEngine` (OpenAI-compatible, hosted or

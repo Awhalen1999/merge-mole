@@ -2,9 +2,11 @@ import Foundation
 
 /// Native size classification derived purely from line counts — no AI involved.
 ///
-/// Per PLAN.md we always show the AI effort tier *next to* this native bucket,
-/// never instead of it. The contrast between "this PR is 40 lines" and "this PR
-/// will take real effort" is the feature, so size lives on the data, not the AI.
+/// The raw +/− line counts are the always-on size reference on the card. This
+/// bucket pill is the at-a-glance version of that, shown only when there's no AI
+/// effort tier (AI off/unavailable) — when AI is on, the effort tier stands in for
+/// it so the card doesn't show two size signals. Size still lives on the data, not
+/// the AI, so the AI-off mode keeps a clean size read.
 enum SizeBucket: String, CaseIterable, Sendable, Comparable {
     case xs = "XS"
     case s  = "S"

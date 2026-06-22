@@ -15,7 +15,7 @@ struct SettingsView: View {
             AboutSettings()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 480, height: 340)
+        .frame(width: 480, height: 420)
     }
 }
 
@@ -31,6 +31,16 @@ private struct GeneralSettings: View {
         Form {
             Toggle("Launch at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
+
+            Section {
+                ForEach(PRTab.allCases) { tab in
+                    Toggle(tab.title, isOn: tabBinding(tab))
+                }
+            } header: {
+                Text("Tabs")
+            } footer: {
+                Text("Choose which tabs appear in the panel. At least one stays on.")
+            }
 
             Section {
                 Button("Reset MergeMole…", role: .destructive) {
@@ -54,6 +64,15 @@ private struct GeneralSettings: View {
         model.disconnectGitHub()
         model.resetOnboarding()
         openWindow(id: WindowID.onboarding)
+    }
+
+    /// Reads/writes a tab's visibility through AppModel. Hiding the last visible
+    /// tab is refused there, so the Toggle simply springs back on — no extra UI.
+    private func tabBinding(_ tab: PRTab) -> Binding<Bool> {
+        Binding(
+            get: { model.visibleTabs.contains(tab) },
+            set: { model.setTab(tab, visible: $0) }
+        )
     }
 }
 

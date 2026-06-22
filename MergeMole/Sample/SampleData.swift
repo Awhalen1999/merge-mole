@@ -25,10 +25,15 @@ enum SampleData {
             isDraft: false,
             reviewState: .pending,
             checksState: .passing,
+            mergeable: .clean,
             additions: 34, deletions: 12, changedFiles: 3,
+            commentCount: 4,
+            resolvedThreads: 2, unresolvedThreads: 1,
             labels: ["bug"],
             url: URL(string: "https://github.com/acme/web-platform/pull/482")!,
-            updatedAt: date(minutesAgo: 18)
+            createdAt: date(daysAgo: 1),
+            updatedAt: date(minutesAgo: 18),
+            relationships: [.reviewRequested]
         ),
         PullRequest(
             id: "PR_2",
@@ -43,10 +48,15 @@ enum SampleData {
             isDraft: false,
             reviewState: .pending,
             checksState: .failing,
+            mergeable: .conflicting,
             additions: 1840, deletions: 920, changedFiles: 47,
+            commentCount: 23,
+            resolvedThreads: 4, unresolvedThreads: 6,
             labels: ["enhancement", "needs-discussion"],
             url: URL(string: "https://github.com/acme/payments/pull/1190")!,
-            updatedAt: date(minutesAgo: 95)
+            createdAt: date(daysAgo: 6),
+            updatedAt: date(minutesAgo: 95),
+            relationships: [.reviewRequested, .mentioned]
         ),
         PullRequest(
             id: "PR_3",
@@ -61,10 +71,15 @@ enum SampleData {
             isDraft: false,
             reviewState: .changesRequested,
             checksState: .passing,
+            mergeable: .clean,
             additions: 6, deletions: 4, changedFiles: 2,
+            commentCount: 8,
+            resolvedThreads: 3, unresolvedThreads: 0,
             labels: ["chore"],
             url: URL(string: "https://github.com/acme/ios-app/pull/77")!,
-            updatedAt: date(minutesAgo: 240)
+            createdAt: date(daysAgo: 3),
+            updatedAt: date(minutesAgo: 240),
+            relationships: [.created]
         ),
         PullRequest(
             id: "PR_4",
@@ -79,10 +94,15 @@ enum SampleData {
             isDraft: true,
             reviewState: .pending,
             checksState: .pending,
+            mergeable: .unknown,
             additions: 612, deletions: 88, changedFiles: 21,
+            commentCount: 1,
+            resolvedThreads: 0, unresolvedThreads: 0,
             labels: [],
             url: URL(string: "https://github.com/acme/ios-app/pull/305")!,
-            updatedAt: date(minutesAgo: 1440)
+            createdAt: date(daysAgo: 10),
+            updatedAt: date(minutesAgo: 1440),
+            relationships: [.created]
         ),
         PullRequest(
             id: "PR_5",
@@ -97,10 +117,15 @@ enum SampleData {
             isDraft: false,
             reviewState: .approved,
             checksState: .passing,
+            mergeable: .clean,
             additions: 210, deletions: 30, changedFiles: 9,
+            commentCount: 12,
+            resolvedThreads: 5, unresolvedThreads: 0,
             labels: ["design"],
             url: URL(string: "https://github.com/acme/design-system/pull/56")!,
-            updatedAt: date(minutesAgo: 30)
+            createdAt: date(daysAgo: 2),
+            updatedAt: date(minutesAgo: 30),
+            relationships: [.reviewed]
         ),
     ]
 
@@ -110,10 +135,10 @@ enum SampleData {
     static func verdict(for pr: PullRequest) -> Verdict {
         let effort: EffortTier
         switch pr.sizeBucket {
-        case .xs: effort = .trivial
-        case .s:  effort = .easy
+        case .xs: effort = .skim
+        case .s:  effort = .quick
         case .m:  effort = .moderate
-        case .l:  effort = .involved
+        case .l:  effort = .deep
         case .xl: effort = .heavy
         }
 
@@ -154,5 +179,9 @@ enum SampleData {
     /// Real PRs use `updatedAt` straight from the API.
     private static func date(minutesAgo minutes: Int) -> Date {
         Date.now.addingTimeInterval(TimeInterval(-minutes * 60))
+    }
+
+    private static func date(daysAgo days: Int) -> Date {
+        date(minutesAgo: days * 24 * 60)
     }
 }

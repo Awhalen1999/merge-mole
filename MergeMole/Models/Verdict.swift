@@ -18,18 +18,18 @@ struct Verdict: Codable, Hashable, Sendable {
 /// How much work reviewing/understanding this PR will actually take — the AI's
 /// judgement, shown alongside the native `SizeBucket`, not derived from it.
 enum EffortTier: Int, CaseIterable, Sendable, Comparable, Codable {
-    case trivial
-    case easy
+    case skim
+    case quick
     case moderate
-    case involved
+    case deep
     case heavy
 
     var label: String {
         switch self {
-        case .trivial:  return "Trivial"
-        case .easy:     return "Easy"
+        case .skim:     return "Skim"
+        case .quick:    return "Quick"
         case .moderate: return "Moderate"
-        case .involved: return "Involved"
+        case .deep:     return "Deep"
         case .heavy:    return "Heavy"
         }
     }
@@ -38,10 +38,10 @@ enum EffortTier: Int, CaseIterable, Sendable, Comparable, Codable {
     /// BYO prompt's allowed values *and* its parser, so they can never drift.
     var wireName: String {
         switch self {
-        case .trivial:  return "trivial"
-        case .easy:     return "easy"
+        case .skim:     return "skim"
+        case .quick:    return "quick"
         case .moderate: return "moderate"
-        case .involved: return "involved"
+        case .deep:     return "deep"
         case .heavy:    return "heavy"
         }
     }

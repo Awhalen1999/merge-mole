@@ -12,6 +12,13 @@ struct PRCard: View {
     @Environment(\.openURL) private var openURL
     @State private var hovering = false
 
+    /// True once the AI has a verdict — its effort tier then stands in for the
+    /// size bucket, so the card doesn't show both.
+    private var showsEffort: Bool {
+        if case .ready = verdict { return true }
+        return false
+    }
+
     var body: some View {
         Button { openURL(pr.url) } label: { card }
             .buttonStyle(.plain)
@@ -50,8 +57,13 @@ struct PRCard: View {
 
     private var metadata: some View {
         VStack(alignment: .leading, spacing: Layout.tight) {
-            HStack(spacing: Layout.tight) {
+            HStack(spacing: Layout.snug) {
                 Text("\(pr.repository) #\(pr.number)")
+                if pr.commentCount > 0 {
+                    Label("\(pr.commentCount)", systemImage: "text.bubble")
+                        .labelStyle(.titleAndIcon)
+                        .monospacedDigit()
+                }
                 Spacer(minLength: Layout.tight)
                 Text(pr.updatedAt.relativeShort)
             }
@@ -64,13 +76,18 @@ struct PRCard: View {
                 .foregroundStyle(.appTextSecondary)
                 .lineLimit(1)
 
-            HStack(spacing: Layout.snug) {
-                SizeBadge(bucket: pr.sizeBucket)
+            FlowLayout {
+                // The AI effort tier subsumes the size bucket, so we only show the
+                // raw size pill when there's no effort badge (AI off/loading/failed).
+                // The +/− line counts stay either way — that's the raw size signal.
+                if !showsEffort { SizeBadge(bucket: pr.sizeBucket) }
                 Text("+\(pr.additions) −\(pr.deletions)")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.appTextSecondary)
                 ReviewBadge(state: pr.reviewState)
                 ChecksBadge(state: pr.checksState)
+                ConflictBadge(state: pr.mergeable)
+                ConversationsBadge(resolved: pr.resolvedThreads, unresolved: pr.unresolvedThreads)
             }
         }
     }

@@ -12,11 +12,11 @@ struct RootView: View {
         @Bindable var model = model
         return VStack(spacing: 0) {
             header
-            TabBar(selection: $model.selectedTab, counts: model.tabCounts)
+            TabBar(selection: $model.selectedTab, tabs: model.visibleTabs, counts: model.tabCounts)
             Hairline()
             content
         }
-        .frame(width: 360, height: 480)
+        .frame(width: 400, height: 600)
         .background(Color.appBackground)
         .task { await model.load() }
     }

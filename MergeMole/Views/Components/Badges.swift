@@ -51,10 +51,10 @@ struct EffortBadge: View {
 
     private var gauge: String {
         switch effort {
-        case .trivial:  return "gauge.with.dots.needle.0percent"
-        case .easy:     return "gauge.with.dots.needle.33percent"
+        case .skim:     return "gauge.with.dots.needle.0percent"
+        case .quick:    return "gauge.with.dots.needle.33percent"
         case .moderate: return "gauge.with.dots.needle.50percent"
-        case .involved: return "gauge.with.dots.needle.67percent"
+        case .deep:     return "gauge.with.dots.needle.67percent"
         case .heavy:    return "gauge.with.dots.needle.100percent"
         }
     }
@@ -97,5 +97,53 @@ struct ChecksBadge: View {
         case .passing: Pill("CI green", systemImage: "checkmark.circle", tint: .appGreen)
         case .failing: Pill("CI failing", systemImage: "xmark.circle", tint: .appRed)
         }
+    }
+}
+
+/// Only speaks up when GitHub says the branches conflict. A clean or not-yet-
+/// computed merge isn't worth a pill. Amber, not red — it's "needs a rebase"
+/// (author action), the same weight as changes-requested; red stays for failing CI.
+struct ConflictBadge: View {
+    let state: PullRequest.MergeState
+    var body: some View {
+        if state == .conflicting {
+            Pill("Conflicts", systemImage: "exclamationmark.triangle", tint: .appAmber)
+        }
+    }
+}
+
+/// Review-conversation resolution at a glance: open threads in amber (the
+/// actionable count), resolved in muted green — or all-green when nothing's left
+/// open. Silent when a PR has no review threads at all.
+struct ConversationsBadge: View {
+    let resolved: Int
+    let unresolved: Int
+
+    var body: some View {
+        let total = resolved + unresolved
+        if total > 0 {
+            HStack(spacing: Layout.snug) {
+                if unresolved > 0 {
+                    segment("\(unresolved)", systemImage: "bubble.left.fill", tint: .appAmber)
+                }
+                if resolved > 0 {
+                    segment("\(resolved)", systemImage: "checkmark.bubble.fill",
+                            tint: unresolved == 0 ? .appGreen : .appTextSecondary)
+                }
+            }
+            .font(.caption2.weight(.medium))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.appText.opacity(0.06), in: Capsule())
+            .help("\(unresolved) unresolved · \(resolved) resolved conversation\(total == 1 ? "" : "s")")
+        }
+    }
+
+    private func segment(_ text: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: systemImage)
+            Text(text).monospacedDigit()
+        }
+        .foregroundStyle(tint)
     }
 }

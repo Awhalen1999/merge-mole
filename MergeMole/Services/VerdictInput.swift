@@ -22,6 +22,7 @@ struct VerdictInput {
     let isDraft: Bool
     let reviewState: String
     let checksState: String
+    let hasConflicts: Bool   // base/head conflict — a real "can't merge as-is" signal
     let additions: Int
     let deletions: Int
     let changedFiles: Int
@@ -43,6 +44,7 @@ struct VerdictInput {
         isDraft = pr.isDraft
         reviewState = pr.reviewState.rawValue
         checksState = pr.checksState.rawValue
+        hasConflicts = pr.mergeable == .conflicting
         additions = pr.additions
         deletions = pr.deletions
         changedFiles = pr.changedFiles
@@ -65,6 +67,7 @@ struct VerdictInput {
             "CI: \(checksState)",
             "Changes: +\(additions) / -\(deletions) across \(changedFiles) files (size \(sizeLabel))",
         ]
+        if hasConflicts { lines.append("Merge conflicts: yes — needs a rebase before it can merge.") }
         if !labels.isEmpty { lines.append("Labels: \(labels.joined(separator: ", "))") }
         if !body.isEmpty { lines.append("Description:\n\(body)") }
         return lines.joined(separator: "\n")
@@ -78,7 +81,7 @@ struct VerdictInput {
         let raw = [
             title, body, repository, author,
             headBranch, baseBranch, headOID,
-            String(isDraft), reviewState, checksState,
+            String(isDraft), reviewState, checksState, String(hasConflicts),
             String(additions), String(deletions), String(changedFiles),
             sizeLabel, labels.joined(separator: ","),
         ].joined(separator: "\u{1F}")   // unit separator — can't appear in the fields

@@ -56,14 +56,14 @@ private struct GeneratedVerdict {
 
 @Generable
 private enum GeneratedEffort {
-    case trivial, easy, moderate, involved, heavy
+    case skim, quick, moderate, deep, heavy
 
     var tier: EffortTier {
         switch self {
-        case .trivial:  return .trivial
-        case .easy:     return .easy
+        case .skim:     return .skim
+        case .quick:    return .quick
         case .moderate: return .moderate
-        case .involved: return .involved
+        case .deep:     return .deep
         case .heavy:    return .heavy
         }
     }

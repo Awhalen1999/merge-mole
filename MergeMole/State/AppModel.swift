@@ -28,21 +28,42 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// The top-level filters in the panel's tab bar.
+/// The top-level filters in the panel's tab bar. One tab per `PRRelationship` —
+/// the tab is the presentation layer (title, order, visibility); the relationship
+/// is the data. Order here is the order they appear in the bar.
 enum PRTab: String, CaseIterable, Identifiable, Sendable {
-    case needsReview    // waiting on *you*
-    case mine           // authored by you
-    case all
+    case reviewRequested
+    case assigned
+    case created
+    case mentioned
+    case reviewed
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .needsReview: return "Needs Review"
-        case .mine:        return "Mine"
-        case .all:         return "All"
+        case .reviewRequested: return "Review Requested"
+        case .assigned:        return "Assigned"
+        case .created:         return "Created"
+        case .mentioned:       return "Mentioned"
+        case .reviewed:        return "Reviewed"
         }
     }
+
+    /// The PR relationship this tab surfaces.
+    var relationship: PRRelationship {
+        switch self {
+        case .reviewRequested: return .reviewRequested
+        case .assigned:        return .assigned
+        case .created:         return .created
+        case .mentioned:       return .mentioned
+        case .reviewed:        return .reviewed
+        }
+    }
+
+    /// Tabs shown out of the box. The other two (mentioned, reviewed) are noisier
+    /// and opt-in via Settings — keeps the default bar to the day-to-day triage set.
+    static let defaultVisible: [PRTab] = [.reviewRequested, .assigned, .created]
 }
 
 /// Outcome of a connect attempt, for inline UI feedback.
@@ -89,7 +110,33 @@ final class AppModel {
     private(set) var isLoading = false
     private(set) var loadError: String?
 
-    var selectedTab: PRTab = .needsReview
+    var selectedTab: PRTab = .reviewRequested
+
+    /// Tabs the user has hidden in Settings. Persisted; the panel shows the rest.
+    /// We store the *hidden* set so a tab added in a future version shows by default
+    /// rather than being silently suppressed by an old saved list.
+    private(set) var hiddenTabs: Set<PRTab> {
+        didSet {
+            UserDefaults.standard.set(hiddenTabs.map(\.rawValue), forKey: Key.hiddenTabs)
+            // Never strand the selection on a tab that's no longer shown.
+            if hiddenTabs.contains(selectedTab), let first = visibleTabs.first {
+                selectedTab = first
+            }
+        }
+    }
+
+    /// Tabs to show, in canonical order.
+    var visibleTabs: [PRTab] { PRTab.allCases.filter { !hiddenTabs.contains($0) } }
+
+    /// Show/hide a tab. Refuses to hide the last visible one — the bar always has
+    /// at least one tab.
+    func setTab(_ tab: PRTab, visible: Bool) {
+        if visible {
+            hiddenTabs.remove(tab)
+        } else if hiddenTabs.count < PRTab.allCases.count - 1 {
+            hiddenTabs.insert(tab)
+        }
+    }
 
     // MARK: Persisted preferences
 
@@ -121,6 +168,7 @@ final class AppModel {
         static let aiMode = "aiMode"
         static let byoEndpoint = "byoEndpoint"
         static let byoModel = "byoModel"
+        static let hiddenTabs = "hiddenTabs"
     }
 
     // MARK: Init
@@ -144,6 +192,17 @@ final class AppModel {
         self.byoModel = defaults.string(forKey: Key.byoModel) ?? ""
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
+
+        // No saved list (first launch / fresh install) → hide the opt-in tabs;
+        // otherwise honor exactly what the user chose.
+        if let saved = defaults.array(forKey: Key.hiddenTabs) as? [String] {
+            self.hiddenTabs = Set(saved.compactMap(PRTab.init(rawValue:)))
+        } else {
+            self.hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
+        }
+        if hiddenTabs.contains(selectedTab) {
+            selectedTab = visibleTabs.first ?? .reviewRequested
+        }
     }
 
     // MARK: GitHub connection
@@ -207,16 +266,7 @@ final class AppModel {
     }
 
     func pullRequests(for tab: PRTab) -> [PullRequest] {
-        switch tab {
-        case .all:
-            return pullRequests
-        case .mine:
-            return pullRequests.filter { $0.author == currentUser }
-        case .needsReview:
-            return pullRequests.filter {
-                $0.author != currentUser && $0.reviewState == .pending && !$0.isDraft
-            }
-        }
+        pullRequests.filter { $0.relationships.contains(tab.relationship) }
     }
 
     var tabCounts: [PRTab: Int] {
@@ -264,7 +314,7 @@ final class AppModel {
     private var engineTag: String {
         // Bump when the prompt or output contract changes materially, so verdicts
         // cached under an older prompt are re-run rather than served stale.
-        let version = "v2"
+        let version = "v3"   // v3: merge-conflict signal added to the prompt
         switch aiMode {
         case .off:          return "off"
         case .onDevice:     return "ondevice@\(version)"
