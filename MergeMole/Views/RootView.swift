@@ -1,142 +1,153 @@
 import SwiftUI
-import AppKit
 
-/// The dropdown panel's root. Reads the shared `AppModel` and lays out
-/// header → tab bar → list. First-run onboarding is a separate window
-/// (`OnboardingView`), so the panel itself is always the main panel. Painted on
-/// the Flexoki paper/ink background so the whole panel reads as one surface.
+/// The menu-bar panel. Always three stacked layers, in this order:
+///
+///   1. header   — brand + controls (Refresh only when connected)
+///   2. tab bar  — the relationship filter (only when there's a list to filter)
+///   3. content  — exactly one state, switched from `PanelState`
+///
+/// Everything sits on one Flexoki surface, aligned to a single `Layout.margin`,
+/// so the panel reads as one clean sheet rather than stacked components.
 struct RootView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
+        let state = state
         return VStack(spacing: 0) {
-            header
-            TabBar(selection: $model.selectedTab, tabs: model.visibleTabs, counts: model.tabCounts)
+            PanelHeader(showsRefresh: state.showsRefresh)
+            if state.showsTabs {
+                TabBar(selection: $model.selectedTab, tabs: model.visibleTabs, counts: model.tabCounts)
+            }
             Hairline()
-            content
+            content(state)
         }
         .frame(width: 400, height: 600)
         .background(Color.appBackground)
-        .task { await model.load() }
+        .task { await model.loadIfStale() }   // refresh on open, but not if just synced
     }
 
-    private var header: some View {
-        HStack(spacing: Layout.tight) {
-            Image(systemName: "circle.grid.2x2.fill")
-                .foregroundStyle(Color.appAccent)
-            Text("MergeMole")
-                .font(.headline)
-                .foregroundStyle(.appText)
-            Spacer()
+    // MARK: - State
 
+    /// The single thing the content area branches on. Computing it once keeps the
+    /// layer decisions (which controls, whether tabs) and the screen choice in sync.
+    private enum PanelState {
+        case disconnected      // no GitHub token yet
+        case loading           // first fetch, nothing to show yet
+        case error(String)     // fetch failed
+        case empty             // connected, but the selected tab is clear
+        case list              // the PRs
+
+        /// Refresh is pointless with no connection; otherwise it's always offered.
+        var showsRefresh: Bool {
+            if case .disconnected = self { false } else { true }
+        }
+
+        /// Tabs only matter when there's a list to filter or switch between.
+        var showsTabs: Bool {
+            switch self {
+            case .loading, .empty, .list: true
+            case .disconnected, .error:   false
+            }
+        }
+    }
+
+    private var state: PanelState {
+        if !model.isGitHubConnected { return .disconnected }
+        if model.isLoading && model.pullRequests.isEmpty { return .loading }
+        if let error = model.loadError { return .error(error) }
+        if model.visiblePullRequests.isEmpty { return .empty }
+        return .list
+    }
+
+    // MARK: - Content (one screen per state)
+
+    @ViewBuilder
+    private func content(_ state: PanelState) -> some View {
+        switch state {
+        case .disconnected:    connectScreen
+        case .loading:         SkeletonList()
+        case .error(let msg):  errorScreen(msg)
+        case .empty:           caughtUpScreen
+        case .list:            list
+        }
+    }
+
+    private var connectScreen: some View {
+        StatusScreen(
+            title: "Connect to GitHub",
+            message: "MergeMole reads your pull requests to triage what needs your attention first. Your token stays on this Mac."
+        ) {
+            Image(systemName: "circle.grid.2x2.fill")
+                .font(.system(size: 46))
+                .foregroundStyle(Color.appAccent)
+        } actions: {
+            VStack(spacing: Layout.base) {
+                SettingsLink {
+                    Text("Connect GitHub")
+                }
+                .buttonStyle(ProminentButtonStyle())
+                .frame(width: 230)
+
+                SettingsLink {
+                    Text("Use a personal access token")
+                }
+                .buttonStyle(.plain)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(Color.appAccent)
+            }
+            .padding(.top, Layout.generous)
+        }
+    }
+
+    private func errorScreen(_ message: String) -> some View {
+        StatusScreen(
+            title: "Couldn't reach GitHub",
+            message: message,
+            footnote: lastSyncedFootnote
+        ) {
+            StatusIcon(systemName: "exclamationmark", tint: .appRed)
+        } actions: {
             Button {
                 Task { await model.load() }
             } label: {
-                Label {
-                    Text("Refresh")
-                } icon: {
-                    // Swap the arrow for a spinner while fetching, so a manual
-                    // refresh visibly does something even when the list is full.
-                    if model.isLoading {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
+                Label("Try again", systemImage: "arrow.clockwise")
             }
-            .buttonStyle(HeaderButtonStyle())
-            .disabled(model.isLoading)
-            .help("Refresh pull requests")
-
-            settingsMenu
-        }
-        .padding(.horizontal, Layout.roomy)
-        .padding(.top, Layout.roomy)
-    }
-
-    /// The gear opens a small menu rather than being three separate icons: a
-    /// settings entry point, About, and Quit — with the standard ⌘, / ⌘Q
-    /// shortcuts surfaced right in the menu (and live whenever the panel is open).
-    private var settingsMenu: some View {
-        Menu {
-            SettingsLink {
-                Label("Preferences…", systemImage: "gearshape")
-            }
-            .keyboardShortcut(",", modifiers: .command)
-
-            Button {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.orderFrontStandardAboutPanel(nil)
-            } label: {
-                Label("About MergeMole", systemImage: "info.circle")
-            }
-
-            Divider()
-
-            Button {
-                NSApp.terminate(nil)
-            } label: {
-                Label("Quit MergeMole", systemImage: "power")
-            }
-            .keyboardShortcut("q", modifiers: .command)
-        } label: {
-            Image(systemName: "ellipsis")
-                .rotationEffect(.degrees(90))
-        }
-        .menuStyle(.button)
-        .menuIndicator(.hidden)
-        .buttonStyle(HeaderButtonStyle(square: true))
-        .fixedSize()
-        .help("Settings")
-    }
-
-    // MARK: Content
-
-    @ViewBuilder
-    private var content: some View {
-        if !model.isGitHubConnected {
-            centered {
-                ContentUnavailableView {
-                    Label("Connect GitHub", systemImage: "point.3.connected.trianglepath.dotted")
-                } description: {
-                    Text("Add a GitHub token to see your pull requests.")
-                } actions: {
-                    SettingsLink { Text("Open Settings") }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.appAccent)
-                }
-            }
-        } else if model.isLoading && model.pullRequests.isEmpty {
-            centered { ProgressView("Loading pull requests…") }
-        } else if let error = model.loadError {
-            centered {
-                ContentUnavailableView("Couldn't load PRs", systemImage: "wifi.exclamationmark", description: Text(error))
-            }
-        } else if model.visiblePullRequests.isEmpty {
-            centered {
-                ContentUnavailableView("Nothing here", systemImage: "tray", description: Text("No pull requests in \(model.selectedTab.title)."))
-            }
-        } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(model.visiblePullRequests.enumerated()), id: \.element.id) { index, pr in
-                        if index > 0 { Hairline() }
-                        PRCard(pr: pr, verdict: model.verdictState(for: pr))
-                    }
-                }
-            }
-            .scrollContentBackground(.hidden)
+            .buttonStyle(SecondaryButtonStyle())
+            .padding(.top, Layout.generous)
         }
     }
 
-    private func centered<V: View>(@ViewBuilder _ content: () -> V) -> some View {
-        VStack { Spacer(); content(); Spacer() }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private var caughtUpScreen: some View {
+        StatusScreen(
+            title: "All caught up",
+            message: model.selectedTab.emptyMessage
+        ) {
+            StatusIcon(systemName: "tray", tint: .appTextSecondary)
+        } actions: {
+            EmptyView()
+        }
+    }
+
+    private var list: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(model.visiblePullRequests.enumerated()), id: \.element.id) { index, pr in
+                    if index > 0 { Hairline() }
+                    PRCard(pr: pr, verdict: model.verdictState(for: pr))
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    private var lastSyncedFootnote: String? {
+        guard let synced = model.lastSyncedAt else { return nil }
+        return "last synced \(synced.relativeShort) ago"
     }
 }
 
-#Preview {
+#Preview("Connected") {
     let secrets = InMemorySecretStore()
     secrets.set("preview-token", for: .githubToken)   // simulate connected
     return RootView()
@@ -144,6 +155,16 @@ struct RootView: View {
             prProvider: SamplePRProvider(),
             verdictEngine: SampleVerdictEngine(),   // canned verdicts (no Foundation Models in previews)
             secrets: secrets,
+            onboarded: true
+        ))
+}
+
+#Preview("Disconnected") {
+    RootView()
+        .environment(AppModel(
+            prProvider: SamplePRProvider(),
+            verdictEngine: SampleVerdictEngine(),
+            secrets: InMemorySecretStore(),   // no token → connect prompt
             onboarded: true
         ))
 }

@@ -14,4 +14,10 @@ enum Layout {
     static let accentBar: CGFloat = 3  // a card's priority edge-bar width
 
     static let controlHeight: CGFloat = 24  // header buttons share one height
+    static let controlRadius: CGFloat = 6   // …and one corner radius
+    static let headerHeight: CGFloat = 48   // the panel's top bar
+
+    /// The panel's left/right margin. The header, tab bar, and card content all
+    /// align to it, so everything shares one vertical edge.
+    static var margin: CGFloat { generous }
 }

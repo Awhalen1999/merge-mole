@@ -32,8 +32,10 @@ struct PRCard: View {
 
             content
                 .padding(.vertical, Layout.generous)
-                .padding(.leading, Layout.roomy)
-                .padding(.trailing, Layout.generous)
+                // Content text lands on Layout.margin: the gutter eats the rest, so
+                // titles align with the header brand and tab labels above.
+                .padding(.leading, Layout.margin - Layout.accentBar)
+                .padding(.trailing, Layout.margin)
         }
         .background(hovering ? Color.appText.opacity(0.04) : .clear)
         .contentShape(Rectangle())

@@ -25,7 +25,7 @@ struct TabBar: View {
                         tabButton(tab).id(tab.id)
                     }
                 }
-                .padding(.horizontal, Layout.roomy)
+                .padding(.horizontal, Layout.margin)
                 .padding(.vertical, Layout.base)
             }
             .onScrollGeometryChange(for: Edges.self) { geo in

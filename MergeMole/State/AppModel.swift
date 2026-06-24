@@ -50,6 +50,20 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// The empty-state line for this tab — why it's clear, plus the auto-refresh
+    /// reassurance. Lives next to `title` so a tab's copy stays in one place.
+    var emptyMessage: String {
+        let lead: String
+        switch self {
+        case .reviewRequested: lead = "No pull requests need your review right now."
+        case .assigned:        lead = "No pull requests are assigned to you right now."
+        case .created:         lead = "You don't have any open pull requests right now."
+        case .mentioned:       lead = "No pull requests mention you right now."
+        case .reviewed:        lead = "You're all caught up on reviews right now."
+        }
+        return "\(lead) New ones will appear here automatically."
+    }
+
     /// The PR relationship this tab surfaces.
     var relationship: PRRelationship {
         switch self {
@@ -91,6 +105,11 @@ final class AppModel {
     private let verdictCache = VerdictCache()
     private static let maxConcurrentVerdicts = 4
 
+    /// How long an open-panel refresh trusts the last sync before refetching.
+    /// Short enough to feel live, long enough that rapid open/close doesn't spam
+    /// GitHub. The manual Refresh button ignores it and always refetches.
+    private static let staleInterval: TimeInterval = 60
+
     /// Bumped on each recompute. An in-flight pass re-checks it after every await
     /// and bows out if a newer pass (e.g. the user just switched AI mode) has
     /// superseded it — so a stale engine never writes verdicts over the current one.
@@ -109,6 +128,9 @@ final class AppModel {
     private(set) var verdicts: [PullRequest.ID: VerdictState] = [:]
     private(set) var isLoading = false
     private(set) var loadError: String?
+    /// When the PR list last loaded successfully — shown in the error state so a
+    /// stale list reads as "here's how old this is," not just "it broke."
+    private(set) var lastSyncedAt: Date?
 
     var selectedTab: PRTab = .reviewRequested
 
@@ -358,6 +380,17 @@ final class AppModel {
 
     // MARK: Loading
 
+    /// The auto-refresh that fires when the panel opens. Skips the fetch if a load
+    /// is already in flight, or if we synced within `staleInterval` — so reopening
+    /// repeatedly stays cheap. Manual Refresh calls `load()` directly to force one.
+    func loadIfStale() async {
+        guard !isLoading else { return }
+        if let synced = lastSyncedAt, Date.now.timeIntervalSince(synced) < Self.staleInterval {
+            return
+        }
+        await load()
+    }
+
     func load() async {
         guard isGitHubConnected else { return }   // RootView shows the connect state
         isLoading = true
@@ -366,6 +399,7 @@ final class AppModel {
             let result = try await prProvider.fetchPullRequests()
             if let viewer = result.viewer { currentUser = viewer }
             pullRequests = result.pullRequests
+            lastSyncedAt = .now
             isLoading = false
             await recomputeVerdicts()
         } catch {
