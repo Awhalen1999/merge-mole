@@ -14,9 +14,11 @@ struct MergeMoleApp: App {
         // .window style gives a real SwiftUI panel under the menu-bar icon.
         // Animated icon states (mono → amber → red) come later via NSStatusItem
         // at Step 7; the systemImage is the placeholder until then.
-        MenuBarExtra("MergeMole", systemImage: "circle.grid.2x2") {
+        MenuBarExtra {
             RootView()
                 .environment(model)
+        } label: {
+            MenuBarLabel(model: model)
         }
         .menuBarExtraStyle(.window)
 
@@ -37,6 +39,21 @@ struct MergeMoleApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+        }
+    }
+}
+
+/// The menu-bar status item: the brand glyph plus a live count of PRs awaiting
+/// review. Reading `model.badgeCount` here ties the badge to the observable model,
+/// so it updates after every background refresh — no manual redraw needed. (The
+/// richer colored-icon/badge-bubble treatment lands later via `NSStatusItem`.)
+private struct MenuBarLabel: View {
+    let model: AppModel
+    var body: some View {
+        let count = model.badgeCount
+        HStack(spacing: 3) {
+            Image(systemName: count > 0 ? "circle.grid.2x2.fill" : "circle.grid.2x2")
+            if count > 0 { Text("\(count)") }
         }
     }
 }

@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+import SwiftUI
+import AppKit
+import Network
 
 /// How the user wants AI to run (chosen in Settings → AI). All three funnel
 /// through one `VerdictState` the card branches on, so they stay seamless.
@@ -13,7 +16,17 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
     var label: String {
         switch self {
         case .onDevice:     return "On-device"
-        case .bringYourOwn: return "Bring your own"
+        case .bringYourOwn: return "Custom model"
+        case .off:          return "Off"
+        }
+    }
+
+    /// The radio-card heading in Settings — a touch richer than the short `label`
+    /// the onboarding segmented control uses.
+    var cardTitle: String {
+        switch self {
+        case .onDevice:     return "On-device · Apple Intelligence"
+        case .bringYourOwn: return "Custom model"
         case .off:          return "Off"
         }
     }
@@ -21,9 +34,74 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
     /// One-line explanation for the Settings / onboarding UI.
     var detail: String {
         switch self {
-        case .onDevice:     return "Apple's on-device model. Free, private, no key. Needs Apple Silicon."
-        case .bringYourOwn: return "Use your own API key + endpoint — a hosted model or local Ollama."
-        case .off:          return "No AI. Cards show data only — title, repo, size, CI. Still a fast list."
+        case .onDevice:     return "Private. Runs locally on this Mac — no PR data leaves your machine."
+        case .bringYourOwn: return "Bring your own — OpenAI, Anthropic, or any OpenAI-compatible endpoint."
+        case .off:          return "Skip AI triage. MergeMole just lists and organizes your pull requests."
+        }
+    }
+}
+
+/// How often the panel refetches in the background (General → Startup). `.manual`
+/// turns the scheduler off — refresh then happens only on open or via the button.
+enum RefreshInterval: String, CaseIterable, Identifiable, Sendable {
+    case manual, every5, every15, every30, hourly
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .manual:  return "Manually"
+        case .every5:  return "Every 5 minutes"
+        case .every15: return "Every 15 minutes"
+        case .every30: return "Every 30 minutes"
+        case .hourly:  return "Every hour"
+        }
+    }
+
+    /// Seconds between refreshes, or nil for manual (no background activity).
+    var seconds: TimeInterval? {
+        switch self {
+        case .manual:  return nil
+        case .every5:  return 300
+        case .every15: return 900
+        case .every30: return 1800
+        case .hourly:  return 3600
+        }
+    }
+}
+
+/// A Custom-model provider preset (Providers → AI Triage). Picking one prefills the
+/// base URL; the engine is the same OpenAI-compatible client regardless, so
+/// "Anthropic" simply points at Anthropic's OpenAI-compatible endpoint.
+enum BYOProvider: String, CaseIterable, Identifiable, Sendable {
+    case openAI, anthropic, compatible
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .openAI:     return "OpenAI"
+        case .anthropic:  return "Anthropic"
+        case .compatible: return "OpenAI-compatible"
+        }
+    }
+
+    /// Base URL to prefill when chosen. `nil` for the open-ended case — the user
+    /// supplies their own (OpenRouter, Together, Ollama, LM Studio, …).
+    var defaultEndpoint: String? {
+        switch self {
+        case .openAI:     return "https://api.openai.com/v1"
+        case .anthropic:  return "https://api.anthropic.com/v1"
+        case .compatible: return nil
+        }
+    }
+
+    /// Placeholder model name for the field — a hint, not a constraint.
+    var modelPlaceholder: String {
+        switch self {
+        case .openAI:     return "gpt-4o-mini"
+        case .anthropic:  return "claude-sonnet-4-6"
+        case .compatible: return "llama3.1  •  mistral-large"
         }
     }
 }
@@ -72,6 +150,30 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         case .created:         return .created
         case .mentioned:       return .mentioned
         case .reviewed:        return .reviewed
+        }
+    }
+
+    /// The identity dot beside the tab in Settings. A fixed hue per tab, distinct
+    /// from the brand accent (which means selection, never identity).
+    var dotColor: Color {
+        switch self {
+        case .reviewRequested: return .appBlue
+        case .assigned:        return .appPurple
+        case .created:         return .appGreen
+        case .mentioned:       return .appAmber
+        case .reviewed:        return .appTextTertiary
+        }
+    }
+
+    /// The Settings row's secondary line. The actionable tabs read as a live count;
+    /// Reviewed has no "to clear" count, so it describes itself instead.
+    func subtitle(count: Int) -> String {
+        switch self {
+        case .reviewRequested: return "\(count) awaiting your review"
+        case .assigned:        return "\(count) assigned to you"
+        case .created:         return "\(count) you opened"
+        case .mentioned:       return "\(count) mention\(count == 1 ? "" : "s")"
+        case .reviewed:        return "Recently reviewed by you"
         }
     }
 
@@ -134,6 +236,13 @@ final class AppModel {
 
     var selectedTab: PRTab = .reviewRequested
 
+    /// The user's tab order (General → Tabs, drag to reorder). Persisted as raw
+    /// values; on load we append any tabs a newer version added so they're never
+    /// silently dropped, and discard any we no longer ship.
+    private(set) var tabOrder: [PRTab] {
+        didSet { UserDefaults.standard.set(tabOrder.map(\.rawValue), forKey: Key.tabOrder) }
+    }
+
     /// Tabs the user has hidden in Settings. Persisted; the panel shows the rest.
     /// We store the *hidden* set so a tab added in a future version shows by default
     /// rather than being silently suppressed by an old saved list.
@@ -147,8 +256,11 @@ final class AppModel {
         }
     }
 
-    /// Tabs to show, in canonical order.
-    var visibleTabs: [PRTab] { PRTab.allCases.filter { !hiddenTabs.contains($0) } }
+    /// Tabs the panel shows, in the user's order.
+    var visibleTabs: [PRTab] { tabOrder.filter { !hiddenTabs.contains($0) } }
+
+    /// Every tab in the user's order — the Settings list (shown *and* hidden).
+    var orderedTabs: [PRTab] { tabOrder }
 
     /// Show/hide a tab. Refuses to hide the last visible one — the bar always has
     /// at least one tab.
@@ -158,6 +270,16 @@ final class AppModel {
         } else if hiddenTabs.count < PRTab.allCases.count - 1 {
             hiddenTabs.insert(tab)
         }
+    }
+
+    /// Reorder by dropping `dragged` onto `target`'s slot (called live during a
+    /// Settings drag). Mirrors `List.onMove` index math so the row lands where the
+    /// cursor is, whether it moved up or down.
+    func moveTab(_ dragged: PRTab, to target: PRTab) {
+        guard dragged != target,
+              let from = tabOrder.firstIndex(of: dragged),
+              let to = tabOrder.firstIndex(of: target) else { return }
+        tabOrder.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
     }
 
     // MARK: Persisted preferences
@@ -180,6 +302,24 @@ final class AppModel {
         didSet { UserDefaults.standard.set(byoModel, forKey: Key.byoModel) }
     }
 
+    /// The Custom-model provider preset. Persisted; selecting one prefills the
+    /// endpoint via `applyProviderPreset()`.
+    var byoProvider: BYOProvider {
+        didSet {
+            guard byoProvider != oldValue else { return }
+            UserDefaults.standard.set(byoProvider.rawValue, forKey: Key.byoProvider)
+        }
+    }
+
+    /// How often the background scheduler refetches. Changing it reschedules.
+    var refreshInterval: RefreshInterval {
+        didSet {
+            guard refreshInterval != oldValue else { return }
+            UserDefaults.standard.set(refreshInterval.rawValue, forKey: Key.refreshInterval)
+            startAutoRefresh()
+        }
+    }
+
     private(set) var hasCompletedOnboarding: Bool
     private(set) var isGitHubConnected: Bool
 
@@ -190,7 +330,10 @@ final class AppModel {
         static let aiMode = "aiMode"
         static let byoEndpoint = "byoEndpoint"
         static let byoModel = "byoModel"
+        static let byoProvider = "byoProvider"
+        static let refreshInterval = "refreshInterval"
         static let hiddenTabs = "hiddenTabs"
+        static let tabOrder = "tabOrder"
     }
 
     // MARK: Init
@@ -212,8 +355,19 @@ final class AppModel {
         self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
         self.byoEndpoint = defaults.string(forKey: Key.byoEndpoint) ?? ""
         self.byoModel = defaults.string(forKey: Key.byoModel) ?? ""
+        self.byoProvider = BYOProvider(rawValue: defaults.string(forKey: Key.byoProvider) ?? "") ?? .openAI
+        self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
+
+        // Restore the saved tab order, appending any tabs added since (so a newer
+        // build's tabs still appear) and dropping any we no longer ship.
+        if let savedOrder = defaults.array(forKey: Key.tabOrder) as? [String] {
+            let restored = savedOrder.compactMap(PRTab.init(rawValue:))
+            self.tabOrder = restored + PRTab.allCases.filter { !restored.contains($0) }
+        } else {
+            self.tabOrder = PRTab.allCases
+        }
 
         // No saved list (first launch / fresh install) → hide the opt-in tabs;
         // otherwise honor exactly what the user chose.
@@ -225,6 +379,10 @@ final class AppModel {
         if hiddenTabs.contains(selectedTab) {
             selectedTab = visibleTabs.first ?? .reviewRequested
         }
+
+        // Background freshness: periodic refetch + refresh on wake / network return.
+        observeSystemEvents()
+        startAutoRefresh()
     }
 
     // MARK: GitHub connection
@@ -240,6 +398,7 @@ final class AppModel {
             secrets.set(token, for: .githubToken)
             isGitHubConnected = true
             currentUser = login
+            startAutoRefresh()   // now that we're connected, arm the periodic refetch
             await load()
             return .connected(login: login)
         } catch {
@@ -253,6 +412,7 @@ final class AppModel {
         pullRequests = []
         verdicts = [:]
         loadError = nil
+        startAutoRefresh()   // cancels the scheduler (no-op while disconnected)
     }
 
     // MARK: BYO API key (non-displayed; lives in Keychain)
@@ -262,6 +422,16 @@ final class AppModel {
     func setBYOAPIKey(_ key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         secrets.set(trimmed.isEmpty ? nil : trimmed, for: .remoteModelAPIKey)
+    }
+
+    /// Whether a Custom-model key is stored — drives the "key saved" hint without
+    /// ever reading the secret back into the UI.
+    var hasBYOKey: Bool { !byoAPIKey.isEmpty }
+
+    /// Prefill the endpoint for the chosen provider preset. Leaves a user-entered
+    /// endpoint alone for the open-ended "OpenAI-compatible" case.
+    func applyProviderPreset() {
+        if let endpoint = byoProvider.defaultEndpoint { byoEndpoint = endpoint }
     }
 
     // MARK: Onboarding
@@ -294,6 +464,10 @@ final class AppModel {
     var tabCounts: [PRTab: Int] {
         Dictionary(uniqueKeysWithValues: PRTab.allCases.map { ($0, pullRequests(for: $0).count) })
     }
+
+    /// The number on the menu-bar icon: PRs awaiting your review — the one bucket
+    /// worth surfacing without opening the panel. Independent of tab visibility.
+    var badgeCount: Int { pullRequests(for: .reviewRequested).count }
 
     func verdictState(for pr: PullRequest) -> VerdictState {
         verdicts[pr.id] ?? (aiEnabled ? .loading : .off)
@@ -376,6 +550,63 @@ final class AppModel {
     /// Re-run verdicts with the current engine (e.g. after BYO config changes).
     func refreshVerdicts() async {
         await recomputeVerdicts()
+    }
+
+    // MARK: Background refresh
+
+    /// Energy-aware periodic refetch. `NSBackgroundActivityScheduler` lets macOS
+    /// pick the moment (coalesced with other wakeups, deferred under Low Power /
+    /// thermal pressure) instead of us firing a hard timer — the right tool for a
+    /// menu-bar agent polling every few minutes. Recreated when the interval
+    /// changes; nil while set to Manually or disconnected.
+    private var refreshScheduler: NSBackgroundActivityScheduler?
+
+    /// Watches connectivity so a refetch fires the moment the network returns,
+    /// rather than waiting for the next scheduled tick.
+    private let pathMonitor = NWPathMonitor()
+    private var wasOffline = false
+
+    /// (Re)arm the periodic refresh for the current interval. A no-op (and cancel)
+    /// while disconnected or set to Manually.
+    func startAutoRefresh() {
+        refreshScheduler?.invalidate()
+        refreshScheduler = nil
+        guard isGitHubConnected, let seconds = refreshInterval.seconds else { return }
+
+        let scheduler = NSBackgroundActivityScheduler(identifier: "app.mergemole.refresh")
+        scheduler.repeats = true
+        scheduler.interval = seconds
+        scheduler.tolerance = min(seconds * 0.2, 300)   // slack so macOS can batch the wakeup
+        scheduler.qualityOfService = .utility
+        scheduler.schedule { [weak self] completion in
+            // Fired on a background queue at a system-chosen time; hop to the main
+            // actor to read model state and run the fetch.
+            Task { @MainActor in
+                if let self, self.isGitHubConnected, !self.isLoading { await self.load() }
+                completion(.finished)
+            }
+        }
+        refreshScheduler = scheduler
+    }
+
+    /// Refresh on wake and when connectivity is restored — the two moments a stale
+    /// list is most likely and the next scheduled tick may still be far off.
+    private func observeSystemEvents() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.loadIfStale() }
+        }
+
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor in
+                guard let self else { return }
+                let online = path.status == .satisfied
+                if online, self.wasOffline, self.isGitHubConnected { await self.load() }
+                self.wasOffline = !online
+            }
+        }
+        pathMonitor.start(queue: DispatchQueue.global(qos: .utility))
     }
 
     // MARK: Loading

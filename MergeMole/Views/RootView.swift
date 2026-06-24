@@ -23,7 +23,10 @@ struct RootView: View {
             content(state)
         }
         .frame(width: 400, height: 600)
-        .background(Color.appBackground)
+        // Frosted vibrancy instead of a solid fill — the native menu look. The PR
+        // rows are transparent, so the glass reads straight through; the accent
+        // stays reserved for selection, never the backdrop.
+        .background(VisualEffectBackground())
         .task { await model.loadIfStale() }   // refresh on open, but not if just synced
     }
 
