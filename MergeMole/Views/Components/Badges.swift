@@ -10,17 +10,21 @@ struct Hairline: View {
     }
 }
 
-/// A small rounded label. The one primitive every status badge is built from,
-/// so spacing and shape stay consistent across the card.
+/// A small rounded chip. Two fills: a quiet *tint* (default) for neutral chips
+/// like labels and a soft-amber priority, or a *solid* fill for a priority that
+/// needs to shout. The one primitive the chips are built from, so shape and
+/// spacing stay consistent across the card.
 struct Pill: View {
     let text: String
     var systemImage: String?
     var tint: Color
+    var filled: Bool
 
-    init(_ text: String, systemImage: String? = nil, tint: Color = .appTextSecondary) {
+    init(_ text: String, systemImage: String? = nil, tint: Color = .appTextSecondary, filled: Bool = false) {
         self.text = text
         self.systemImage = systemImage
         self.tint = tint
+        self.filled = filled
     }
 
     var body: some View {
@@ -28,23 +32,82 @@ struct Pill: View {
             if let systemImage { Image(systemName: systemImage) }
             Text(text)
         }
-        .font(.caption2.weight(.medium))
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .foregroundStyle(tint)
-        .background(tint.opacity(0.14), in: Capsule())
+        .font(.caption2.weight(filled ? .semibold : .medium))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
+        .foregroundStyle(filled ? Color.white : tint)
+        .background(filled ? tint : tint.opacity(0.14), in: Capsule())
     }
 }
 
-/// Native, AI-free size — always neutral; it's reference data, not a signal.
-struct SizeBadge: View {
-    let bucket: SizeBucket
-    var body: some View { Pill(bucket.label, tint: .appTextSecondary) }
+/// An inline status: a small leading marker — a filled dot, a hollow ring, or an
+/// SF Symbol — plus a short tinted label. Replaces the old status *pills*; the
+/// redesign reads as a quiet status line rather than a row of chips.
+struct StatusItem: View {
+    enum Marker { case dot, ring, symbol(String) }
+    let marker: Marker
+    let text: String
+    var tint: Color = .appTextSecondary
+
+    var body: some View {
+        HStack(spacing: Layout.tight) {
+            marquee
+            Text(text)
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(tint)
+    }
+
+    @ViewBuilder private var marquee: some View {
+        switch marker {
+        case .dot:
+            Circle().fill(tint).frame(width: 6, height: 6)
+        case .ring:
+            Circle().strokeBorder(tint, lineWidth: 1.2).frame(width: 7, height: 7)
+        case .symbol(let name):
+            Image(systemName: name).font(.caption2.weight(.bold))
+        }
+    }
 }
 
-/// The signature feature: AI effort. Intensity reads from the gauge needle, not
-/// a hue — keeping it clear of the red/amber/green status spectrum. Carries a
-/// touch more weight (primary ink) than the neutral badges around it.
+/// Five ascending bars whose first `filled` are inked — a compact magnitude glyph
+/// for PR size. The rest sit at a faint tint so the scale always reads as "of 5".
+struct SizeBars: View {
+    let filled: Int
+    private let heights: [CGFloat] = [4, 6, 8, 10, 12]
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 1.5) {
+            ForEach(0..<5, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 0.75)
+                    .fill(i < filled ? Color.appText : Color.appText.opacity(0.22))
+                    .frame(width: 2.5, height: heights[i])
+            }
+        }
+    }
+}
+
+/// Native, AI-free size — a quiet neutral chip pairing the bar glyph with a
+/// spelled-out label. Always present; it's reference data, not a signal.
+struct SizeBadge: View {
+    let bucket: SizeBucket
+    var body: some View {
+        HStack(spacing: 5) {
+            SizeBars(filled: bucket.barCount)
+            Text(bucket.longLabel)
+        }
+        .font(.caption2.weight(.medium))
+        .foregroundStyle(.appTextSecondary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(Color.appText.opacity(0.06), in: Capsule())
+    }
+}
+
+/// The signature feature: AI effort. Intensity reads from the gauge needle, not a
+/// hue — keeping it clear of the red/amber/green status spectrum. Carries a touch
+/// more weight (primary ink) than the neutral chips around it. Lives beside the
+/// raw line counts, never instead of them — the contrast is the feature.
 struct EffortBadge: View {
     let effort: EffortTier
     var body: some View { Pill(effort.label, systemImage: gauge, tint: .appText) }
@@ -60,20 +123,15 @@ struct EffortBadge: View {
     }
 }
 
-/// Priority colors only when it wants attention — high/urgent. Low/normal stay
-/// quiet (the list is already priority-sorted). Never blue: that's the accent.
+/// Priority shouts only when it wants attention — high/urgent. Urgent is a solid
+/// red chip; high a softer amber tint. Low/normal don't render (the list is
+/// already priority-sorted). Never blue: that's the accent.
 struct PriorityBadge: View {
     let priority: Priority
     var body: some View {
-        Pill(priority.label, systemImage: "flag.fill", tint: tint)
-    }
-    private var tint: Color {
-        switch priority {
-        case .low:    return .appTextTertiary
-        case .normal: return .appTextSecondary
-        case .high:   return .appAmber
-        case .urgent: return .appRed
-        }
+        Pill(priority.label,
+             tint: priority == .urgent ? .appRed : .appAmber,
+             filled: priority == .urgent)
     }
 }
 
@@ -81,9 +139,9 @@ struct ReviewBadge: View {
     let state: PullRequest.ReviewState
     var body: some View {
         switch state {
-        case .pending:          Pill("Review pending", systemImage: "clock", tint: .appTextSecondary)
-        case .changesRequested: Pill("Changes requested", systemImage: "exclamationmark.bubble", tint: .appAmber)
-        case .approved:         Pill("Approved", systemImage: "checkmark.seal", tint: .appGreen)
+        case .pending:          StatusItem(marker: .ring, text: "Review pending", tint: .appTextTertiary)
+        case .changesRequested: StatusItem(marker: .symbol("xmark"), text: "Changes requested", tint: .appRed)
+        case .approved:         StatusItem(marker: .dot, text: "Approved", tint: .appGreen)
         }
     }
 }
@@ -93,21 +151,21 @@ struct ChecksBadge: View {
     var body: some View {
         switch state {
         case .unknown: EmptyView()
-        case .pending: Pill("CI running", systemImage: "circle.dashed", tint: .appTextSecondary)
-        case .passing: Pill("CI green", systemImage: "checkmark.circle", tint: .appGreen)
-        case .failing: Pill("CI failing", systemImage: "xmark.circle", tint: .appRed)
+        case .pending: StatusItem(marker: .dot, text: "Checks running", tint: .appAmber)
+        case .passing: StatusItem(marker: .dot, text: "Checks passing", tint: .appGreen)
+        case .failing: StatusItem(marker: .dot, text: "Checks failing", tint: .appRed)
         }
     }
 }
 
 /// Only speaks up when GitHub says the branches conflict. A clean or not-yet-
-/// computed merge isn't worth a pill. Amber, not red — it's "needs a rebase"
-/// (author action), the same weight as changes-requested; red stays for failing CI.
+/// computed merge isn't worth a line. Red — it's a hard blocker to merging,
+/// same weight as failing CI.
 struct ConflictBadge: View {
     let state: PullRequest.MergeState
     var body: some View {
         if state == .conflicting {
-            Pill("Conflicts", systemImage: "exclamationmark.triangle", tint: .appAmber)
+            StatusItem(marker: .dot, text: "Merge conflict", tint: .appRed)
         }
     }
 }
@@ -119,19 +177,19 @@ struct ApprovalsBadge: View {
     let count: Int
     var body: some View {
         if count > 0 {
-            Pill("\(count) approved", systemImage: "checkmark.circle.fill", tint: .appGreen)
+            StatusItem(marker: .dot, text: "\(count) approved", tint: .appGreen)
                 .help("\(count) approval\(count == 1 ? "" : "s") so far")
         }
     }
 }
 
-/// Head branch trails base — wants an update/rebase before it can merge. Amber,
-/// like Conflicts: author action, not a hard failure. Silent otherwise.
+/// Head branch trails base — wants an update/rebase before it can merge. Amber:
+/// author action, not a hard failure. Silent otherwise.
 struct BehindBadge: View {
     let isBehind: Bool
     var body: some View {
         if isBehind {
-            Pill("Behind base", systemImage: "arrow.down", tint: .appAmber)
+            StatusItem(marker: .symbol("arrow.down"), text: "Behind base", tint: .appAmber)
                 .help("This branch is behind its base — needs an update or rebase")
         }
     }
@@ -143,7 +201,7 @@ struct FirstTimerBadge: View {
     let isFirstTime: Bool
     var body: some View {
         if isFirstTime {
-            Pill("First-timer", systemImage: "hand.wave", tint: .appTextSecondary)
+            StatusItem(marker: .symbol("hand.wave"), text: "First-timer", tint: .appTextTertiary)
                 .help("First-time contributor to this repository")
         }
     }
@@ -153,9 +211,16 @@ struct ForkBadge: View {
     let isFromFork: Bool
     var body: some View {
         if isFromFork {
-            Pill("Fork", systemImage: "arrow.triangle.branch", tint: .appTextTertiary)
+            StatusItem(marker: .symbol("arrow.triangle.branch"), text: "Fork", tint: .appTextTertiary)
                 .help("Opened from a fork")
         }
+    }
+}
+
+/// A work-in-progress PR. Quiet hollow ring, neutral — it's a state, not a problem.
+struct DraftBadge: View {
+    var body: some View {
+        StatusItem(marker: .ring, text: "Draft", tint: .appTextTertiary)
     }
 }
 
@@ -167,16 +232,15 @@ struct LabelPill: View {
 }
 
 /// The actionable review signal: how many conversations still need addressing.
-/// Amber, like the other "needs attention" pills. Silent when nothing's open —
-/// a PR with no unresolved threads doesn't need to say anything. The resolved
-/// count lives in the tooltip so the progress context is a hover away.
+/// A hollow amber ring, like the other "needs attention" cues. Silent when
+/// nothing's open. The resolved count lives in the tooltip, a hover away.
 struct ConversationsBadge: View {
     let resolved: Int
     let unresolved: Int
 
     var body: some View {
         if unresolved > 0 {
-            Pill("\(unresolved) unresolved", systemImage: "bubble.left.fill", tint: .appAmber)
+            StatusItem(marker: .ring, text: "\(unresolved) unresolved", tint: .appAmber)
                 .help("\(unresolved) unresolved of \(resolved + unresolved) review conversations")
         }
     }

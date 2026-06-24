@@ -5,20 +5,28 @@ import SwiftUI
 /// the Flexoki neutral tone. Keeps them feeling tappable and consistent — no bare
 /// icons floating in the header.
 struct HeaderButtonStyle: ButtonStyle {
+    /// A square icon button (the settings menu) rather than a text pill — same
+    /// height as the others, with equal width so it reads as a tidy square.
+    var square = false
+
     func makeBody(configuration: Configuration) -> some View {
-        Chrome(configuration: configuration)
+        Chrome(configuration: configuration, square: square)
     }
 
     private struct Chrome: View {
         let configuration: ButtonStyleConfiguration
+        let square: Bool
         @State private var hovering = false
 
         var body: some View {
             configuration.label
                 .font(.callout)
                 .foregroundStyle(hovering ? Color.appText : .appTextSecondary)
-                .padding(.horizontal, Layout.snug)
-                .padding(.vertical, Layout.tight)
+                // One shared height keeps every header button level; a square
+                // button takes a matching minWidth so it comes out a clean square.
+                .frame(height: Layout.controlHeight)
+                .frame(minWidth: square ? Layout.controlHeight : nil)
+                .padding(.horizontal, square ? 0 : Layout.snug)
                 .background(
                     background,
                     in: RoundedRectangle(cornerRadius: 6)

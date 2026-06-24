@@ -81,11 +81,12 @@ struct RootView: View {
             }
             .keyboardShortcut("q", modifiers: .command)
         } label: {
-            Image(systemName: "gearshape")
+            Image(systemName: "ellipsis")
+                .rotationEffect(.degrees(90))
         }
         .menuStyle(.button)
         .menuIndicator(.hidden)
-        .buttonStyle(HeaderButtonStyle())
+        .buttonStyle(HeaderButtonStyle(square: true))
         .fixedSize()
         .help("Settings")
     }
@@ -118,12 +119,12 @@ struct RootView: View {
             }
         } else {
             ScrollView {
-                LazyVStack(spacing: Layout.roomy) {
-                    ForEach(model.visiblePullRequests) { pr in
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(model.visiblePullRequests.enumerated()), id: \.element.id) { index, pr in
+                        if index > 0 { Hairline() }
                         PRCard(pr: pr, verdict: model.verdictState(for: pr))
                     }
                 }
-                .padding(Layout.roomy)
             }
             .scrollContentBackground(.hidden)
         }

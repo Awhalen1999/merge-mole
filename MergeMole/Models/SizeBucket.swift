@@ -33,4 +33,18 @@ enum SizeBucket: String, CaseIterable, Sendable, Comparable {
     }
 
     var label: String { rawValue }
+
+    /// Spelled-out size for the card's size badge ("Extra Small" … "Extra Large").
+    var longLabel: String {
+        switch self {
+        case .xs: return "Extra Small"
+        case .s:  return "Small"
+        case .m:  return "Medium"
+        case .l:  return "Large"
+        case .xl: return "Extra Large"
+        }
+    }
+
+    /// How many of the five magnitude bars to ink (xs → 1 … xl → 5).
+    var barCount: Int { (Self.allCases.firstIndex(of: self) ?? 0) + 1 }
 }
