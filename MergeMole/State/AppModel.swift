@@ -386,9 +386,21 @@ final class AppModel {
     func loadIfStale() async {
         guard !isLoading else { return }
         if let synced = lastSyncedAt, Date.now.timeIntervalSince(synced) < Self.staleInterval {
+            // The list is fresh, but a previous open may have been closed mid-analysis.
+            // Resume any verdicts still pending — no network, just the model.
+            if hasPendingVerdicts { await recomputeVerdicts() }
             return
         }
         await load()
+    }
+
+    /// Any visible PR still waiting on a verdict — e.g. analysis was cut short when
+    /// the panel closed. Lets a fresh reopen finish the work without refetching.
+    private var hasPendingVerdicts: Bool {
+        pullRequests.contains { pr in
+            if case .loading = verdictState(for: pr) { return true }
+            return false
+        }
     }
 
     func load() async {
@@ -432,33 +444,45 @@ final class AppModel {
                 stale.append(pr)
             }
         }
-        guard !stale.isEmpty else { return }
 
-        // Bounded concurrency: the on-device model shouldn't be hit with dozens
-        // of requests at once. Cards fill in as each verdict lands.
-        await withTaskGroup(of: (PullRequest, VerdictState).self) { group in
-            var next = 0
-            func schedule() {
-                guard next < stale.count else { return }
-                let pr = stale[next]
-                next += 1
-                group.addTask {
-                    do { return (pr, .ready(try await engine.verdict(for: pr))) }
-                    catch { return (pr, .failed("Couldn't analyze this PR.")) }
+        var stored = false
+        if !stale.isEmpty {
+            // Bounded concurrency: the on-device model shouldn't be hit with dozens
+            // of requests at once. Cards fill in as each verdict lands.
+            await withTaskGroup(of: (PullRequest, VerdictState).self) { group in
+                var next = 0
+                func schedule() {
+                    // Stop feeding the model once this pass is cancelled (the panel
+                    // closed): in-flight verdicts still finish and cache, but nothing
+                    // new starts — a cold boot doesn't burn 25 analyses you closed on.
+                    guard !Task.isCancelled, next < stale.count else { return }
+                    let pr = stale[next]
+                    next += 1
+                    group.addTask {
+                        do { return (pr, .ready(try await engine.verdict(for: pr))) }
+                        catch { return (pr, .failed("Couldn't analyze this PR.")) }
+                    }
+                }
+                for _ in 0..<min(Self.maxConcurrentVerdicts, stale.count) { schedule() }
+                for await (pr, state) in group {
+                    // A newer recompute superseded us (mode/config changed): drain the
+                    // in-flight tasks without writing, and schedule no more.
+                    guard generation == recomputeGeneration else { continue }
+                    verdicts[pr.id] = state
+                    if case .ready(let verdict) = state {
+                        verdictCache.store(verdict, for: pr, engine: tag)
+                        stored = true
+                    }
+                    schedule()
                 }
             }
-            for _ in 0..<min(Self.maxConcurrentVerdicts, stale.count) { schedule() }
-            for await (pr, state) in group {
-                // A newer recompute superseded us (mode/config changed): drain the
-                // in-flight tasks without writing, and schedule no more.
-                guard generation == recomputeGeneration else { continue }
-                verdicts[pr.id] = state
-                if case .ready(let verdict) = state { verdictCache.store(verdict, for: pr, engine: tag) }
-                schedule()
-            }
+            guard generation == recomputeGeneration else { return }
         }
-        guard generation == recomputeGeneration else { return }
-        verdictCache.persist()
+
+        // Forget PRs that are gone (closed/merged), then save — but only when the
+        // cache actually changed, so a fully-cached reopen does no disk write.
+        let pruned = verdictCache.prune(toCurrent: pullRequests)
+        if stored || pruned { verdictCache.persist() }
     }
 
     private func priority(of pr: PullRequest) -> Priority {

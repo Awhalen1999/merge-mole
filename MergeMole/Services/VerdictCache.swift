@@ -34,6 +34,22 @@ final class VerdictCache {
         entries[Self.key(pr, engine)] = Entry(signature: VerdictInput(pr).signature, verdict: verdict)
     }
 
+    /// Drop entries for PRs that are no longer present (closed, merged, or filtered
+    /// out) so the file can't grow without bound. Entries are kept across every
+    /// engine tag for the PRs that *are* present, so switching engines back stays
+    /// instant. Returns whether anything changed, so callers can skip a needless
+    /// write. The key is `engine␟prID`, so the id is the part after the separator.
+    @discardableResult
+    func prune(toCurrent prs: [PullRequest]) -> Bool {
+        let liveIDs = Set(prs.map(\.id))
+        let before = entries.count
+        entries = entries.filter { key, _ in
+            guard let id = key.split(separator: "\u{1F}").last else { return false }
+            return liveIDs.contains(String(id))
+        }
+        return entries.count != before
+    }
+
     private static func key(_ pr: PullRequest, _ engine: String) -> String {
         "\(engine)\u{1F}\(pr.id)"
     }

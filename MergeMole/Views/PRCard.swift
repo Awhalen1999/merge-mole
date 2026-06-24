@@ -150,9 +150,11 @@ struct PRCard: View {
         FlowLayout(spacing: Layout.base) {
             if case .ready(let v) = verdict { EffortBadge(effort: v.effort) }
 
-            (Text("+\(pr.additions)").foregroundStyle(Color.appGreen)
-             + Text(" −\(pr.deletions)").foregroundStyle(Color.appRed))
-                .font(.caption.monospacedDigit())
+            HStack(spacing: Layout.tight) {
+                Text("+\(pr.additions)").foregroundStyle(Color.appGreen)
+                Text("−\(pr.deletions)").foregroundStyle(Color.appRed)
+            }
+            .font(.caption.monospacedDigit())
 
             if pr.commitCount > 0 {
                 Text("\(pr.commitCount) commits")
