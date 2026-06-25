@@ -113,12 +113,9 @@ struct OnboardingView: View {
                 .disabled(connecting || GitHubToken.sanitize(token).isEmpty)
 
                 if connecting {
-                    Label("Verifying…", systemImage: "ellipsis")
-                        .font(.caption).foregroundStyle(.appTextSecondary)
+                    InlineStatus(kind: .progress("Verifying…"))
                 } else if let connectError {
-                    Label(connectError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption).foregroundStyle(.appAmber)
-                        .multilineTextAlignment(.center)
+                    InlineStatus(kind: .error(connectError))
                 }
 
                 Link("Create a token (scopes: repo, read:org)",
@@ -152,6 +149,13 @@ struct OnboardingView: View {
                         model.aiMode = mode
                     }
                 }
+            }
+            if model.aiMode == .bringYourOwn {
+                Label("Add your endpoint and key in Settings → Providers to finish setup.",
+                      systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.appTextSecondary)
+                    .multilineTextAlignment(.center)
             }
             Spacer()
         }
@@ -326,21 +330,6 @@ private struct ProgressDots: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: current)
-    }
-}
-
-private extension View {
-    /// The shared surface card — `appSurface` fill, hairline border, card radius.
-    /// `padded` adds the standard inner inset; pass `false` for full-bleed row lists.
-    func cardSurface(padded: Bool = true) -> some View {
-        frame(maxWidth: .infinity, alignment: .leading)
-            .padding(padded ? Layout.roomy : 0)
-            .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
-            .clipShape(RoundedRectangle(cornerRadius: Layout.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Layout.cardRadius)
-                    .strokeBorder(Color.appHairline, lineWidth: 1)
-            )
     }
 }
 

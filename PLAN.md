@@ -45,9 +45,18 @@ Build roughly one step at a time. Each should build and run before moving on.
 - [x] 7. Cache — `VerdictCache` (JSON on disk, keyed by engine + a content
        signature that includes the head commit SHA); unchanged PRs served
        instantly, model re-runs on any new commit or edited metadata
-- [ ] 8. Menu-bar icon states (mono → amber → red), red badge, one signature polish
-- [ ] UI pass — visual redesign once the logic is settled (user-driven; the data
-      shown can grow/shrink to fit it)
+- [x] 8. Auto-refresh + badge — energy-aware background refresh
+       (`NSBackgroundActivityScheduler`, plus refresh-on-wake and -on-network-return;
+       interval set in Settings → General). The menu-bar item shows a live count of
+       review-requested PRs (`AppModel.badgeCount`).
+- [x] UI pass — full visual redesign on a native-macOS palette: a Transparent/Solid
+       panel backdrop, a 3-tab Settings window, and a 5-step onboarding flow.
+       See **Design language** and **Onboarding & Settings** below.
+- [ ] 9. Menu-bar polish — move to `NSStatusItem` for a colored icon
+       (mono → amber → red) and a red badge bubble; the live count already feeds it.
+- [ ] 10. Test target — unit tests over the pure logic (`VerdictInput.signature`,
+       `EffortTier`/`Priority(wire:)`, `SizeBucket`, `PRTab` order restore,
+       `VerdictCache.prune`, `RemoteVerdictEngine.completionsURL`, the GraphQL merge).
 
 ## Structure (the seams)
 Files live under `MergeMole/` (file-system-synchronized — drop in a file and Xcode
@@ -90,60 +99,77 @@ Handling:
   another engine's output.
 
 ## Design language
-Feel target: **Obsidian + Xcode**, on the **Flexoki** palette (by Obsidian's
-creator Steph Ango — same DNA). Warm paper/ink neutrals carry the layout; color
-is used sparingly and only where it means something.
+Feel target: a **native macOS app** — System-Settings-grade neutrals and controls,
+with one brand accent. Color is used sparingly and only where it means something.
+Follows the **system appearance** (no in-app theme switch); every token is light/dark
+adaptive.
 
-- **Primary accent: Flexoki Blue** (`#205EA6` light / `#4385BE` dark). Reserved
-  for interactive + selection state only — never status, so it can't be mistaken
-  for urgency. Xcode-native, calm.
-- **Status is reserved**: red / amber / green carry CI, review, and the
-  mono→amber→red escalation. The accent stays out of that lane.
-- **Tokens, not hex**: `DesignSystem/Color+Flexoki.swift` holds the raw ramp plus
-  *semantic* tokens (`.appAccent`, `.appBackground`, `.appSurface`, `.appText`,
-  `.appTextSecondary`, `.appHairline`, `.appRed/Amber/Green`). Views reference the
-  semantic names — a re-tune touches one file. AccentColor asset is set to blue so
-  system controls inherit it. All tokens are light/dark adaptive.
+- **Brand accent: `#15B0FF`** (a custom vivid blue, identical in both modes).
+  Interactive + selection only (primary buttons, links, the AI radio, the logo) —
+  never status, never a decorative fill. System controls (checkboxes, toggles,
+  selected tabs) inherit it via the Settings `TabView` tint.
+- **Neutrals are native**: text + separators map straight to macOS semantic colors
+  (`labelColor` / `secondaryLabelColor` / `tertiaryLabelColor` / `separatorColor`).
+  The **page + card fills are hand-tuned** (`#ECECEC`/`#FFFFFF` light,
+  `#1E1E1E`/`#2C2C2E` dark) — the system's own window/control colors collide on recent
+  macOS and give no card separation, so these reproduce a System Settings pane.
+- **Status + identity hues (Flexoki)**: red / amber / green carry CI, review, and the
+  mono→amber→red escalation (**red = failure/blocking, amber = caution**); blue /
+  purple are per-tab *identity* dots, not status.
+- **Tokens, not hex**: `DesignSystem/Color+Flexoki.swift` holds them all
+  (`.appAccent`, `.appBackground`, `.appSurface`, `.appHairline`, `.appText`,
+  `.appTextSecondary`, `.appTextTertiary`, `.appRed/Amber/Green`, `.appBlue/Purple`).
+  Views reference the semantic names — a re-tune touches one file.
 - **Effort = neutral gauge** (intensity from the needle, no hue) so the signature
   feature doesn't collide with status colors. **Priority colors only high/urgent**
   (amber/red); low/normal stay quiet since the list is already priority-sorted.
 - **Spacing/radius**: `DesignSystem/Layout.swift` holds the scale (hair/tight/snug/
-  base/roomy + `cardRadius` 10). Views use the names, never raw numbers.
+  base/roomy/generous + `cardRadius` 10, `controlRadius` 6). Views use the names.
+- **Shared surfaces**: one `.cardSurface(padded:)` modifier (`Components/Surface.swift`)
+  builds every card; `InlineStatus`, `TabReorderList`, and `AppIconTile` are shared by
+  Settings + onboarding so the two can't drift.
 - **Type**: native macOS text styles — a clean built-in hierarchy, no custom sizes.
 
 ## Onboarding & Settings
-Feel target: Rectangle / Obsidian. Native, sectioned Settings; a short first-run
-flow that gets to value fast.
+Native, sectioned Settings and a short first-run flow, both on the same surface so
+they read as one app.
 
-**Settings window** — SwiftUI `Settings` scene (⌘,), a `TabView` of four sections,
-reskinned to the panel's Flexoki surface (`appSurface` section cards on
-`appBackground`, our type/accent) so it reads as the same app — `Views/Settings/
-SettingsView.swift` holds the shared `SettingsSection`/`SettingsScaffold` chrome.
-- General — launch at login (`SMAppService`), tab visibility, Reset MergeMole.
-- GitHub — connection status ("Connected as @login"), paste/replace token
-  (verified before saving), disconnect.
-- AI — segmented mode picker; BYO reveals endpoint + model + key, with a Verify button.
-- About — version, privacy line, repo link.
+**Panel** — `MenuBarExtra(.window)`. Backdrop is a **Transparent / Solid** toggle
+(Settings → General → Appearance): Transparent makes the host window non-opaque so
+content floats over the desktop; Solid is an opaque page. (A frosted-glass option was
+tried and dropped.) Header carries a **Refresh** button (spins while fetching) and a
+**gear menu** (Preferences ⌘, / About / Quit ⌘Q). The selected tab is white + bold
+over a neutral pill — not the accent.
 
-The panel header carries a labeled **Refresh** button (spins while fetching) and a
-**gear menu** (Preferences ⌘, / About / Quit ⌘Q) — both using `HeaderButtonStyle`'s
-hover highlight. AI mode lives in Settings, not the header.
+**Settings window** — `Settings` scene (⌘,), a `TabView` of **three** sections on a
+solid window surface, sharing `SettingsSection`/`SettingsScaffold`/`.cardSurface`:
+- **General** — Appearance (panel background), Startup (launch at login via
+  `SMAppService` + auto-refresh interval), Tabs (drag-to-reorder list with a per-tab
+  dot + live count + visibility checkbox), Reset MergeMole (red/destructive).
+- **Providers** — GitHub (connection card with avatar + scopes, or token entry) and
+  AI Triage (three radio cards; Custom model reveals a provider preset + endpoint +
+  model + key + Verify).
+- **About** — version, build date, links, check-for-updates (UI stub until an updater
+  is wired).
 
-**First-run onboarding** — `OnboardingView`, a standalone `Window` scene that
-auto-presents at launch until `hasCompletedOnboarding` (via `defaultLaunchBehavior`,
-read from UserDefaults), then dismisses itself; brought to front via `NSApp.activate`.
-Three steps: Welcome → Connect GitHub (paste token + "create one" link, scopes
-`repo`, `read:org`; skippable, verified inline) → Choose AI mode. PAT for v1.
+**First-run onboarding** — `OnboardingView`, a standalone `Window` (`.hiddenTitleBar`)
+that auto-presents at launch until `hasCompletedOnboarding`, then dismisses itself;
+brought to front via `NSApp.activate`. **Five steps**: Welcome (brand + a media slot
+for a product gif) → Connect GitHub (paste token, verified inline; or Skip for now) →
+Choose AI → Personalize (launch-at-login + the shared tab list) → All set (a media slot
+for the menu-bar reveal gif). Back / capsule progress dots / primary action along the
+bottom; no global "Skip setup". PAT for v1.
 
-**Token safety** — a token is *never* stored unverified. `AppModel.connect`
-sanitizes the input (strips whitespace), calls `GitHubAPI.viewerLogin` to verify,
-and only then saves to the Keychain. Both Settings and onboarding surface
-"Connected as *login*" or the error.
+**Token safety** — a token is *never* stored unverified. `AppModel.connect` sanitizes
+the input (strips whitespace), calls `GitHubAPI.viewerLogin` to verify, and only then
+saves to the Keychain. Both Settings and onboarding surface "Connected as *login*" or
+the error.
 
 **Persistence** — token + BYO API key via `KeychainSecretStore` (never UserDefaults).
-Non-secret prefs (AI mode, BYO endpoint + model, `hasCompletedOnboarding`) are
-AppModel properties backed by UserDefaults. AppModel is shared across scenes via
-`.environment`. (Auto-refresh + a refresh-interval setting come with the badge, Step 8.)
+Non-secret prefs are `AppModel` properties backed by UserDefaults (keys in one `Key`
+enum): `aiMode`, `byoEndpoint` / `byoModel` / `byoProvider`, `refreshInterval`,
+`panelBackground`, `hiddenTabs`, `tabOrder`, `hasCompletedOnboarding`. AppModel is
+shared across scenes via `.environment`.
 
 ## Guiding principles
 - Every AI verdict shows one clause of *why*. Auditable, never a black box.

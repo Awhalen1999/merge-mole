@@ -82,14 +82,7 @@ private struct SettingsSection<Content: View>: View {
             VStack(alignment: .leading, spacing: padded ? Layout.base : 0) {
                 content
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(padded ? Layout.roomy : 0)
-            .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
-            .clipShape(RoundedRectangle(cornerRadius: Layout.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Layout.cardRadius)
-                    .strokeBorder(Color.appHairline, lineWidth: 1)
-            )
+            .cardSurface(padded: padded)
         }
     }
 }
@@ -113,28 +106,6 @@ private struct SettingsRow<Trailing: View>: View {
 private extension View {
     /// Native rounded field chrome for the settings forms.
     func settingsField() -> some View { textFieldStyle(.roundedBorder) }
-}
-
-/// A small inline status line (✓/✗/spinner + message) shared by connect / verify.
-private struct InlineStatus: View {
-    enum Kind { case progress(String), ok(String), error(String) }
-    let kind: Kind
-    var body: some View {
-        HStack(spacing: Layout.snug) {
-            switch kind {
-            case .progress(let message):
-                ProgressView().controlSize(.small)
-                Text(message).foregroundStyle(.appTextSecondary)
-            case .ok(let message):
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.appGreen)
-                Text(message).foregroundStyle(.appTextSecondary)
-            case .error(let message):
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.appAmber)
-                Text(message).foregroundStyle(.appTextSecondary)
-            }
-        }
-        .font(.caption)
-    }
 }
 
 // MARK: - General
@@ -222,8 +193,7 @@ private struct GitHubConnectionCard: View {
     @Environment(AppModel.self) private var model
     @State private var token = ""
     @State private var connecting = false
-    @State private var feedback: Feedback?
-    private enum Feedback { case ok(String), error(String) }
+    @State private var feedback: InlineFeedback?
 
     var body: some View {
         if model.isGitHubConnected { connected } else { disconnected }
@@ -357,12 +327,7 @@ private struct AIModeCard<Expanded: View>: View {
             }
             if selected { expanded }
         }
-        .padding(Layout.roomy)
-        .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Layout.cardRadius)
-                .strokeBorder(Color.appHairline, lineWidth: 1)
-        )
+        .cardSurface()
         .animation(.easeOut(duration: 0.15), value: selected)
     }
 }
@@ -374,8 +339,7 @@ private struct CustomModelForm: View {
     @Environment(AppModel.self) private var model
     @State private var apiKey = ""
     @State private var verifying = false
-    @State private var feedback: Feedback?
-    private enum Feedback { case ok(String), error(String) }
+    @State private var feedback: InlineFeedback?
 
     var body: some View {
         @Bindable var model = model

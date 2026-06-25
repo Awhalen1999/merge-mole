@@ -666,7 +666,8 @@ final class AppModel {
     }
 
     func load() async {
-        guard isGitHubConnected else { return }   // RootView shows the connect state
+        guard !isLoading else { return }           // one fetch at a time, whoever calls
+        guard isGitHubConnected else { return }    // RootView shows the connect state
         isLoading = true
         loadError = nil
         do {

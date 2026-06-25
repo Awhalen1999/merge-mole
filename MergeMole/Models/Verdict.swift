@@ -52,7 +52,7 @@ enum EffortTier: Int, CaseIterable, Sendable, Comparable, Codable {
         self = EffortTier.allCases.first { $0.wireName == raw?.lowercased() } ?? .moderate
     }
 
-    /// `"trivial|easy|moderate|involved|heavy"` — drop straight into a prompt.
+    /// `"skim|quick|moderate|deep|heavy"` — drop straight into a prompt.
     static var wireList: String { allCases.map(\.wireName).joined(separator: "|") }
 
     static func < (lhs: EffortTier, rhs: EffortTier) -> Bool {

@@ -41,7 +41,7 @@ struct TabBar: View {
             // Blue is the brand color, but a blue selected tab reads cheap here.
             .background(
                 isSelected ? Color.appText.opacity(0.12) : .clear,
-                in: RoundedRectangle(cornerRadius: 7)
+                in: RoundedRectangle(cornerRadius: Layout.controlRadius)
             )
             .foregroundStyle(.appText)
         }
