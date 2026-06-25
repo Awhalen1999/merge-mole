@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The panel's top filter bar: the visible tabs with counts, reporting selection
 /// back through a binding. AppModel owns which tabs show and their counts. The
-/// active tab carries the Flexoki blue accent; the row scrolls horizontally when
-/// the tabs overflow the panel width.
+/// active tab rests on a quiet neutral pill and unselected tabs lift on hover; the
+/// row scrolls horizontally when the tabs overflow the panel width.
 struct TabBar: View {
     @Binding var selection: PRTab
     var tabs: [PRTab]
@@ -34,18 +34,13 @@ struct TabBar: View {
                         .foregroundStyle(isSelected ? .appText : .appTextSecondary)
                 }
             }
+            // Selection is white + bold — never an accent fill. Blue is the brand
+            // color, but a blue selected tab reads cheap here; the neutral pill and
+            // its hover/press chrome live in TabPillButtonStyle.
             .font(.callout.weight(isSelected ? .semibold : .regular))
-            .padding(.horizontal, Layout.base)
-            .padding(.vertical, Layout.tight)
-            // Selection is white + bold over a quiet neutral pill — no accent fill.
-            // Blue is the brand color, but a blue selected tab reads cheap here.
-            .background(
-                isSelected ? Color.appText.opacity(0.12) : .clear,
-                in: RoundedRectangle(cornerRadius: Layout.controlRadius)
-            )
             .foregroundStyle(.appText)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TabPillButtonStyle(isSelected: isSelected))
         .fixedSize()
     }
 }

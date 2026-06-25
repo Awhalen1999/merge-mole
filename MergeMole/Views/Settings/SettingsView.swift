@@ -271,7 +271,6 @@ private struct AITriageSection: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var model = model
         VStack(alignment: .leading, spacing: Layout.snug) {
             SectionHeader(
                 title: "AI Triage",
@@ -279,56 +278,23 @@ private struct AITriageSection: View {
             )
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
-                    AIModeCard(mode: mode, selected: model.aiMode == mode) {
+                    RadioCard(title: mode.cardTitle,
+                              detail: mode.detail,
+                              selected: model.aiMode == mode) {
                         model.aiMode = mode
-                    } expanded: {
-                        if mode == .bringYourOwn { CustomModelForm() }
+                    }
+                    // On-device flags when it can't run here; "bring your own"
+                    // reveals its endpoint form in a card just below.
+                    if mode == .onDevice && model.onDeviceUnavailable {
+                        InlineStatus(kind: .error("On-device AI isn't available on this Mac. Cards show data only."))
+                    }
+                    if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
+                        CustomModelForm().cardSurface()
                     }
                 }
             }
+            .animation(.easeOut(duration: 0.15), value: model.aiMode)
         }
-    }
-}
-
-/// One AI-mode radio card. Selection shows in the filled accent radio — the card
-/// border stays neutral — and the optional `expanded` content (the Custom-model
-/// form) reveals beneath when selected.
-private struct AIModeCard<Expanded: View>: View {
-    @Environment(AppModel.self) private var model
-    let mode: AIMode
-    let selected: Bool
-    let select: () -> Void
-    @ViewBuilder var expanded: Expanded
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Layout.roomy) {
-            Button(action: select) {
-                HStack(alignment: .top, spacing: Layout.roomy) {
-                    Image(systemName: selected ? "largecircle.fill.circle" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(selected ? Color.appAccent : .appTextTertiary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(mode.cardTitle)
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.appText)
-                        Text(mode.detail)
-                            .font(.caption)
-                            .foregroundStyle(.appTextSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if mode == .onDevice && model.onDeviceUnavailable {
-                InlineStatus(kind: .error("On-device AI isn't available on this Mac. Cards show data only."))
-            }
-            if selected { expanded }
-        }
-        .cardSurface()
-        .animation(.easeOut(duration: 0.15), value: selected)
     }
 }
 
@@ -433,16 +399,9 @@ private struct AboutSettings: View {
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(.appText)
 
-            VStack(spacing: 2) {
-                Text(version)
-                    .font(.callout)
-                    .foregroundStyle(.appTextSecondary)
-                if let buildLine {
-                    Text(buildLine)
-                        .font(.caption)
-                        .foregroundStyle(.appTextTertiary)
-                }
-            }
+            Text(version)
+                .font(.callout)
+                .foregroundStyle(.appTextSecondary)
 
             Text("Surface the pull requests that actually need you.")
                 .font(.callout)
@@ -490,16 +449,6 @@ private struct AboutSettings: View {
         let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
         return "Version \(short) (\(build))"
-    }
-
-    /// The executable's build time — a real "Built …" line without a build script.
-    private var buildLine: String? {
-        guard let path = Bundle.main.executablePath,
-              let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-              let date = attrs[.modificationDate] as? Date else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy 'at' h:mm a"
-        return "Built \(formatter.string(from: date))"
     }
 }
 

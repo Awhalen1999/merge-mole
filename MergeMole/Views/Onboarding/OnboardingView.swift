@@ -268,39 +268,6 @@ private struct StepHeading: View {
     }
 }
 
-/// A radio option card (AI step). Selection shows in the filled accent radio; the
-/// border stays neutral — matching the Settings AI cards. Optional badge highlights
-/// a recommendation.
-private struct RadioCard: View {
-    let title: String
-    let detail: String
-    var badge: String?
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: Layout.roomy) {
-                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(selected ? Color.appAccent : .appTextTertiary)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: Layout.snug) {
-                        Text(title).font(.callout.weight(.semibold)).foregroundStyle(.appText)
-                        if let badge { Pill(badge, tint: .appAccent) }
-                    }
-                    Text(detail).font(.caption).foregroundStyle(.appTextSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .contentShape(Rectangle())
-            .cardSurface()
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 /// A clean empty media frame — reserves space for a product gif we'll drop in
 /// later (the welcome demo and the menu-bar reveal). No fake content by design.
 private struct MediaPlaceholder: View {

@@ -80,6 +80,15 @@ extension ShapeStyle where Self == Color {
     /// Brand accent — #15B0FF. Interactive + selection only — never status.
     static var appAccent: Color        { Token.accent }
 
+    // Neutral interaction fills — one ladder shared across the app so hover,
+    // selection, and press read as the same family. Each is the primary ink at a
+    // low alpha, layered over whatever sits beneath (clear, a card, the page):
+    // hover is the lightest touch, selected the resting "this is on" fill, pressed
+    // the deepest. Controls reference these instead of hand-picking opacities.
+    static var appFillHover: Color    { Token.text.opacity(0.06) }
+    static var appFillSelected: Color { Token.text.opacity(0.12) }
+    static var appFillPressed: Color  { Token.text.opacity(0.16) }
+
     static var appBackground: Color    { Token.background }
     static var appSurface: Color       { Token.surface }
     static var appHairline: Color      { Token.hairline }

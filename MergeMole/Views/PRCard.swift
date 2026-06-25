@@ -19,6 +19,7 @@ struct PRCard: View {
         Button { openURL(pr.url) } label: { row }
             .buttonStyle(.plain)
             .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovering)
     }
 
     private var row: some View {
@@ -37,7 +38,7 @@ struct PRCard: View {
                 .padding(.leading, Layout.margin - Layout.accentBar)
                 .padding(.trailing, Layout.margin)
         }
-        .background(hovering ? Color.appText.opacity(0.04) : .clear)
+        .background(hovering ? Color.appFillHover : .clear)
         .contentShape(Rectangle())
     }
 

@@ -43,8 +43,8 @@ struct HeaderButtonStyle: ButtonStyle {
         }
 
         private var background: Color {
-            if configuration.isPressed { return Color.appText.opacity(0.14) }
-            if hovering { return Color.appText.opacity(0.08) }
+            if configuration.isPressed { return Color.appFillPressed }
+            if hovering { return Color.appFillHover }
             return .clear
         }
     }
@@ -108,7 +108,11 @@ struct SecondaryButtonStyle: ButtonStyle {
                 .foregroundStyle(.appText)
                 .padding(.vertical, Layout.base)
                 .padding(.horizontal, Layout.roomy)
-                .background(fill, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
+                // Surface base, then the shared neutral fill ladder composited on
+                // top for hover/press — same feedback as the ghost + header buttons,
+                // just over a card instead of clear.
+                .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
+                .overlay(highlight, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Layout.controlRadius)
                         .strokeBorder(Color.appHairline, lineWidth: 1)
@@ -118,10 +122,47 @@ struct SecondaryButtonStyle: ButtonStyle {
                 .animation(.easeOut(duration: 0.12), value: hovering)
         }
 
+        private var highlight: Color {
+            if configuration.isPressed { return Color.appFillPressed }
+            if hovering { return Color.appFillHover }
+            return .clear
+        }
+    }
+}
+
+/// The panel's top filter tabs (Created / Assigned / …). A selected tab rests on a
+/// quiet neutral pill; an unselected tab fills to a *softer* version of that on
+/// hover; either deepens on press. Same neutral ladder and 0.12s timing as the
+/// header buttons, so the whole top bar reacts as one family. The label (title,
+/// count, weight) stays with the view — this owns only the pill chrome.
+struct TabPillButtonStyle: ButtonStyle {
+    var isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        Chrome(configuration: configuration, isSelected: isSelected)
+    }
+
+    private struct Chrome: View {
+        let configuration: ButtonStyleConfiguration
+        let isSelected: Bool
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .padding(.horizontal, Layout.base)
+                .padding(.vertical, Layout.tight)
+                .background(fill, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
+                .contentShape(RoundedRectangle(cornerRadius: Layout.controlRadius))
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+        }
+
+        // Selection is the resting fill; an idle unselected tab is bare and only
+        // lifts to the soft hover tint. A press deepens either to the same step.
         private var fill: Color {
-            if configuration.isPressed { return Color.appText.opacity(0.10) }
-            if hovering { return Color.appText.opacity(0.05) }
-            return .appSurface
+            if configuration.isPressed { return Color.appFillPressed }
+            if isSelected { return Color.appFillSelected }
+            return hovering ? Color.appFillHover : .clear
         }
     }
 }
