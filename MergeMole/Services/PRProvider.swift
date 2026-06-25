@@ -5,6 +5,7 @@ import Foundation
 /// round-trip.
 struct PRFetchResult: Sendable {
     var viewer: String?
+    var viewerAvatarURL: URL? = nil
     var pullRequests: [PullRequest]
 }
 

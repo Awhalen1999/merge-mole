@@ -92,7 +92,11 @@ enum GitHubAPI {
         merge(payload.mentioned,       .mentioned)
         merge(payload.reviewed,        .reviewed)
 
-        return PRFetchResult(viewer: payload.viewer.login, pullRequests: Array(byID.values))
+        return PRFetchResult(
+            viewer: payload.viewer.login,
+            viewerAvatarURL: payload.viewer.avatarUrl.flatMap(URL.init(string:)),
+            pullRequests: Array(byID.values)
+        )
     }
 
     /// Verifies a token and returns the login it belongs to. Used to validate
@@ -240,7 +244,7 @@ enum GitHubAPI {
     /// per relationship rather than filtering one `involves:@me` list client-side.
     private static let prQuery = """
     query {
-      viewer { login }
+      viewer { login avatarUrl(size: 128) }
       reviewRequested: search(query: "is:open is:pr review-requested:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
       assigned:        search(query: "is:open is:pr assignee:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
       created:         search(query: "is:open is:pr author:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
@@ -295,7 +299,7 @@ private struct GraphQLErrors: Decodable {
     struct Item: Decodable { let message: String }
 }
 
-private struct Viewer: Decodable { let login: String }
+private struct Viewer: Decodable { let login: String; let avatarUrl: String? }
 
 private struct ViewerPayload: Decodable { let viewer: Viewer }
 

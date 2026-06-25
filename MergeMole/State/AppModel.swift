@@ -106,6 +106,22 @@ enum BYOProvider: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// The panel's backdrop (General → Appearance). Transparent floats content straight
+/// over the desktop; Solid is an opaque Flexoki surface for readability over any
+/// wallpaper.
+enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
+    case transparent, solid
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .transparent: return "Transparent"
+        case .solid:       return "Solid"
+        }
+    }
+}
+
 /// The top-level filters in the panel's tab bar. One tab per `PRRelationship` —
 /// the tab is the presentation layer (title, order, visibility); the relationship
 /// is the data. Order here is the order they appear in the bar.
@@ -223,6 +239,9 @@ final class AppModel {
     private(set) var onDeviceAvailable = FoundationModelsEngine.isAvailable
 
     private(set) var currentUser: String
+    /// The signed-in user's GitHub avatar, for the Settings connection card. Filled
+    /// from the same fetch as the PR list; nil until the first successful load.
+    private(set) var currentUserAvatarURL: URL?
 
     // MARK: PR state
 
@@ -320,6 +339,15 @@ final class AppModel {
         }
     }
 
+    /// The panel backdrop (glass / transparent / solid). Persisted; the panel reads
+    /// it live, so switching in Settings re-skins the open panel immediately.
+    var panelBackground: PanelBackground {
+        didSet {
+            guard panelBackground != oldValue else { return }
+            UserDefaults.standard.set(panelBackground.rawValue, forKey: Key.panelBackground)
+        }
+    }
+
     private(set) var hasCompletedOnboarding: Bool
     private(set) var isGitHubConnected: Bool
 
@@ -332,6 +360,7 @@ final class AppModel {
         static let byoModel = "byoModel"
         static let byoProvider = "byoProvider"
         static let refreshInterval = "refreshInterval"
+        static let panelBackground = "panelBackground"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
     }
@@ -357,6 +386,7 @@ final class AppModel {
         self.byoModel = defaults.string(forKey: Key.byoModel) ?? ""
         self.byoProvider = BYOProvider(rawValue: defaults.string(forKey: Key.byoProvider) ?? "") ?? .openAI
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
+        self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .transparent
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
 
@@ -411,6 +441,7 @@ final class AppModel {
         isGitHubConnected = false
         pullRequests = []
         verdicts = [:]
+        currentUserAvatarURL = nil
         loadError = nil
         startAutoRefresh()   // cancels the scheduler (no-op while disconnected)
     }
@@ -641,6 +672,7 @@ final class AppModel {
         do {
             let result = try await prProvider.fetchPullRequests()
             if let viewer = result.viewer { currentUser = viewer }
+            if let avatar = result.viewerAvatarURL { currentUserAvatarURL = avatar }
             pullRequests = result.pullRequests
             lastSyncedAt = .now
             isLoading = false

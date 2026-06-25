@@ -23,11 +23,26 @@ struct RootView: View {
             content(state)
         }
         .frame(width: 400, height: 600)
-        // Frosted vibrancy instead of a solid fill — the native menu look. The PR
-        // rows are transparent, so the glass reads straight through; the accent
-        // stays reserved for selection, never the backdrop.
-        .background(VisualEffectBackground())
+        // The backdrop is user-selectable (General → Appearance): a clear fill
+        // (transparent), frosted vibrancy (glass), or an opaque Flexoki surface
+        // (solid). The window stays non-opaque so transparent/glass blur through;
+        // a rounded clip + hairline give every mode the same panel shape.
+        .background(panelFill)
+        .background(PanelWindow())
+        .clipShape(.rect(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.appHairline, lineWidth: 1)
+        )
         .task { await model.loadIfStale() }   // refresh on open, but not if just synced
+    }
+
+    /// The user-selected panel backdrop.
+    @ViewBuilder private var panelFill: some View {
+        switch model.panelBackground {
+        case .transparent: Color.clear
+        case .solid:       Color.appBackground
+        }
     }
 
     // MARK: - State

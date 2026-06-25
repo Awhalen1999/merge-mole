@@ -149,6 +149,17 @@ private struct GeneralSettings: View {
     var body: some View {
         @Bindable var model = model
         SettingsScaffold {
+            SettingsSection("Appearance", padded: false) {
+                SettingsRow(label: "Panel background") {
+                    Picker("", selection: $model.panelBackground) {
+                        ForEach(PanelBackground.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+            }
+
             SettingsSection("Startup", padded: false) {
                 SettingsRow(label: "Launch MergeMole at login") {
                     Toggle("", isOn: $launchAtLogin)
@@ -182,6 +193,7 @@ private struct GeneralSettings: View {
             SettingsSection("Reset", subtitle: "Disconnects GitHub and replays first-run setup.") {
                 Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
                     .buttonStyle(.bordered)
+                    .tint(.appRed)
             }
         }
         .onAppear { launchAtLogin = LoginItem.isEnabled }
@@ -300,7 +312,7 @@ private struct GitHubConnectionCard: View {
 
     private var connected: some View {
         HStack(spacing: Layout.roomy) {
-            Monogram(login: model.currentUser)
+            Avatar(url: model.currentUserAvatarURL, size: 38)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Layout.snug) {
                     Text("@\(model.currentUser)")
@@ -362,27 +374,6 @@ private struct GitHubConnectionCard: View {
             }
             connecting = false
         }
-    }
-}
-
-/// A circular initials avatar — a clean stand-in until we fetch the viewer's
-/// GitHub avatar.
-private struct Monogram: View {
-    let login: String
-    var body: some View {
-        Circle()
-            .fill(Color.appText.opacity(0.08))
-            .frame(width: 38, height: 38)
-            .overlay(
-                Text(initials)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.appTextSecondary)
-            )
-            .overlay(Circle().strokeBorder(Color.appHairline, lineWidth: 0.5))
-    }
-    private var initials: String {
-        let trimmed = login.trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? "?" : String(trimmed.prefix(2)).uppercased()
     }
 }
 
