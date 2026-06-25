@@ -1,35 +1,26 @@
 import SwiftUI
 import AppKit
 
-// Flexoki by Steph Ango — https://stephango.com/flexoki — the inky palette behind
-// Obsidian, carrying the warm neutrals + status hues. Views should reference the
-// *semantic* tokens (`.appAccent`, `.appBackground`, …) so a re-tune only ever
-// touches this one file. The raw ramp is trimmed to the stops actually in use.
+// MergeMole's palette. Text + separators come straight from macOS's semantic system
+// colors (`labelColor`, `secondaryLabelColor`, `tertiaryLabelColor`, `separatorColor`)
+// — Apple's exact opacities, tracking the system appearance. The page + card fills
+// are hand-tuned to match a native System Settings pane: the system's own window /
+// control background colors collide on recent macOS (both pure white / #1E1E1E), so
+// they'd give no card separation.
+//
+// Only two things stay bespoke: the brand accent (a fixed blue, reserved for
+// interactive + selection state — never status) and the status / tab-identity hues
+// (Flexoki), which encode meaning the system palette doesn't. Views reference the
+// semantic tokens below, never raw values, so a re-tune touches this one file.
 
-/// Flexoki raw hex ramp. Light mode uses each accent's `600` value, dark mode the
-/// `400` — both tuned by Flexoki for AA contrast on paper / black.
+/// Flexoki by Steph Ango (https://stephango.com/flexoki) — the inky status hues.
+/// Light mode uses each accent's `600` value, dark mode the `400` (both AA-tuned).
+/// Only the stops in use; the neutral ramp is gone now that neutrals are native.
 enum Flexoki {
-    // Base / ink ramp (warm grays) — only the stops the app actually uses.
-    static let paper:   UInt32 = 0xFFFCF0
-    static let base50:  UInt32 = 0xF2F0E5
-    static let base150: UInt32 = 0xDAD8CE
-    static let base200: UInt32 = 0xCECDC3
-    static let base400: UInt32 = 0x9F9D96
-    static let base500: UInt32 = 0x878580
-    static let base600: UInt32 = 0x6F6E69
-    static let base850: UInt32 = 0x343331
-    static let base900: UInt32 = 0x282726
-    static let base950: UInt32 = 0x1C1B1A
-    static let black:   UInt32 = 0x100F0F
-
-    // Status accents — 600 (light) / 400 (dark). The brand blue is intentionally
-    // *not* here: it's a custom hue, defined on `Token.accent`.
     static let red600:    UInt32 = 0xAF3029, red400:    UInt32 = 0xD14D41
     static let orange600: UInt32 = 0xBC5215, orange400: UInt32 = 0xDA702C
     static let green600:  UInt32 = 0x66800B, green400:  UInt32 = 0x879A39
-
-    // Identity hues for the tab dots — distinct from the brand accent so a tab's
-    // color reads as "which tab," never as interactive/selection state.
+    // Tab identity hues — which tab, not urgency. Distinct from the brand accent.
     static let blue600:   UInt32 = 0x205EA6, blue400:   UInt32 = 0x4385BE
     static let purple600: UInt32 = 0x5E409D, purple400: UInt32 = 0x8B7EC8
 }
@@ -41,8 +32,8 @@ private nonisolated func makeNSColor(_ hex: UInt32) -> NSColor {
             alpha: 1)
 }
 
-/// One light/dark adaptive `Color` from two Flexoki hex values. Resolves against
-/// whatever appearance it's drawn in, so it follows the system theme for free.
+/// One light/dark adaptive `Color` from two hex values. Resolves against whatever
+/// appearance it's drawn in, so it follows the system theme for free.
 private nonisolated func adaptive(_ light: UInt32, _ dark: UInt32) -> Color {
     Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -51,36 +42,42 @@ private nonisolated func adaptive(_ light: UInt32, _ dark: UInt32) -> Color {
     })
 }
 
-/// A single fixed `Color`, identical in light + dark — for the brand accent, a
-/// deliberate hue rather than a theme-derived neutral.
+/// A single fixed `Color`, identical in light + dark — for the brand accent.
 private nonisolated func fixed(_ hex: UInt32) -> Color { Color(nsColor: makeNSColor(hex)) }
 
 // MARK: - Semantic tokens (use these in views, not the raw ramp)
 
-/// Each color resolved once. (Protocol extensions can't hold stored properties, so
-/// the tokens below are computed vars backed by these lets.)
 private enum Token {
-    /// Brand accent — a custom vivid blue (#15B0FF), the same in both modes.
-    static let accent        = fixed(0x15B0FF)
-    static let background    = adaptive(Flexoki.paper,   Flexoki.base950)
-    static let surface       = adaptive(Flexoki.base50,  Flexoki.base900)
-    static let hairline      = adaptive(Flexoki.base150, Flexoki.base850)
-    static let text          = adaptive(Flexoki.black,   Flexoki.base200)
-    static let textSecondary = adaptive(Flexoki.base600, Flexoki.base500)
-    static let textTertiary  = adaptive(Flexoki.base400, Flexoki.base600)
-    static let red           = adaptive(Flexoki.red600,    Flexoki.red400)
-    static let amber         = adaptive(Flexoki.orange600, Flexoki.orange400)
-    static let green         = adaptive(Flexoki.green600,  Flexoki.green400)
-    static let blue          = adaptive(Flexoki.blue600,   Flexoki.blue400)
-    static let purple        = adaptive(Flexoki.purple600, Flexoki.purple400)
+    // Brand accent — a custom vivid blue (#15B0FF), identical in both modes.
+    // Interactive emphasis only (primary actions, selection, links); never status.
+    static let accent = fixed(0x15B0FF)
+
+    // Page + card fills — hand-tuned (see file header): the native window/control
+    // colors collide on recent macOS, so these reproduce a System Settings pane —
+    // a light-gray page with white cards (light); a near-black page with a subtly
+    // lifted card (dark, ≈ Apple's own +14 lift).
+    static let background = adaptive(0xECECEC, 0x1E1E1E)
+    static let surface    = adaptive(0xFFFFFF, 0x2C2C2E)
+
+    // Native semantic neutrals — Apple's exact opacities, appearance-tracking.
+    static let hairline      = Color(nsColor: .separatorColor)
+    static let text          = Color(nsColor: .labelColor)
+    static let textSecondary = Color(nsColor: .secondaryLabelColor)
+    static let textTertiary  = Color(nsColor: .tertiaryLabelColor)
+
+    // Status (red/amber/green) + tab-identity (blue/purple) hues — Flexoki.
+    static let red    = adaptive(Flexoki.red600,    Flexoki.red400)
+    static let amber  = adaptive(Flexoki.orange600, Flexoki.orange400)
+    static let green  = adaptive(Flexoki.green600,  Flexoki.green400)
+    static let blue   = adaptive(Flexoki.blue600,   Flexoki.blue400)
+    static let purple = adaptive(Flexoki.purple600, Flexoki.purple400)
 }
 
 /// Declared on `ShapeStyle where Self == Color` (not plain `Color`) so the
 /// leading-dot shorthand works everywhere — `.foregroundStyle(.appText)`,
 /// `Color.appAccent`, and `tint: Color = .appTextSecondary` all resolve here.
 extension ShapeStyle where Self == Color {
-    /// Brand accent — #15B0FF. Reserved for interactive + selection state only —
-    /// never status, so it can't be mistaken for urgency.
+    /// Brand accent — #15B0FF. Interactive + selection only — never status.
     static var appAccent: Color        { Token.accent }
 
     static var appBackground: Color    { Token.background }
@@ -91,14 +88,13 @@ extension ShapeStyle where Self == Color {
     static var appTextSecondary: Color { Token.textSecondary }
     static var appTextTertiary: Color  { Token.textTertiary }
 
-    // Status spectrum — kept distinct from the accent (red / amber / green carry
-    // CI, review, and the mono→amber→red escalation; the accent stays out of it).
+    // Status spectrum — red / amber / green carry CI, review, and priority. Kept
+    // distinct from the accent so it can't be mistaken for urgency.
     static var appRed: Color    { Token.red }
     static var appAmber: Color  { Token.amber }
     static var appGreen: Color  { Token.green }
 
-    // Tab identity hues — used for the per-tab dots in the panel + Settings. Not
-    // status: they label a tab, they don't signal urgency.
+    // Tab identity hues — the per-tab dots. Not status; they label a tab.
     static var appBlue: Color   { Token.blue }
     static var appPurple: Color { Token.purple }
 }

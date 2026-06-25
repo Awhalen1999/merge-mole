@@ -330,6 +330,7 @@ private struct GitHubConnectionCard: View {
                 feedback = nil
             }
             .buttonStyle(.bordered)
+            .tint(.appRed)
         }
     }
 
@@ -400,8 +401,9 @@ private struct AITriageSection: View {
     }
 }
 
-/// One AI-mode radio card. Selected → filled accent radio + accent border, and the
-/// optional `expanded` content (the Custom-model form) reveals beneath.
+/// One AI-mode radio card. Selection shows in the filled accent radio — the card
+/// border stays neutral — and the optional `expanded` content (the Custom-model
+/// form) reveals beneath when selected.
 private struct AIModeCard<Expanded: View>: View {
     @Environment(AppModel.self) private var model
     let mode: AIMode
@@ -440,8 +442,7 @@ private struct AIModeCard<Expanded: View>: View {
         .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
         .overlay(
             RoundedRectangle(cornerRadius: Layout.cardRadius)
-                .strokeBorder(selected ? Color.appAccent : Color.appHairline,
-                              lineWidth: selected ? 1.5 : 1)
+                .strokeBorder(Color.appHairline, lineWidth: 1)
         )
         .animation(.easeOut(duration: 0.15), value: selected)
     }

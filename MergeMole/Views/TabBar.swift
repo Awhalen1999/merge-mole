@@ -31,17 +31,19 @@ struct TabBar: View {
                 if let count = counts[tab], count > 0 {
                     Text("\(count)")
                         .font(.caption2.monospacedDigit())
-                        .foregroundStyle(isSelected ? Color.appAccent : .appTextSecondary)
+                        .foregroundStyle(isSelected ? .appText : .appTextSecondary)
                 }
             }
             .font(.callout.weight(isSelected ? .semibold : .regular))
             .padding(.horizontal, Layout.base)
             .padding(.vertical, Layout.tight)
+            // Selection is white + bold over a quiet neutral pill — no accent fill.
+            // Blue is the brand color, but a blue selected tab reads cheap here.
             .background(
-                isSelected ? Color.appAccent.opacity(0.14) : .clear,
+                isSelected ? Color.appText.opacity(0.12) : .clear,
                 in: RoundedRectangle(cornerRadius: 7)
             )
-            .foregroundStyle(isSelected ? Color.appAccent : Color.primary)
+            .foregroundStyle(.appText)
         }
         .buttonStyle(.plain)
         .fixedSize()
