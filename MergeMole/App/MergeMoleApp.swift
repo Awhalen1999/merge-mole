@@ -30,6 +30,7 @@ struct MergeMoleApp: App {
             OnboardingView()
                 .environment(model)
         }
+        .windowStyle(.hiddenTitleBar)   // traffic lights float over our own top bar
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
         .defaultLaunchBehavior(

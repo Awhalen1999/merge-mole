@@ -144,7 +144,6 @@ private struct GeneralSettings: View {
     @Environment(\.openWindow) private var openWindow
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var confirmingReset = false
-    @State private var draggingTab: PRTab?
 
     var body: some View {
         @Bindable var model = model
@@ -181,13 +180,7 @@ private struct GeneralSettings: View {
             SettingsSection("Tabs",
                             subtitle: "Drag to reorder. Uncheck to hide a tab from the panel.",
                             padded: false) {
-                ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
-                    if index > 0 { Hairline() }
-                    TabRow(tab: tab,
-                           count: model.tabCounts[tab] ?? 0,
-                           isOn: tabBinding(tab),
-                           dragging: $draggingTab)
-                }
+                TabReorderList()
             }
 
             SettingsSection("Reset", subtitle: "Disconnects GitHub and replays first-run setup.") {
@@ -209,80 +202,6 @@ private struct GeneralSettings: View {
         model.disconnectGitHub()
         model.resetOnboarding()
         openWindow(id: WindowID.onboarding)
-    }
-
-    private func tabBinding(_ tab: PRTab) -> Binding<Bool> {
-        Binding(
-            get: { model.visibleTabs.contains(tab) },
-            set: { model.setTab(tab, visible: $0) }
-        )
-    }
-}
-
-/// One row in General → Tabs: drag grip, identity dot, title + live subtitle, and
-/// a visibility checkbox. The whole row is a drag source and drop target, so
-/// reordering needs no edit mode.
-private struct TabRow: View {
-    @Environment(AppModel.self) private var model
-    let tab: PRTab
-    let count: Int
-    @Binding var isOn: Bool
-    @Binding var dragging: PRTab?
-
-    var body: some View {
-        HStack(spacing: Layout.roomy) {
-            DragGrip()
-            Circle().fill(tab.dotColor).frame(width: 9, height: 9)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(tab.title).font(.callout.weight(.medium)).foregroundStyle(.appText)
-                Text(tab.subtitle(count: count)).font(.caption).foregroundStyle(.appTextTertiary)
-            }
-            Spacer(minLength: Layout.base)
-            Toggle("", isOn: $isOn).labelsHidden().toggleStyle(.checkbox)
-        }
-        .padding(.horizontal, Layout.roomy)
-        .padding(.vertical, Layout.base + 1)
-        .contentShape(Rectangle())
-        .opacity(dragging == tab ? 0.35 : 1)
-        .onDrag {
-            dragging = tab
-            return NSItemProvider(object: tab.rawValue as NSString)
-        }
-        .onDrop(of: [.text], delegate: TabDropDelegate(target: tab, model: model, dragging: $dragging))
-    }
-}
-
-/// The six-dot reorder affordance.
-private struct DragGrip: View {
-    var body: some View {
-        Grid(horizontalSpacing: 2.5, verticalSpacing: 2.5) {
-            ForEach(0..<3, id: \.self) { _ in
-                GridRow { dot; dot }
-            }
-        }
-        .foregroundStyle(.appTextTertiary)
-    }
-    private var dot: some View { Circle().frame(width: 2.5, height: 2.5) }
-}
-
-/// Live reorder: as a dragged row passes over another, slot it into that place.
-/// SwiftUI invokes drop callbacks on the main thread, so the model touches are
-/// bridged with `assumeIsolated`.
-private struct TabDropDelegate: DropDelegate {
-    let target: PRTab
-    let model: AppModel
-    @Binding var dragging: PRTab?
-
-    nonisolated func dropEntered(info: DropInfo) {
-        MainActor.assumeIsolated {
-            guard let dragging, dragging != target else { return }
-            model.moveTab(dragging, to: target)
-        }
-    }
-    nonisolated func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
-    nonisolated func performDrop(info: DropInfo) -> Bool {
-        MainActor.assumeIsolated { dragging = nil }
-        return true
     }
 }
 
@@ -617,24 +536,6 @@ private struct AboutSettings: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, yyyy 'at' h:mm a"
         return "Built \(formatter.string(from: date))"
-    }
-}
-
-/// A rounded brand tile standing in for the app icon.
-private struct AppIconTile: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color.appAccent.opacity(0.16))
-            .frame(width: 76, height: 76)
-            .overlay(
-                Image(systemName: "circle.grid.2x2.fill")
-                    .font(.system(size: 34))
-                    .foregroundStyle(Color.appAccent)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.appHairline, lineWidth: 1)
-            )
     }
 }
 

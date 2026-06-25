@@ -1,178 +1,346 @@
 import SwiftUI
 import AppKit
 
-/// First-run setup, shown in its own window (auto-presented at launch until
-/// `hasCompletedOnboarding`). Three short steps: welcome → connect GitHub → pick
-/// AI mode. Skippable; re-doable from Settings. Small by design (PLAN: not a maze).
+/// First-run setup, shown in its own window (auto-presented until onboarded). Five
+/// steps — Welcome → Connect → AI → Personalize → All set — on the same solid
+/// Flexoki surface and card/accent conventions as Settings, so onboarding reads as
+/// the same app. Chrome is consistent: a "Skip setup" escape top-right, and a
+/// Back / progress-dots / primary-action bar along the bottom. Skippable; re-doable
+/// from Settings.
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     @State private var step = 0
     @State private var token = ""
-    @State private var mode: AIMode = .onDevice
     @State private var connecting = false
     @State private var connectError: String?
+    @State private var launchAtLogin = LoginItem.isEnabled
 
-    private let lastStep = 2
+    private let lastStep = 4
 
     var body: some View {
-        VStack(spacing: Layout.roomy) {
-            progress
-
-            // Content grows to fill; buttons stay pinned to the bottom.
-            VStack(alignment: .leading, spacing: Layout.base) {
-                switch step {
-                case 0: welcome
-                case 1: connectGitHub
-                default: aiMode
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            buttons
+        VStack(spacing: 0) {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, Layout.generous + Layout.snug)
+                .padding(.top, Layout.headerHeight)   // clears the floating traffic lights
+            bottomBar
         }
-        .padding(Layout.roomy + Layout.base)
-        .frame(width: 460, height: 420)
+        .frame(width: 560, height: 560)
         .background(Color.appBackground)
-        // Bring the window to the front at launch (the app is a menu-bar
-        // accessory, so it isn't frontmost by default).
-        .onAppear { NSApp.activate() }
-    }
-
-    // MARK: Steps
-
-    private var welcome: some View {
-        VStack(alignment: .leading, spacing: Layout.base) {
-            Image(systemName: "circle.grid.2x2.fill")
-                .font(.largeTitle)
-                .foregroundStyle(Color.appAccent)
-            Text("Welcome to MergeMole")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.appText)
-            Text("Your pull requests in the menu bar — triaged. On-device AI tells you what each PR is, how much effort it'll take, and what to look at first.")
-                .font(.callout)
-                .foregroundStyle(.appTextSecondary)
-        }
-    }
-
-    private var connectGitHub: some View {
-        VStack(alignment: .leading, spacing: Layout.base) {
-            Text("Connect GitHub")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.appText)
-            Text("Paste a personal access token so MergeMole can read your pull requests.")
-                .font(.callout)
-                .foregroundStyle(.appTextSecondary)
-
-            SecureField("ghp_…", text: $token)
-                .textFieldStyle(.roundedBorder)
-                .font(.body.monospaced())
-                .disabled(connecting)
-
-            if let connectError {
-                Label(connectError, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.appRed)
-            }
-
-            Link(destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org&description=MergeMole")!) {
-                Label("Create a token", systemImage: "arrow.up.right.square")
-                    .font(.caption)
-            }
-            Text("Scopes needed: repo, read:org. Verified with GitHub, then stored in your Keychain.")
-                .font(.caption2)
-                .foregroundStyle(.appTextTertiary)
-        }
-    }
-
-    private var aiMode: some View {
-        VStack(alignment: .leading, spacing: Layout.base) {
-            Text("How should AI run?")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.appText)
-            Picker("AI mode", selection: $mode) {
-                ForEach(AIMode.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            Text(mode.detail)
-                .font(.callout)
-                .foregroundStyle(.appTextSecondary)
-            Text("You can change this any time in Settings.")
-                .font(.caption2)
-                .foregroundStyle(.appTextTertiary)
-        }
+        // Menu-bar accessory app isn't frontmost by default — bring it forward.
+        .onAppear { NSApp.activate(); launchAtLogin = LoginItem.isEnabled }
     }
 
     // MARK: Chrome
 
-    private var progress: some View {
-        HStack(spacing: Layout.snug) {
-            ForEach(0...lastStep, id: \.self) { index in
-                Circle()
-                    .fill(index <= step ? Color.appAccent : .appHairline)
-                    .frame(width: 7, height: 7)
+    private var bottomBar: some View {
+        ZStack {
+            ProgressDots(count: lastStep + 1, current: step)
+            HStack {
+                if step > 0 {
+                    Button("Back") { back() }
+                        .buttonStyle(.plain)
+                        .font(.callout)
+                        .foregroundStyle(.appTextSecondary)
+                }
+                Spacer()
+                trailingAction
             }
-            Spacer()
+        }
+        .frame(height: Layout.headerHeight)
+        .padding(.horizontal, Layout.generous)
+    }
+
+    @ViewBuilder private var trailingAction: some View {
+        switch step {
+        case 0: primary("Get Started") { advance() }
+        case 1: Button("Skip for now") { advance() }   // skip connecting, keep going
+                    .buttonStyle(.plain).font(.callout).foregroundStyle(.appTextSecondary)
+        case 2, 3: primary("Continue") { advance() }
+        default: primary("Open MergeMole") { finish() }
         }
     }
 
-    private var buttons: some View {
-        HStack(spacing: Layout.base) {
-            if step > 0 {
-                Button("Back") { back() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.appTextSecondary)
+    private func primary(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.borderedProminent)
+            .tint(.appAccent)
+    }
+
+    // MARK: Steps
+
+    @ViewBuilder private var content: some View {
+        switch step {
+        case 0:  welcomeStep
+        case 1:  connectStep
+        case 2:  aiStep
+        case 3:  personalizeStep
+        default: allSetStep
+        }
+    }
+
+    private var welcomeStep: some View {
+        VStack(spacing: Layout.roomy) {
+            Spacer()
+            AppIconTile(size: 64)
+            StepHeading("Welcome to MergeMole",
+                        "The pull requests that need you — triaged by effort and priority, right in your menu bar.")
+            MediaPlaceholder(height: 230)   // product demo gif drops in here later
+                .padding(.top, Layout.base)
+            Spacer()
+        }
+        .frame(maxWidth: 400)
+    }
+
+    private var connectStep: some View {
+        VStack(spacing: Layout.roomy) {
+            Spacer()
+            StepHeading("Connect your GitHub",
+                        "MergeMole reads your pull requests to triage what needs your attention first. You stay signed in on this Mac.")
+            VStack(spacing: Layout.base) {
+                SecureField("ghp_…", text: $token)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.body.monospaced())
+                    .disabled(connecting)
+                    .onSubmit(connect)
+
+                Button(action: connect) {
+                    Label("Connect to GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                .buttonStyle(ProminentButtonStyle())
+                .disabled(connecting || GitHubToken.sanitize(token).isEmpty)
+
+                if connecting {
+                    Label("Verifying…", systemImage: "ellipsis")
+                        .font(.caption).foregroundStyle(.appTextSecondary)
+                } else if let connectError {
+                    Label(connectError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.appAmber)
+                        .multilineTextAlignment(.center)
+                }
+
+                Link("Create a token (scopes: repo, read:org)",
+                     destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org&description=MergeMole")!)
+                    .font(.caption)
+                    .tint(.appAccent)
             }
-            if step == 1 {
-                Button("Skip for now") { step = lastStep }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.appTextSecondary)
+            .frame(maxWidth: 320)
+
+            Label("Read-only by default · verified with GitHub, stored in your Keychain.",
+                  systemImage: "lock.fill")
+                .font(.caption2)
+                .foregroundStyle(.appTextTertiary)
+                .padding(.top, Layout.tight)
+            Spacer()
+        }
+        .frame(maxWidth: 380)
+    }
+
+    private var aiStep: some View {
+        VStack(spacing: Layout.roomy) {
+            Spacer()
+            StepHeading("How should MergeMole triage?",
+                        "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
+            VStack(spacing: Layout.base) {
+                ForEach(AIMode.allCases) { mode in
+                    RadioCard(title: mode.cardTitle,
+                              detail: mode.detail,
+                              badge: mode == .onDevice ? "Recommended" : nil,
+                              selected: model.aiMode == mode) {
+                        model.aiMode = mode
+                    }
+                }
             }
             Spacer()
-            if connecting { ProgressView().controlSize(.small) }
-            Button(step == lastStep ? "Get started" : "Continue") { advance() }
-                .buttonStyle(.borderedProminent)
-                .tint(.appAccent)
-                .disabled(connecting)
         }
+        .frame(maxWidth: 420)
+    }
+
+    private var personalizeStep: some View {
+        VStack(alignment: .leading, spacing: Layout.roomy) {
+            StepHeading("Make it yours",
+                        "A couple of defaults — tweak everything later in Settings.")
+                .frame(maxWidth: .infinity)
+
+            HStack(spacing: Layout.roomy) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Launch at login").font(.callout.weight(.medium)).foregroundStyle(.appText)
+                    Text("Keep MergeMole in your menu bar automatically.")
+                        .font(.caption).foregroundStyle(.appTextSecondary)
+                }
+                Spacer()
+                Toggle("", isOn: $launchAtLogin)
+                    .labelsHidden().toggleStyle(.switch).tint(.appAccent)
+                    .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
+            }
+            .cardSurface()
+
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                VStack(alignment: .leading, spacing: Layout.tight) {
+                    Text("SHOW THESE TABS")
+                        .font(.caption2.weight(.semibold)).tracking(0.6)
+                        .foregroundStyle(.appTextTertiary)
+                    Text("Drag to reorder. Uncheck to hide a tab from your panel.")
+                        .font(.caption).foregroundStyle(.appTextTertiary)
+                }
+                VStack(spacing: 0) { TabReorderList() }
+                    .cardSurface(padded: false)
+            }
+        }
+        .frame(maxWidth: 420)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .padding(.top, Layout.roomy)
+    }
+
+    private var allSetStep: some View {
+        VStack(spacing: Layout.roomy) {
+            Spacer()
+            ZStack {
+                Circle().fill(Color.appAccent).frame(width: 66, height: 66)
+                    .shadow(color: Color.appAccent.opacity(0.45), radius: 14)
+                Image(systemName: "checkmark").font(.system(size: 28, weight: .bold)).foregroundStyle(.white)
+            }
+            StepHeading("You're all set",
+                        "MergeMole lives in your menu bar. Click the icon anytime to see what needs you.")
+            VStack(spacing: Layout.snug) {
+                MediaPlaceholder(height: 200)   // menu-bar reveal gif drops in here later
+                Text("Look up there ↑").font(.caption).foregroundStyle(.appTextTertiary)
+            }
+            .padding(.top, Layout.base)
+            Spacer()
+        }
+        .frame(maxWidth: 400)
     }
 
     // MARK: Flow
 
-    private func advance() {
-        switch step {
-        case 1 where !GitHubToken.sanitize(token).isEmpty:
-            Task { await connectThenContinue() }   // verify the token before moving on
-        case lastStep:
-            finish()
-        default:
-            step += 1
-        }
-    }
-
-    private func connectThenContinue() async {
-        connecting = true
-        connectError = nil
-        switch await model.connect(rawToken: token) {
-        case .connected:
-            step += 1
-        case .failed(let message):
-            connectError = message
-        }
-        connecting = false
-    }
+    private func advance() { step = min(step + 1, lastStep) }
 
     private func back() {
         connectError = nil
-        step -= 1
+        step = max(step - 1, 0)
+    }
+
+    private func connect() {
+        guard !GitHubToken.sanitize(token).isEmpty else { return }
+        Task {
+            connecting = true
+            connectError = nil
+            switch await model.connect(rawToken: token) {
+            case .connected:        advance()   // straight on to the AI step
+            case .failed(let msg):  connectError = msg
+            }
+            connecting = false
+        }
     }
 
     private func finish() {
-        model.aiMode = mode
         model.completeOnboarding()
         dismiss()
+    }
+}
+
+// MARK: - Pieces
+
+/// A centered title + supporting line — the lead-in atop most steps.
+private struct StepHeading: View {
+    let title: String
+    let detail: String
+    init(_ title: String, _ detail: String) { self.title = title; self.detail = detail }
+    var body: some View {
+        VStack(spacing: Layout.snug) {
+            Text(title)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.appText)
+                .multilineTextAlignment(.center)
+            Text(detail)
+                .font(.callout)
+                .foregroundStyle(.appTextSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// A radio option card (AI step). Selection shows in the filled accent radio; the
+/// border stays neutral — matching the Settings AI cards. Optional badge highlights
+/// a recommendation.
+private struct RadioCard: View {
+    let title: String
+    let detail: String
+    var badge: String?
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: Layout.roomy) {
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(selected ? Color.appAccent : .appTextTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Layout.snug) {
+                        Text(title).font(.callout.weight(.semibold)).foregroundStyle(.appText)
+                        if let badge { Pill(badge, tint: .appAccent) }
+                    }
+                    Text(detail).font(.caption).foregroundStyle(.appTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+            .cardSurface()
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A clean empty media frame — reserves space for a product gif we'll drop in
+/// later (the welcome demo and the menu-bar reveal). No fake content by design.
+private struct MediaPlaceholder: View {
+    var height: CGFloat = 230
+    var body: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color.appSurface)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.appHairline, lineWidth: 1)
+            )
+    }
+}
+
+/// A progress strip: the current step is an accent capsule, the rest quiet dots.
+private struct ProgressDots: View {
+    let count: Int
+    let current: Int
+    var body: some View {
+        HStack(spacing: Layout.snug) {
+            ForEach(0..<count, id: \.self) { i in
+                Capsule()
+                    .fill(i == current ? Color.appAccent : Color.appTextTertiary.opacity(0.5))
+                    .frame(width: i == current ? 18 : 6, height: 6)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: current)
+    }
+}
+
+private extension View {
+    /// The shared surface card — `appSurface` fill, hairline border, card radius.
+    /// `padded` adds the standard inner inset; pass `false` for full-bleed row lists.
+    func cardSurface(padded: Bool = true) -> some View {
+        frame(maxWidth: .infinity, alignment: .leading)
+            .padding(padded ? Layout.roomy : 0)
+            .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
+            .clipShape(RoundedRectangle(cornerRadius: Layout.cardRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Layout.cardRadius)
+                    .strokeBorder(Color.appHairline, lineWidth: 1)
+            )
     }
 }
 

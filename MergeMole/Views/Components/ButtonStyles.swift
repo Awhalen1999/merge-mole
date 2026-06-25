@@ -62,6 +62,7 @@ struct ProminentButtonStyle: ButtonStyle {
     private struct Chrome: View {
         let configuration: ButtonStyleConfiguration
         @State private var hovering = false
+        @Environment(\.isEnabled) private var isEnabled
 
         var body: some View {
             configuration.label
@@ -78,6 +79,7 @@ struct ProminentButtonStyle: ButtonStyle {
                 .contentShape(RoundedRectangle(cornerRadius: Layout.controlRadius))
                 .onHover { hovering = $0 }
                 .animation(.easeOut(duration: 0.12), value: hovering)
+                .opacity(isEnabled ? 1 : 0.45)   // dim when disabled (custom styles don't by default)
         }
 
         /// A thin scrim over the accent: white to lift on hover, black to seat on press.
