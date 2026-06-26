@@ -154,6 +154,19 @@ private struct GeneralSettings: View {
                 TabReorderList()
             }
 
+            SettingsSection("Menu-bar count",
+                            subtitle: "Which groups the number beside the menu-bar icon totals. Counts each PR once across the groups you pick.",
+                            padded: false) {
+                ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
+                    if index > 0 { Hairline() }
+                    SettingsRow(label: tab.title) {
+                        Toggle("", isOn: badgeBinding(for: tab))
+                            .labelsHidden()
+                            .toggleStyle(.checkbox)
+                    }
+                }
+            }
+
             SettingsSection("Reset", subtitle: "Disconnects GitHub and replays first-run setup.") {
                 Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
                     .buttonStyle(.bordered)
@@ -167,6 +180,11 @@ private struct GeneralSettings: View {
         } message: {
             Text("This disconnects GitHub and runs onboarding again.")
         }
+    }
+
+    private func badgeBinding(for tab: PRTab) -> Binding<Bool> {
+        Binding(get: { model.badgeTabs.contains(tab) },
+                set: { model.setBadge(tab, on: $0) })
     }
 
     private func reset() {
@@ -274,7 +292,7 @@ private struct AITriageSection: View {
         VStack(alignment: .leading, spacing: Layout.snug) {
             SectionHeader(
                 title: "AI Triage",
-                subtitle: "Choose how MergeMole rates effort and priority. Disable it to use MergeMole as a plain PR organizer."
+                subtitle: "Choose how MergeMole rates priority. Disable it to use MergeMole as a plain PR organizer."
             )
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in

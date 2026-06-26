@@ -104,25 +104,6 @@ struct SizeBadge: View {
     }
 }
 
-/// The signature feature: AI effort. Intensity reads from the gauge needle, not a
-/// hue — keeping it clear of the red/amber/green status spectrum. Carries a touch
-/// more weight (primary ink) than the neutral chips around it. Lives beside the
-/// raw line counts, never instead of them — the contrast is the feature.
-struct EffortBadge: View {
-    let effort: EffortTier
-    var body: some View { Pill(effort.label, systemImage: gauge, tint: .appText) }
-
-    private var gauge: String {
-        switch effort {
-        case .skim:     return "gauge.with.dots.needle.0percent"
-        case .quick:    return "gauge.with.dots.needle.33percent"
-        case .moderate: return "gauge.with.dots.needle.50percent"
-        case .deep:     return "gauge.with.dots.needle.67percent"
-        case .heavy:    return "gauge.with.dots.needle.100percent"
-        }
-    }
-}
-
 /// Priority shouts only when it wants attention — high/urgent. Urgent is a solid
 /// red chip; high a softer amber tint. Low/normal don't render (the list is
 /// already priority-sorted). Never blue: that's the accent.

@@ -11,12 +11,11 @@ struct PanelHeader: View {
 
     var body: some View {
         HStack(spacing: Layout.snug) {
-            Image(systemName: "circle.grid.2x2.fill")
-                .font(.headline)
-                .foregroundStyle(Color.appAccent)
+            BrandMark(size: 18)
             Text("MergeMole")
                 .font(.headline)
                 .foregroundStyle(.appText)
+            if model.badgeCount > 0 { brandCount }
 
             Spacer(minLength: Layout.base)
 
@@ -25,6 +24,19 @@ struct PanelHeader: View {
         }
         .padding(.horizontal, Layout.margin)
         .frame(height: Layout.headerHeight)
+    }
+
+    /// The live count beside the brand, mirroring the menu bar. Quiet (a neutral
+    /// chip) by default; takes the matching amber/red — solid red when urgent, the
+    /// same as the cards — when an urgent/high PR is in the count, so the panel
+    /// echoes the urgency at a glance. (Color works here; the menu bar can't tint.)
+    @ViewBuilder private var brandCount: some View {
+        let count = "\(model.badgeCount)"
+        switch model.badgePriority {
+        case .urgent: Pill(count, tint: .appRed, filled: true)
+        case .high:   Pill(count, tint: .appAmber)
+        default:      Pill(count, tint: .appTextSecondary)
+        }
     }
 
     private var refreshButton: some View {

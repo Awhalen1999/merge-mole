@@ -30,7 +30,7 @@ struct FoundationModelsEngine: VerdictEngine {
     private static let instructions = """
     You triage GitHub pull requests for a busy reviewer who wants, at a glance, to \
     know what each PR is and whether to look now. From the metadata and description, \
-    judge the review effort and the priority, then write a one-line summary and one \
+    judge the priority, then write a one-line summary and one \
     clause of why. Be specific and concrete; never invent details the input doesn't \
     support. If the description is thin, judge from the title, size, and file count.
     """
@@ -40,32 +40,15 @@ struct FoundationModelsEngine: VerdictEngine {
 
 @Generable
 private struct GeneratedVerdict {
-    @Guide(description: "How much focused effort reviewing this PR will take.")
-    let effort: GeneratedEffort
     @Guide(description: "How urgently the reviewer should look, given review state, CI, size, and risk.")
     let priority: GeneratedPriority
     @Guide(description: "What the PR actually does, in one concrete line of at most 14 words. Start with a verb, no \"This PR\" preamble, and don't just repeat the title.")
     let summary: String
-    @Guide(description: "The single most decision-relevant reason for the effort and priority call, as one short clause.")
+    @Guide(description: "The single most decision-relevant reason for the priority call, as one short clause.")
     let rationale: String
 
     var toVerdict: Verdict {
-        Verdict(effort: effort.tier, priority: priority.value, summary: summary, rationale: rationale)
-    }
-}
-
-@Generable
-private enum GeneratedEffort {
-    case skim, quick, moderate, deep, heavy
-
-    var tier: EffortTier {
-        switch self {
-        case .skim:     return .skim
-        case .quick:    return .quick
-        case .moderate: return .moderate
-        case .deep:     return .deep
-        case .heavy:    return .heavy
-        }
+        Verdict(priority: priority.value, summary: summary, rationale: rationale)
     }
 }
 

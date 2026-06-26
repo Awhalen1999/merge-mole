@@ -137,19 +137,10 @@ enum SampleData {
         ),
     ]
 
-    /// A deterministic stand-in for a real AI verdict. Derives effort from the
-    /// native size and priority from review/CI signals — close enough to make
-    /// the card look alive before the Foundation Models engine lands at Step 5.
+    /// A deterministic stand-in for a real AI verdict. Derives priority from
+    /// review/CI signals — close enough to make the card look alive before the
+    /// Foundation Models engine lands at Step 5.
     static func verdict(for pr: PullRequest) -> Verdict {
-        let effort: EffortTier
-        switch pr.sizeBucket {
-        case .xs: effort = .skim
-        case .s:  effort = .quick
-        case .m:  effort = .moderate
-        case .l:  effort = .deep
-        case .xl: effort = .heavy
-        }
-
         let priority: Priority
         let rationale: String
         if pr.isDraft {
@@ -172,7 +163,6 @@ enum SampleData {
         }
 
         return Verdict(
-            effort: effort,
             priority: priority,
             summary: summary(for: pr),
             rationale: rationale

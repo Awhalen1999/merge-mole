@@ -96,9 +96,7 @@ struct RootView: View {
             title: "Connect to GitHub",
             message: "MergeMole reads your pull requests to triage what needs your attention first. Your token stays on this Mac."
         ) {
-            Image(systemName: "circle.grid.2x2.fill")
-                .font(.system(size: 46))
-                .foregroundStyle(Color.appAccent)
+            BrandMark(size: 46)
         } actions: {
             VStack(spacing: Layout.base) {
                 SettingsLink {

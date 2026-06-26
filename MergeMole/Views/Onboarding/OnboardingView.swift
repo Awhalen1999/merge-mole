@@ -86,7 +86,7 @@ struct OnboardingView: View {
             Spacer()
             AppIconTile(size: 64)
             StepHeading("Welcome to MergeMole",
-                        "The pull requests that need you — triaged by effort and priority, right in your menu bar.")
+                        "The pull requests that need you — triaged by priority, right in your menu bar.")
             MediaPlaceholder(height: 230)   // product demo gif drops in here later
                 .padding(.top, Layout.base)
             Spacer()
@@ -139,7 +139,7 @@ struct OnboardingView: View {
         VStack(spacing: Layout.roomy) {
             Spacer()
             StepHeading("How should MergeMole triage?",
-                        "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
+                        "Pick the engine that rates priority. You can change this anytime in Settings.")
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
                     RadioCard(title: mode.cardTitle,

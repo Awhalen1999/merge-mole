@@ -6,8 +6,8 @@
 ## What it is
 A macOS menu bar app that shows your GitHub pull requests in a dropdown panel
 spawned from the menu bar icon. Unlike existing PR menu bar apps (PullBar, etc.),
-MergeMole uses AI to tell you what each PR *is*, how much *effort* it'll take, and
-what to *prioritize* — so it triages, not just lists.
+MergeMole uses AI to tell you what each PR *is* and what to *prioritize* — so it
+triages, not just lists.
 
 First target user: an individual dev drowning in PRs. (Team/manager views are later.)
 
@@ -54,16 +54,17 @@ Build roughly one step at a time. Each should build and run before moving on.
        See **Design language** and **Onboarding & Settings** below.
 - [x] 9. Menu-bar polish — custom mole-in-a-burrow template icon: an empty hole
        when nothing's waiting, a mole rising out of it when PRs await review
-       (switched on `badgeCount`), with the live count beside it as text. Done in
-       the `MenuBarExtra` label with template assets. Source SVGs in
-       `Design/menubar-icons/` (variant C shipped as `HoleMole`; B kept as the
-       alternate).
-       Priority color escalation (mono → amber → red) was tried and dropped:
-       `MenuBarExtra` renders its whole label monochrome, so neither a tinted
-       template image nor colored count text shows any color. Revisit later with
-       non-template colored assets (or a real `NSStatusItem`) if we want it.
+       (switched on `badgeCount`), with the live count beside it as text. The same
+       mole is the app's `BrandMark` (panel header, app-icon tile, connect screen),
+       and which groups feed the count is configurable (General → Menu-bar count;
+       `badgeTabs`, default Review Requested). Source SVGs in `Design/menubar-icons/`
+       (variant C shipped as `HoleMole`; B kept as the alternate).
+       Color escalation can't live in the menu bar — `MenuBarExtra` renders its
+       label monochrome — so the priority tint (amber high / red urgent off
+       `badgePriority`) rides on the **panel-header count** instead, where SwiftUI
+       color applies.
 - [ ] 10. Test target — unit tests over the pure logic (`VerdictInput.signature`,
-       `EffortTier`/`Priority(wire:)`, `SizeBucket`, `PRTab` order restore,
+       `Priority(wire:)`, `SizeBucket`, `PRTab` order restore,
        `VerdictCache.prune`, `RemoteVerdictEngine.completionsURL`, the GraphQL merge).
 
 ## Structure (the seams)
@@ -95,7 +96,7 @@ Chosen in Settings → AI. The card reads one `VerdictState` and branches on it 
 backend-agnostic. Adding/removing a backend is one `case` in `AppModel.activeEngine`.
 
 1. On-device (default): Foundation Models. Free, private, no key. Cards show
-   effort / summary / priority. Unavailable on this Mac → falls back to data-only.
+   summary / priority. Unavailable on this Mac → falls back to data-only.
 2. Bring-your-own: any OpenAI-compatible endpoint (hosted or local Ollama). Same
    features, different backend.
 3. Off: no model. Cards collapse cleanly to data-only — still a fast PR list.
@@ -128,9 +129,8 @@ adaptive.
   (`.appAccent`, `.appBackground`, `.appSurface`, `.appHairline`, `.appText`,
   `.appTextSecondary`, `.appTextTertiary`, `.appRed/Amber/Green`, `.appBlue/Purple`).
   Views reference the semantic names — a re-tune touches one file.
-- **Effort = neutral gauge** (intensity from the needle, no hue) so the signature
-  feature doesn't collide with status colors. **Priority colors only high/urgent**
-  (amber/red); low/normal stay quiet since the list is already priority-sorted.
+- **Priority colors only high/urgent** (amber/red); low/normal stay quiet since the
+  list is already priority-sorted.
 - **Spacing/radius**: `DesignSystem/Layout.swift` holds the scale (hair/tight/snug/
   base/roomy/generous + `cardRadius` 10, `controlRadius` 6). Views use the names.
 - **Shared surfaces**: one `.cardSurface(padded:)` modifier (`Components/Surface.swift`)
@@ -183,8 +183,6 @@ shared across scenes via `.environment`.
 - Every AI verdict shows one clause of *why*. Auditable, never a black box.
 - The PR list works perfectly with AI off — that's a first-class mode, not a fallback.
 - The red badge errs toward missing over crying wolf. Start conservative; loosen later.
-- Show the AI effort tier next to the native line counts, never instead of — the
-  contrast is the feature.
 - Cache hard: re-run a verdict only when the PR's reviewable content changes.
 - Secrets live in Keychain, never UserDefaults. Never store a credential unverified.
 

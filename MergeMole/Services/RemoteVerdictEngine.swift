@@ -114,10 +114,9 @@ struct RemoteVerdictEngine: VerdictEngine {
         let summary = (object["summary"] as? String) ?? ""
         guard !summary.isEmpty else { throw RemoteModelError.badResponse }
 
-        // The allowed tokens (and their fallbacks) live on the enums — see
-        // `EffortTier.init(wire:)` / `Priority.init(wire:)`.
+        // The allowed tokens (and their fallback) live on the enum — see
+        // `Priority.init(wire:)`.
         return Verdict(
-            effort: EffortTier(wire: object["effort"] as? String),
             priority: Priority(wire: object["priority"] as? String),
             summary: summary,
             rationale: (object["rationale"] as? String) ?? ""
@@ -131,10 +130,10 @@ struct RemoteVerdictEngine: VerdictEngine {
     /// on-device engine's, so verdicts read the same regardless of backend.
     private static let instructions = """
     You triage GitHub pull requests for a busy reviewer. Respond with ONLY a JSON \
-    object and no other text: {"effort": one of \(EffortTier.wireList), "priority": \
-    one of \(Priority.wireList), "summary": what the PR does in one concrete line of \
-    at most 14 words (start with a verb, no "This PR" preamble, don't just repeat the \
-    title), "rationale": one short clause giving the main reason for the effort and \
-    priority call}. Be specific; never invent details the input doesn't support.
+    object and no other text: {"priority": one of \(Priority.wireList), "summary": \
+    what the PR does in one concrete line of at most 14 words (start with a verb, no \
+    "This PR" preamble, don't just repeat the title), "rationale": one short clause \
+    giving the main reason for the priority call}. Be specific; never invent details \
+    the input doesn't support.
     """
 }

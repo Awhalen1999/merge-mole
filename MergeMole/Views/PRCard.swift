@@ -5,9 +5,8 @@ import SwiftUI
 /// a button that opens the PR on GitHub.
 ///
 /// A colored edge bar flags priority. Everything AI-derived flows from the single
-/// `verdict` value — the priority chip + edge bar, the summary, the rationale, and
-/// the effort badge beside the line counts. AI off → those simply don't render,
-/// and the card collapses to clean data-only.
+/// `verdict` value — the priority chip + edge bar, the summary, and the rationale.
+/// AI off → those simply don't render, and the card collapses to clean data-only.
 struct PRCard: View {
     let pr: PullRequest
     let verdict: VerdictState
@@ -144,13 +143,10 @@ struct PRCard: View {
         .foregroundStyle(.appTextSecondary)
     }
 
-    /// Metrics then status, wrapping as the row fills. Effort leads — beside the
-    /// raw +/− counts, never instead of them. The +/− line counts stay regardless
-    /// of AI; that's the always-on size signal.
+    /// Metrics then status, wrapping as the row fills. The +/− line counts are the
+    /// always-on size signal — they stay regardless of AI.
     private var stats: some View {
         FlowLayout(spacing: Layout.base) {
-            if case .ready(let v) = verdict { EffortBadge(effort: v.effort) }
-
             HStack(spacing: Layout.tight) {
                 Text("+\(pr.additions)").foregroundStyle(Color.appGreen)
                 Text("−\(pr.deletions)").foregroundStyle(Color.appRed)

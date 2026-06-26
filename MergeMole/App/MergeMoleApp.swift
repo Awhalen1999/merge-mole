@@ -48,7 +48,8 @@ struct MergeMoleApp: App {
 /// out of it (with the live count beside it) when PRs await review. Reading
 /// `model.badgeCount` ties it to the observable model, so it refreshes after every
 /// background fetch with no manual redraw. Both glyphs are template images, so
-/// macOS keeps them monochrome and adapts them to the menu bar.
+/// macOS keeps them monochrome and adapts them to the menu bar — color can't apply
+/// here (the priority tint lives in the panel header, where it can).
 private struct MenuBarLabel: View {
     let model: AppModel
 

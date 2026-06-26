@@ -301,6 +301,19 @@ final class AppModel {
         tabOrder.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
     }
 
+    /// Which groups feed the menu-bar count (General → Menu-bar count). Stored as
+    /// raw values; defaults to Review Requested. The badge totals the deduped union
+    /// of PRs across these groups, independent of which tabs the panel shows.
+    private(set) var badgeTabs: Set<PRTab> {
+        didSet { UserDefaults.standard.set(badgeTabs.map(\.rawValue), forKey: Key.badgeTabs) }
+    }
+
+    /// Include/exclude a group from the menu-bar count. Any subset is allowed —
+    /// selecting none simply shows no number (just the empty-burrow icon).
+    func setBadge(_ tab: PRTab, on: Bool) {
+        if on { badgeTabs.insert(tab) } else { badgeTabs.remove(tab) }
+    }
+
     // MARK: Persisted preferences
 
     var aiMode: AIMode {
@@ -363,6 +376,7 @@ final class AppModel {
         static let panelBackground = "panelBackground"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
+        static let badgeTabs = "badgeTabs"
     }
 
     // MARK: Init
@@ -406,6 +420,15 @@ final class AppModel {
         } else {
             self.hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
         }
+
+        // Which groups feed the menu-bar count; default to Review Requested.
+        // (Set before the guard below, which reads computed props needing full init.)
+        if let savedBadge = defaults.array(forKey: Key.badgeTabs) as? [String] {
+            self.badgeTabs = Set(savedBadge.compactMap(PRTab.init(rawValue:)))
+        } else {
+            self.badgeTabs = [.reviewRequested]
+        }
+
         if hiddenTabs.contains(selectedTab) {
             selectedTab = visibleTabs.first ?? .reviewRequested
         }
@@ -496,9 +519,22 @@ final class AppModel {
         Dictionary(uniqueKeysWithValues: PRTab.allCases.map { ($0, pullRequests(for: $0).count) })
     }
 
-    /// The number on the menu-bar icon: PRs awaiting your review — the one bucket
-    /// worth surfacing without opening the panel. Independent of tab visibility.
-    var badgeCount: Int { pullRequests(for: .reviewRequested).count }
+    /// PRs in the groups the user picked for the count (`badgeTabs`, default Review
+    /// Requested), deduped across groups and independent of which tabs the panel
+    /// shows. The basis for both the count and its priority.
+    private var badgePullRequests: [PullRequest] {
+        pullRequests.filter { pr in
+            badgeTabs.contains { pr.relationships.contains($0.relationship) }
+        }
+    }
+
+    /// The number on the menu-bar icon and beside the panel-header brand. No groups
+    /// selected → no number.
+    var badgeCount: Int { badgePullRequests.count }
+
+    /// The most urgent priority among the counted PRs — colors the panel-header
+    /// count (amber for high, red for urgent). `nil` when nothing is counted.
+    var badgePriority: Priority? { badgePullRequests.map { priority(of: $0) }.max() }
 
     func verdictState(for pr: PullRequest) -> VerdictState {
         verdicts[pr.id] ?? (aiEnabled ? .loading : .off)

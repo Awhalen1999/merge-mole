@@ -6,7 +6,6 @@ import Foundation
 /// a bring-your-own hosted model, or local Ollama all produce a `Verdict`. The
 /// card never knows (or cares) which one did.
 struct Verdict: Codable, Hashable, Sendable {
-    var effort: EffortTier
     var priority: Priority
     /// One-line, plain-language summary of what the PR *is*.
     var summary: String
@@ -15,52 +14,7 @@ struct Verdict: Codable, Hashable, Sendable {
     var rationale: String
 }
 
-/// How much work reviewing/understanding this PR will actually take — the AI's
-/// judgement, shown alongside the native `SizeBucket`, not derived from it.
-enum EffortTier: Int, CaseIterable, Sendable, Comparable, Codable {
-    case skim
-    case quick
-    case moderate
-    case deep
-    case heavy
-
-    var label: String {
-        switch self {
-        case .skim:     return "Skim"
-        case .quick:    return "Quick"
-        case .moderate: return "Moderate"
-        case .deep:     return "Deep"
-        case .heavy:    return "Heavy"
-        }
-    }
-
-    /// The lowercase token a model emits / we parse. One source of truth for the
-    /// BYO prompt's allowed values *and* its parser, so they can never drift.
-    var wireName: String {
-        switch self {
-        case .skim:     return "skim"
-        case .quick:    return "quick"
-        case .moderate: return "moderate"
-        case .deep:     return "deep"
-        case .heavy:    return "heavy"
-        }
-    }
-
-    /// Lenient parse from a model's reply; anything unrecognized falls to the
-    /// middle tier rather than failing the whole verdict.
-    init(wire raw: String?) {
-        self = EffortTier.allCases.first { $0.wireName == raw?.lowercased() } ?? .moderate
-    }
-
-    /// `"skim|quick|moderate|deep|heavy"` — drop straight into a prompt.
-    static var wireList: String { allCases.map(\.wireName).joined(separator: "|") }
-
-    static func < (lhs: EffortTier, rhs: EffortTier) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-}
-
-/// What to look at first. Drives ordering and (later) the menu-bar badge.
+/// What to look at first. Drives ordering and the menu-bar count.
 enum Priority: Int, CaseIterable, Sendable, Comparable, Codable {
     case low
     case normal
@@ -76,7 +30,8 @@ enum Priority: Int, CaseIterable, Sendable, Comparable, Codable {
         }
     }
 
-    /// The lowercase token a model emits / we parse (see `EffortTier.wireName`).
+    /// The lowercase token a model emits / we parse. One source of truth for the
+    /// BYO prompt's allowed values *and* its parser, so they can never drift.
     var wireName: String {
         switch self {
         case .low:    return "low"
