@@ -54,11 +54,14 @@ Build roughly one step at a time. Each should build and run before moving on.
        See **Design language** and **Onboarding & Settings** below.
 - [x] 9. Menu-bar polish — custom mole-in-a-burrow template icon: an empty hole
        when nothing's waiting, a mole rising out of it when PRs await review
-       (switched on `badgeCount`). Tinted mono → amber → red off the most urgent
-       review-requested PR (`badgePriority`); the live count rides beside it as
-       text. Done in the `MenuBarExtra` label with template assets — no
-       `NSStatusItem` needed yet. Source SVGs in `Design/menubar-icons/`
-       (variant C shipped as `HoleMole`; B kept as the alternate).
+       (switched on `badgeCount`), with the live count beside it as text. Done in
+       the `MenuBarExtra` label with template assets. Source SVGs in
+       `Design/menubar-icons/` (variant C shipped as `HoleMole`; B kept as the
+       alternate).
+       Priority color escalation (mono → amber → red) was tried and dropped:
+       `MenuBarExtra` renders its whole label monochrome, so neither a tinted
+       template image nor colored count text shows any color. Revisit later with
+       non-template colored assets (or a real `NSStatusItem`) if we want it.
 - [ ] 10. Test target — unit tests over the pure logic (`VerdictInput.signature`,
        `EffortTier`/`Priority(wire:)`, `SizeBucket`, `PRTab` order restore,
        `VerdictCache.prune`, `RemoteVerdictEngine.completionsURL`, the GraphQL merge).
