@@ -44,17 +44,43 @@ struct MergeMoleApp: App {
     }
 }
 
-/// The menu-bar status item: the brand glyph plus a live count of PRs awaiting
-/// review. Reading `model.badgeCount` here ties the badge to the observable model,
-/// so it updates after every background refresh — no manual redraw needed. (The
-/// richer colored-icon/badge-bubble treatment lands later via `NSStatusItem`.)
+/// The menu-bar status item: an empty burrow when nothing's waiting, a mole rising
+/// out of it (with the live count beside it) when PRs await review. Reading
+/// `model.badgeCount` / `badgePriority` here ties it to the observable model, so it
+/// updates after every background refresh — no manual redraw needed.
+///
+/// Both glyphs are template images: macOS recolors them for the menu bar on its own
+/// when untinted, and the most urgent review-requested PR escalates the tint
+/// mono → amber → red (`escalation`). The count rides alongside as plain text.
 private struct MenuBarLabel: View {
     let model: AppModel
+
     var body: some View {
         let count = model.badgeCount
         HStack(spacing: 3) {
-            Image(systemName: count > 0 ? "circle.grid.2x2.fill" : "circle.grid.2x2")
-            if count > 0 { Text("\(count)") }
+            Image(count > 0 ? "HoleMole" : "HoleEmpty")
+                .renderingMode(.template)
+            if count > 0 { Text("\(count)").monospacedDigit() }
         }
+        .modifier(Escalation(color: escalation))
+    }
+
+    /// red = something urgent is waiting, amber = high; otherwise no tint so the
+    /// plain template tracks the menu bar's own light/dark appearance.
+    private var escalation: Color? {
+        switch model.badgePriority {
+        case .urgent: return .appRed
+        case .high:   return .appAmber
+        default:      return nil
+        }
+    }
+}
+
+/// Applies a tint only when there's an escalation; leaving it off preserves the
+/// template image's automatic light/dark (and open-menu highlight) behavior.
+private struct Escalation: ViewModifier {
+    let color: Color?
+    func body(content: Content) -> some View {
+        if let color { content.foregroundStyle(color) } else { content }
     }
 }

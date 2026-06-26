@@ -52,8 +52,13 @@ Build roughly one step at a time. Each should build and run before moving on.
 - [x] UI pass — full visual redesign on a native-macOS palette: a Transparent/Solid
        panel backdrop, a 3-tab Settings window, and a 5-step onboarding flow.
        See **Design language** and **Onboarding & Settings** below.
-- [ ] 9. Menu-bar polish — move to `NSStatusItem` for a colored icon
-       (mono → amber → red) and a red badge bubble; the live count already feeds it.
+- [x] 9. Menu-bar polish — custom mole-in-a-burrow template icon: an empty hole
+       when nothing's waiting, a mole rising out of it when PRs await review
+       (switched on `badgeCount`). Tinted mono → amber → red off the most urgent
+       review-requested PR (`badgePriority`); the live count rides beside it as
+       text. Done in the `MenuBarExtra` label with template assets — no
+       `NSStatusItem` needed yet. Source SVGs in `Design/menubar-icons/`
+       (variant C shipped as `HoleMole`; B kept as the alternate).
 - [ ] 10. Test target — unit tests over the pure logic (`VerdictInput.signature`,
        `EffortTier`/`Priority(wire:)`, `SizeBucket`, `PRTab` order restore,
        `VerdictCache.prune`, `RemoteVerdictEngine.completionsURL`, the GraphQL merge).

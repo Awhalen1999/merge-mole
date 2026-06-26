@@ -500,6 +500,13 @@ final class AppModel {
     /// worth surfacing without opening the panel. Independent of tab visibility.
     var badgeCount: Int { pullRequests(for: .reviewRequested).count }
 
+    /// The most urgent priority among review-requested PRs — drives the menu-bar
+    /// icon's mono → amber → red escalation. `nil` when nothing's waiting (or AI is
+    /// off, so everything reads `.normal` and the icon stays a plain template).
+    var badgePriority: Priority? {
+        pullRequests(for: .reviewRequested).map { priority(of: $0) }.max()
+    }
+
     func verdictState(for pr: PullRequest) -> VerdictState {
         verdicts[pr.id] ?? (aiEnabled ? .loading : .off)
     }

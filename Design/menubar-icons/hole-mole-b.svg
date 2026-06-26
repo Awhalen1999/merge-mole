@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" fill="#000">
+  <!-- burrow rim -->
+  <path fill-rule="evenodd" d="M1.8 11.5a7.2 3.4 0 1 0 14.4 0a7.2 3.4 0 1 0-14.4 0ZM4 11.5a5 1.8 0 1 0 10 0a5 1.8 0 1 0-10 0Z"/>
+  <!-- mole: dome head, flares from mid-height into the burrow (variant B — alternate, kept) -->
+  <path fill-rule="evenodd" d="M9 2.2C11.3 2.2 12.9 4.6 12.9 11C13 11.7 13.6 12 14.3 11.9C14.1 13 12.4 13.8 9 13.8C5.6 13.8 3.9 13 3.7 11.9C4.4 12 5 11.7 5.1 11C5.1 4.6 6.7 2.2 9 2.2ZM6.85 6.4a.85 .95 0 1 0 1.7 0a.85 .95 0 1 0-1.7 0ZM9.45 6.4a.85 .95 0 1 0 1.7 0a.85 .95 0 1 0-1.7 0Z"/>
+</svg>
