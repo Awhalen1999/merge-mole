@@ -414,6 +414,10 @@ final class AppModel {
     /// Public so the App scene's `defaultLaunchBehavior` reads the exact same key.
     static let onboardedDefaultsKey = "hasCompletedOnboarding"
 
+    /// UserDefaults keys for the app's non-secret preferences. These live in
+    /// `~/Library/Application Support/../Preferences/app.mergemole.MergeMole.plist`
+    /// (the standard domain). Secrets are NOT here — they go through `secrets`
+    /// (Keychain); see `SecretKey`. `resetAll()` wipes this whole domain.
     private enum Key {
         static let aiMode = "aiMode"
         static let byoEndpoint = "byoEndpoint"
@@ -450,18 +454,6 @@ final class AppModel {
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .transparent
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
-
-        // Consolidate any key written by the short-lived per-provider build back into
-        // the single slot the MVP uses, then clear the old per-provider slots.
-        if secrets.string(for: .remoteModelAPIKey) == nil {
-            for key in Self.legacyPerProviderKeys {
-                if let value = secrets.string(for: key), !value.isEmpty {
-                    secrets.set(value, for: .remoteModelAPIKey)
-                    break
-                }
-            }
-        }
-        for key in Self.legacyPerProviderKeys { secrets.set(nil, for: key) }
 
         // Restore the saved tab order, appending any tabs added since (so a newer
         // build's tabs still appear) and dropping any we no longer ship.
@@ -530,11 +522,6 @@ final class AppModel {
 
     // MARK: BYO API key (non-displayed; lives in Keychain — one slot for the MVP)
 
-    /// Keychain slots used by the short-lived per-provider build, consolidated back
-    /// into the single slot on launch.
-    private static let legacyPerProviderKeys: [SecretKey] =
-        [.remoteModelAPIKeyOpenAI, .remoteModelAPIKeyAnthropic, .remoteModelAPIKeyCompatible]
-
     var byoAPIKey: String { secrets.string(for: .remoteModelAPIKey) ?? "" }
 
     func setBYOAPIKey(_ key: String) {
@@ -581,10 +568,50 @@ final class AppModel {
         UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
     }
 
-    /// Replay first-run setup. Pair with opening the onboarding window.
-    func resetOnboarding() {
+    /// Factory reset — wipe everything the app has persisted and return the live
+    /// state to first-launch defaults. Pair with opening the onboarding window.
+    ///
+    /// Storage map (everything the app writes; this clears all of it):
+    ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
+    ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
+    ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground,
+    ///     tabOrder/hiddenTabs/badgeTabs, onboarding flag, checkForUpdates (@AppStorage).
+    ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
+    ///     the AI verdict cache.
+    ///   • Login item (SMAppService) — launch-at-login registration.
+    func resetAll() {
+        // 1. Live state → defaults, so any open window updates immediately.
+        disconnectGitHub()                  // token + PR state + scheduler
+        lastSyncedAt = nil
+        aiMode = .onDevice
+        byoProvider = .openAI
+        byoEndpoint = ""
+        byoModel = ""
+        byoStatus = .untested
+        modelDiscovery = .idle
+        refreshInterval = .every15
+        panelBackground = .transparent
+        tabOrder = PRTab.allCases
+        hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
+        badgeTabs = [.reviewRequested]
+        selectedTab = .reviewRequested
         hasCompletedOnboarding = false
-        UserDefaults.standard.set(false, forKey: Self.onboardedDefaultsKey)
+
+        // 2. Keychain — every slot we own.
+        for key in SecretKey.allCases { secrets.set(nil, for: key) }
+
+        // 3. Verdict cache file.
+        verdictCache.clear()
+
+        // 4. Launch-at-login registration.
+        LoginItem.set(false)
+
+        // 5. Wipe the whole UserDefaults domain last — after the didSets above, so
+        //    nothing is left behind, and this also sweeps @AppStorage values and any
+        //    keys from earlier builds.
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
     }
 
     // MARK: Derived views of state

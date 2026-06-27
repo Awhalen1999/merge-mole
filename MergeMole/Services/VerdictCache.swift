@@ -15,6 +15,7 @@ final class VerdictCache {
 
     init() {
         fileURL = Self.makeFileURL()
+        Self.removeLegacyRootFile()
         entries = Self.load(from: fileURL)
     }
 
@@ -60,13 +61,32 @@ final class VerdictCache {
         try? data.write(to: fileURL, options: .atomic)
     }
 
+    /// Empty the cache and delete its file (factory reset).
+    func clear() {
+        entries = [:]
+        if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
+    }
+
     // MARK: Persistence
 
+    /// `~/Library/Application Support/MergeMole/verdict-cache.json`. The `MergeMole`
+    /// subfolder keeps our file out of the shared Application Support root.
     private static func makeFileURL() -> URL? {
-        guard let directory = try? FileManager.default.url(
+        guard let support = try? FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         ) else { return nil }
+        let directory = support.appendingPathComponent("MergeMole", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.appendingPathComponent("verdict-cache.json")
+    }
+
+    /// Pre-1.0 builds wrote the cache to the Application Support *root*. Sweep that
+    /// stray file so it doesn't linger after the move into the subfolder.
+    private static func removeLegacyRootFile() {
+        guard let support = try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        ) else { return }
+        try? FileManager.default.removeItem(at: support.appendingPathComponent("verdict-cache.json"))
     }
 
     private static func load(from url: URL?) -> [String: Entry] {

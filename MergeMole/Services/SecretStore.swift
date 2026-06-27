@@ -9,12 +9,12 @@ protocol SecretStore: AnyObject {
 }
 
 /// Known secret slots, kept in one place so call sites can't typo a raw string.
+/// These are the *only* secrets the app stores; both live in the macOS Keychain
+/// (`KeychainSecretStore`, service `app.mergemole.MergeMole`). `CaseIterable` lets a
+/// factory reset clear every slot without naming them.
 enum SecretKey: String, CaseIterable, Sendable {
-    case githubToken
-    case remoteModelAPIKey            // legacy single slot — migrated to the per-provider slots below
-    case remoteModelAPIKeyOpenAI
-    case remoteModelAPIKeyAnthropic
-    case remoteModelAPIKeyCompatible
+    case githubToken          // GitHub personal access token
+    case remoteModelAPIKey    // Custom-model (BYO) API key
 }
 
 /// In-memory stand-in so the seam compiles and runs today. Values do NOT persist
