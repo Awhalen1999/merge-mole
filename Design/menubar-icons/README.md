@@ -2,7 +2,11 @@
 
 Source SVGs for the menu-bar status item (the mole-in-a-burrow). These are the
 master copies; the app ships them via `MergeMole/Assets.xcassets` as **template
-images** (single colour, 18×18 viewBox, recoloured by macOS / tinted in code).
+images** (single colour, recoloured by macOS / tinted in code). The `viewBox` is
+cropped tight to the artwork (`1.45 1.85 15.1 13.4`, ~0.35 even margin) so the
+glyph fills the menu-bar slot like the system icons instead of floating small inside
+a padded square. Both states share the same viewBox, so the burrow stays put when
+the mole rises.
 
 | File | State | Status |
 |------|-------|--------|
