@@ -128,7 +128,7 @@ enum ModelDiscovery: Equatable, Sendable {
 /// over the desktop; Solid is an opaque Flexoki surface for readability over any
 /// wallpaper.
 enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
-    case transparent, solid
+    case solid, transparent   // order drives the Settings segmented control
 
     var id: String { rawValue }
 
@@ -138,6 +138,13 @@ enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
         case .solid:       return "Solid"
         }
     }
+}
+
+/// The Settings window's tabs. Shared so the panel's ⋮ menu can deep-link to one
+/// (e.g. "About MergeMole" opens straight to About) instead of a separate window.
+enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
+    case general, tabs, providers, about
+    var id: String { rawValue }
 }
 
 /// The top-level filters in the panel's tab bar. Most map one-to-one onto a
@@ -303,6 +310,10 @@ final class AppModel {
     private(set) var lastSyncedAt: Date?
 
     var selectedTab: PRTab = .reviewRequested
+
+    /// Which Settings tab to show. Transient (not persisted) — set by the ⋮ menu so
+    /// "About MergeMole" can open Settings straight to About.
+    var settingsTab: SettingsTab = .general
 
     /// The user's tab order (General → Tabs, drag to reorder). Persisted as raw
     /// values; on load we append any tabs a newer version added so they're never
@@ -700,6 +711,11 @@ final class AppModel {
     /// The tabs currently holding unread PRs.
     var tabsWithUnread: Set<PRTab> {
         Set(PRTab.allCases.filter { hasUnread(in: $0) })
+    }
+
+    /// The unread PRs in a tab — the basis for "Open all unread".
+    func unreadPullRequests(in tab: PRTab) -> [PullRequest] {
+        pullRequests(for: tab).filter { isUnread($0) }
     }
 
     func markRead(_ pr: PullRequest) {

@@ -9,16 +9,36 @@ import AppKit
 struct PanelHeader: View {
     var showsRefresh: Bool
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         HStack(spacing: Layout.snug) {
             if showsRefresh { refreshButton }
-            if model.hasUnread(in: model.selectedTab) { markAllReadButton }
+            if model.hasUnread(in: model.selectedTab) {
+                openUnreadButton
+                markAllReadButton
+            }
             Spacer(minLength: Layout.base)
             settingsMenu
         }
         .padding(.horizontal, Layout.margin)
         .frame(height: Layout.headerHeight)
+    }
+
+    /// Opens every unread PR in the current tab (in the browser) and marks them read
+    /// — a one-shot "work through my unread." The count is in the label so you know
+    /// how many tabs you're about to open. Shown only when the tab has unread.
+    private var openUnreadButton: some View {
+        let count = model.unreadPullRequests(in: model.selectedTab).count
+        return Button {
+            for pr in model.unreadPullRequests(in: model.selectedTab) { openURL(pr.url) }
+            model.markAllRead(in: model.selectedTab)
+        } label: {
+            Label("Open \(count) unread", systemImage: "arrow.up.forward.app")
+        }
+        .buttonStyle(HeaderButtonStyle())
+        .help("Open every unread PR in this tab and mark them read")
     }
 
     /// Marks every PR in the current tab as read. Sits beside Refresh on the left,
@@ -66,8 +86,9 @@ struct PanelHeader: View {
             .keyboardShortcut(",", modifiers: .command)
 
             Button {
+                model.settingsTab = .about
                 NSApp.activate(ignoringOtherApps: true)
-                NSApp.orderFrontStandardAboutPanel(nil)
+                openSettings()
             } label: {
                 Label("About MergeMole", systemImage: "info.circle")
             }

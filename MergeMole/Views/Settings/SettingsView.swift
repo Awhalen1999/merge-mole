@@ -9,16 +9,23 @@ import UniformTypeIdentifiers
 /// controls stay native (segmented, pop-ups, switches, checkboxes) for the clean
 /// native feel; the brand blue is the accent only, never a fill.
 struct SettingsView: View {
+    @Environment(AppModel.self) private var model
+
     var body: some View {
-        TabView {
+        @Bindable var model = model
+        TabView(selection: $model.settingsTab) {
             GeneralSettings()
                 .tabItem { Label("General", systemImage: "slider.horizontal.3") }
+                .tag(SettingsTab.general)
             TabsSettings()
                 .tabItem { Label("Tabs", systemImage: "rectangle.3.group") }
+                .tag(SettingsTab.tabs)
             ProvidersSettings()
                 .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
+                .tag(SettingsTab.providers)
             AboutSettings()
                 .tabItem { Label("About", systemImage: "info.circle") }
+                .tag(SettingsTab.about)
         }
         .tint(.appAccent)
         .frame(width: 560, height: 560)
@@ -632,7 +639,7 @@ private struct AboutSettings: View {
                         .foregroundStyle(.appTextTertiary)
                 }
             }
-            Text("Surface the pull requests that actually need you.")
+            Text("Your pull requests, triaged by AI, in your menu bar")
                 .font(.callout)
                 .foregroundStyle(.appTextSecondary)
         }

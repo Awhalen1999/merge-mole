@@ -23,7 +23,7 @@ Defined in `MergeMole/DesignSystem/Color+Flexoki.swift`. Reference via the
 
 | Token | Value | Use |
 |---|---|---|
-| `.appAccent` | `#15B0FF` (fixed, identical light + dark) | Interactive + selection **only** — primary buttons, links, the AI radio, the logo. Never status, never a decorative fill. |
+| `.appAccent` | `#0484EB` (fixed, identical light + dark; matches the marketing site) | Interactive + selection **only** — primary buttons, links, the AI radio, the logo. Never status, never a decorative fill. |
 
 System controls (checkboxes, toggles, the selected Settings tab) inherit the accent
 through the Settings `TabView` tint.

@@ -41,5 +41,9 @@ private struct MenuBarLabel: View {
                 .renderingMode(.template)
             if count > 0 { Text("\(count)").monospacedDigit() }
         }
+        // The label renders at launch (the panel content is lazy), so this gives us a
+        // live count before the panel is ever opened. `loadIfStale` no-ops when
+        // disconnected or recently synced, so it won't double-fetch on first open.
+        .task { await model.loadIfStale() }
     }
 }

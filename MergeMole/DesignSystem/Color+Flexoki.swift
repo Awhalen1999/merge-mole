@@ -48,9 +48,10 @@ private nonisolated func fixed(_ hex: UInt32) -> Color { Color(nsColor: makeNSCo
 // MARK: - Semantic tokens (use these in views, not the raw ramp)
 
 private enum Token {
-    // Brand accent — a custom vivid blue (#15B0FF), identical in both modes.
-    // Interactive emphasis only (primary actions, selection, links); never status.
-    static let accent = fixed(0x15B0FF)
+    // Brand accent — a custom vivid blue (#0484EB), identical in both modes; matches
+    // the marketing site. Interactive emphasis only (primary actions, selection,
+    // links); never status.
+    static let accent = fixed(0x0484EB)
 
     // Page + card fills — hand-tuned (see file header): the native window/control
     // colors collide on recent macOS, so these reproduce a System Settings pane —
@@ -77,7 +78,7 @@ private enum Token {
 /// leading-dot shorthand works everywhere — `.foregroundStyle(.appText)`,
 /// `Color.appAccent`, and `tint: Color = .appTextSecondary` all resolve here.
 extension ShapeStyle where Self == Color {
-    /// Brand accent — #15B0FF. Interactive + selection only — never status.
+    /// Brand accent — #0484EB. Interactive + selection only — never status.
     static var appAccent: Color        { Token.accent }
 
     // Neutral interaction fills — one ladder shared across the app so hover,
