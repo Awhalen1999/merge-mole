@@ -170,8 +170,7 @@ struct RootView: View {
         .environment(AppModel(
             prProvider: SamplePRProvider(),
             verdictEngine: SampleVerdictEngine(),   // canned verdicts (no Foundation Models in previews)
-            secrets: secrets,
-            onboarded: true
+            secrets: secrets
         ))
 }
 
@@ -180,7 +179,6 @@ struct RootView: View {
         .environment(AppModel(
             prProvider: SamplePRProvider(),
             verdictEngine: SampleVerdictEngine(),
-            secrets: InMemorySecretStore(),   // no token → connect prompt
-            onboarded: true
+            secrets: InMemorySecretStore()   // no token → connect prompt
         ))
 }

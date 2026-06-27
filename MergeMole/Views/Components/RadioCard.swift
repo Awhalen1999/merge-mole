@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A single radio option on a surface card — a filled accent radio, a title (with
 /// an optional badge), and a one-line detail. The whole card is the hit target.
-/// Shared by the onboarding AI step and Settings → Providers so both read alike.
+/// Used by Settings → Providers for the AI-mode options.
 struct RadioCard: View {
     let title: String
     let detail: String

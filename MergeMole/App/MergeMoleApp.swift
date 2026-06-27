@@ -1,13 +1,9 @@
 import SwiftUI
 
-enum WindowID {
-    static let onboarding = "onboarding"
-}
-
 @main
 struct MergeMoleApp: App {
-    /// One shared model for every scene — the menu-bar panel, the onboarding
-    /// window, and Settings all read and write the same state.
+    /// One shared model for every scene — the menu-bar panel and Settings both read
+    /// and write the same state.
     @State private var model = AppModel()
 
     var body: some Scene {
@@ -21,21 +17,6 @@ struct MergeMoleApp: App {
             MenuBarLabel(model: model)
         }
         .menuBarExtraStyle(.window)
-
-        // First-run onboarding as a real, standalone window. It auto-presents at
-        // launch only until setup is done — read straight from UserDefaults so
-        // the decision doesn't churn with observable state. (Key matches
-        // AppModel's "hasCompletedOnboarding".)
-        Window("Welcome to MergeMole", id: WindowID.onboarding) {
-            OnboardingView()
-                .environment(model)
-        }
-        .windowStyle(.hiddenTitleBar)   // traffic lights float over our own top bar
-        .windowResizability(.contentSize)
-        .restorationBehavior(.disabled)
-        .defaultLaunchBehavior(
-            UserDefaults.standard.bool(forKey: AppModel.onboardedDefaultsKey) ? .suppressed : .presented
-        )
 
         Settings {
             SettingsView()

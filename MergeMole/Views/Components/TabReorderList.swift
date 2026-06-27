@@ -1,10 +1,10 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The drag-to-reorder tab list shared by Settings → Tabs and the onboarding
-/// Personalize step. Each row is a drag source and drop target (no edit mode),
-/// with an identity dot, title + live subtitle, and a visibility checkbox. Reads
-/// and writes the shared `AppModel`, so reorders/visibility persist immediately.
+/// The drag-to-reorder tab list for Settings → Tabs. Each row is a drag source and
+/// drop target (no edit mode), with an identity dot, title + subtitle, and a
+/// visibility checkbox. Reads and writes the shared `AppModel`, so
+/// reorders/visibility persist immediately.
 /// It draws the rows + edge-to-edge dividers only — wrap it in a surface card.
 struct TabReorderList: View {
     @Environment(AppModel.self) private var model

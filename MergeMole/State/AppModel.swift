@@ -13,16 +13,7 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    var label: String {
-        switch self {
-        case .onDevice:     return "On-device"
-        case .bringYourOwn: return "Custom model"
-        case .off:          return "Off"
-        }
-    }
-
-    /// The radio-card heading in Settings — a touch richer than the short `label`
-    /// the onboarding segmented control uses.
+    /// The radio-card heading in Settings → AI.
     var cardTitle: String {
         switch self {
         case .onDevice:     return "On-device · Apple Intelligence"
@@ -31,7 +22,7 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// One-line explanation for the Settings / onboarding UI.
+    /// One-line explanation shown under the radio-card heading in Settings.
     var detail: String {
         switch self {
         case .onDevice:     return "Private. Runs locally on this Mac — no PR data leaves your machine."
@@ -434,11 +425,7 @@ final class AppModel {
         }
     }
 
-    private(set) var hasCompletedOnboarding: Bool
     private(set) var isGitHubConnected: Bool
-
-    /// Public so the App scene's `defaultLaunchBehavior` reads the exact same key.
-    static let onboardedDefaultsKey = "hasCompletedOnboarding"
 
     /// UserDefaults keys for the app's non-secret preferences. These live in
     /// `~/Library/Application Support/../Preferences/app.mergemole.MergeMole.plist`
@@ -462,8 +449,7 @@ final class AppModel {
         prProvider: PRProvider? = nil,
         verdictEngine: VerdictEngine? = nil,
         secrets: SecretStore? = nil,
-        currentUser: String? = nil,
-        onboarded: Bool? = nil      // overridable for previews/tests
+        currentUser: String? = nil
     ) {
         let secrets = secrets ?? KeychainSecretStore()
         self.prProvider = prProvider ?? GitHubPRProvider(secrets: secrets)
@@ -478,7 +464,6 @@ final class AppModel {
         self.byoProvider = BYOProvider(rawValue: defaults.string(forKey: Key.byoProvider) ?? "") ?? .openAI
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .transparent
-        self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
 
         // Restore the saved tab order, appending any tabs added since (so a newer
@@ -590,21 +575,17 @@ final class AppModel {
         modelDiscovery = .idle
     }
 
-    // MARK: Onboarding
-
-    func completeOnboarding() {
-        hasCompletedOnboarding = true
-        UserDefaults.standard.set(true, forKey: Self.onboardedDefaultsKey)
-    }
+    // MARK: Reset
 
     /// Factory reset — wipe everything the app has persisted and return the live
-    /// state to first-launch defaults. Pair with opening the onboarding window.
+    /// state to first-launch defaults. With no GitHub token, the panel drops back to
+    /// its connect screen, so this is the full "start over."
     ///
     /// Storage map (everything the app writes; this clears all of it):
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
     ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground,
-    ///     tabOrder/hiddenTabs/badgeTabs, onboarding flag, checkForUpdates (@AppStorage).
+    ///     tabOrder/hiddenTabs/badgeTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
     ///     the AI verdict cache.
     ///   • Login item (SMAppService) — launch-at-login registration.
@@ -624,7 +605,6 @@ final class AppModel {
         hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
         badgeTabs = [.reviewRequested]
         selectedTab = .reviewRequested
-        hasCompletedOnboarding = false
 
         // 2. Keychain — every slot we own.
         for key in SecretKey.allCases { secrets.set(nil, for: key) }

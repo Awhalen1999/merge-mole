@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The rounded brand tile standing in for the app icon — a soft accent-tinted
-/// square with the mole logo. Shared by onboarding's welcome step and the About
-/// pane. Corner radius + mark scale track `size` so it reads right at any size.
+/// square with the mole logo. Used in the About pane. Corner radius + mark scale
+/// track `size` so it reads right at any size.
 struct AppIconTile: View {
     var size: CGFloat = 76
 

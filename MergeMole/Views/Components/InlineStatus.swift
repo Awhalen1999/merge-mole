@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A compact inline status line — a leading spinner / ✓ / ✗ plus a short message.
-/// Shared by the connect + verify flows in Settings and onboarding. Errors use the
+/// Used by the connect + verify flows in Settings. Errors use the
 /// app's failure color (red, matching every other failure cue); progress and
 /// success read quiet so they don't shout.
 struct InlineStatus: View {

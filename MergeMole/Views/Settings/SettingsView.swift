@@ -112,12 +112,8 @@ private extension View {
 
 private struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openWindow) private var openWindow
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var confirmingReset = false
-    /// The Settings window we live in — captured so reset can close it. SwiftUI's
-    /// `dismiss()` is a no-op from a Settings tab, so we close the NSWindow directly.
-    @State private var hostWindow: NSWindow?
 
     var body: some View {
         @Bindable var model = model
@@ -170,57 +166,24 @@ private struct GeneralSettings: View {
                 }
             }
 
-            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and replays first-run setup.") {
+            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
                 Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
                     .buttonStyle(.bordered)
                     .tint(.appRed)
             }
         }
-        .background(WindowAccessor { hostWindow = $0 })
         .onAppear { launchAtLogin = LoginItem.isEnabled }
         .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
-            Button("Erase & restart setup", role: .destructive) { reset() }
+            Button("Erase everything", role: .destructive) { model.resetAll() }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac, then runs first-run setup again.")
+            Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
         }
     }
 
     private func badgeBinding(for tab: PRTab) -> Binding<Bool> {
         Binding(get: { model.badgeTabs.contains(tab) },
                 set: { model.setBadge(tab, on: $0) })
-    }
-
-    private func reset() {
-        model.resetAll()
-        openWindow(id: WindowID.onboarding)
-        closeSettingsWindow()   // onboarding takes over the screen
-    }
-
-    /// `dismiss()` is a no-op from a Settings tab, so close the NSWindow directly —
-    /// the captured host window if we have it, else the Settings window by identity.
-    private func closeSettingsWindow() {
-        if let hostWindow {
-            hostWindow.close()
-            return
-        }
-        for window in NSApp.windows
-        where window.identifier?.rawValue == "com_apple_SwiftUI_Settings_window" {
-            window.close()
-        }
-    }
-}
-
-/// Resolves the `NSWindow` hosting a SwiftUI view, so we can act on it directly
-/// (e.g. close the Settings window, which `dismiss()` won't do from a tab). Resolves
-/// on update — not just creation — so the window is captured once it's attached.
-private struct WindowAccessor: NSViewRepresentable {
-    let onResolve: (NSWindow?) -> Void
-    func makeNSView(context: Context) -> NSView { NSView() }
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            if let window = nsView.window { onResolve(window) }
-        }
     }
 }
 
@@ -350,9 +313,6 @@ private struct AITriageSection: View {
 ///      endpoint's model list. Nothing happens automatically while you type.
 ///   3. The Model picker unlocks once connected; choose a model, then **Test
 ///      connection** to confirm it actually answers.
-///
-/// Shared by Settings → Providers and the onboarding AI step, so the BYO setup is
-/// identical in both places.
 struct CustomModelForm: View {
     @Environment(AppModel.self) private var model
     @State private var apiKey = ""
@@ -687,5 +647,5 @@ private struct AboutSettings: View {
 
 #Preview {
     SettingsView()
-        .environment(AppModel(secrets: InMemorySecretStore(), onboarded: true))
+        .environment(AppModel(secrets: InMemorySecretStore()))
 }
