@@ -63,10 +63,11 @@ struct OnboardingView: View {
         }
     }
 
+    /// The wizard's trailing call-to-action — the app's accent pill, inline (hugging
+    /// its label) so it matches the panel's buttons rather than the native default.
     private func primary(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .buttonStyle(.borderedProminent)
-            .tint(.appAccent)
+            .buttonStyle(ProminentButtonStyle(fillWidth: false))
     }
 
     // MARK: Steps

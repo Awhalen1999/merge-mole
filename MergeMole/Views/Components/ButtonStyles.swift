@@ -55,12 +55,17 @@ struct HeaderButtonStyle: ButtonStyle {
 /// hover and darkens on press — the same restrained chrome as `HeaderButtonStyle`,
 /// just solid instead of ghosted.
 struct ProminentButtonStyle: ButtonStyle {
+    /// Fill the available width (the default — a full-width CTA). Pass `false` for an
+    /// inline pill that hugs its label (e.g. a wizard's trailing "Continue").
+    var fillWidth = true
+
     func makeBody(configuration: Configuration) -> some View {
-        Chrome(configuration: configuration)
+        Chrome(configuration: configuration, fillWidth: fillWidth)
     }
 
     private struct Chrome: View {
         let configuration: ButtonStyleConfiguration
+        var fillWidth = true
         @State private var hovering = false
         @Environment(\.isEnabled) private var isEnabled
 
@@ -70,7 +75,7 @@ struct ProminentButtonStyle: ButtonStyle {
                 .foregroundStyle(.white)
                 .padding(.vertical, Layout.base)
                 .padding(.horizontal, Layout.roomy)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: fillWidth ? .infinity : nil)
                 .background {
                     RoundedRectangle(cornerRadius: Layout.controlRadius)
                         .fill(Color.appAccent)

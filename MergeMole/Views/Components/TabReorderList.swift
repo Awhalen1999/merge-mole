@@ -13,10 +13,7 @@ struct TabReorderList: View {
     var body: some View {
         ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
             if index > 0 { Hairline() }
-            TabRow(tab: tab,
-                   count: model.tabCounts[tab] ?? 0,
-                   isOn: visibility(of: tab),
-                   dragging: $dragging)
+            TabRow(tab: tab, isOn: visibility(of: tab), dragging: $dragging)
         }
     }
 
@@ -29,23 +26,13 @@ struct TabReorderList: View {
 private struct TabRow: View {
     @Environment(AppModel.self) private var model
     let tab: PRTab
-    let count: Int
     @Binding var isOn: Bool
     @Binding var dragging: PRTab?
 
     var body: some View {
-        HStack(spacing: Layout.roomy) {
-            DragGrip()
-            Circle().fill(tab.dotColor).frame(width: 9, height: 9)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(tab.title).font(.callout.weight(.medium)).foregroundStyle(.appText)
-                Text(tab.subtitle(count: count)).font(.caption).foregroundStyle(.appTextTertiary)
-            }
-            Spacer(minLength: Layout.base)
+        TabSettingRow(tab: tab, subtitle: tab.subtitle, leading: { DragGrip() }) {
             Toggle("", isOn: $isOn).labelsHidden().toggleStyle(.checkbox)
         }
-        .padding(.horizontal, Layout.roomy)
-        .padding(.vertical, Layout.base + 1)
         .contentShape(Rectangle())
         .opacity(dragging == tab ? 0.35 : 1)
         .onDrag {
@@ -53,6 +40,43 @@ private struct TabRow: View {
             return NSItemProvider(object: tab.rawValue as NSString)
         }
         .onDrop(of: [.text], delegate: TabDropDelegate(target: tab, model: model, dragging: $dragging))
+    }
+}
+
+/// One tab's identity row — drag grip (optional), identity dot, title, a caller-
+/// supplied subtitle, and a trailing control. Shared by Settings → Tabs (drag grip +
+/// "what the tab is for" subtitle) and Settings → Menu-bar count (no grip + count
+/// subtitle), so both lists share the same chrome but say what each is for. Draws a
+/// single row; the parent owns the dividers.
+struct TabSettingRow<Leading: View, Trailing: View>: View {
+    let tab: PRTab
+    let subtitle: String
+    @ViewBuilder var leading: Leading
+    @ViewBuilder var trailing: Trailing
+
+    init(tab: PRTab,
+         subtitle: String,
+         @ViewBuilder leading: () -> Leading = { EmptyView() },
+         @ViewBuilder trailing: () -> Trailing) {
+        self.tab = tab
+        self.subtitle = subtitle
+        self.leading = leading()
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: Layout.roomy) {
+            leading
+            Circle().fill(tab.dotColor).frame(width: 9, height: 9)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(tab.title).font(.callout.weight(.medium)).foregroundStyle(.appText)
+                Text(subtitle).font(.caption).foregroundStyle(.appTextTertiary)
+            }
+            Spacer(minLength: Layout.base)
+            trailing
+        }
+        .padding(.horizontal, Layout.roomy)
+        .padding(.vertical, Layout.base + 1)
     }
 }
 

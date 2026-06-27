@@ -133,7 +133,7 @@ private struct GeneralSettings: View {
                 }
             }
 
-            SettingsSection("Startup", padded: false) {
+            SettingsSection("Behavior", padded: false) {
                 SettingsRow(label: "Launch MergeMole at login") {
                     Toggle("", isOn: $launchAtLogin)
                         .labelsHidden()
@@ -162,7 +162,7 @@ private struct GeneralSettings: View {
                             padded: false) {
                 ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
                     if index > 0 { Hairline() }
-                    SettingsRow(label: tab.title) {
+                    TabSettingRow(tab: tab, subtitle: tab.countSubtitle(model.tabCounts[tab] ?? 0)) {
                         Toggle("", isOn: badgeBinding(for: tab))
                             .labelsHidden()
                             .toggleStyle(.checkbox)
@@ -273,10 +273,7 @@ private struct GitHubConnectionCard: View {
 
     private var disconnected: some View {
         VStack(alignment: .leading, spacing: Layout.base) {
-            HStack(spacing: Layout.snug) {
-                Image(systemName: "circle").foregroundStyle(.appTextTertiary)
-                Text("Not connected").foregroundStyle(.appTextSecondary)
-            }
+            StatusItem(marker: .ring, text: "Not connected", tint: .appTextTertiary)
             SecureField("ghp_…", text: $token)
                 .font(.body.monospaced())
                 .settingsField()
@@ -620,25 +617,33 @@ private struct AboutSettings: View {
     private let websiteURL = URL(string: "https://mergemole.app")!
 
     var body: some View {
-        VStack(spacing: Layout.base) {
+        VStack(spacing: 0) {
             Spacer()
+            hero
+            Spacer()
+            footer
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(Layout.generous)
+        .background(Color.appBackground)
+    }
 
+    /// Identity block — icon, name + version, tagline, links — centered.
+    private var hero: some View {
+        VStack(spacing: Layout.base) {
             AppIconTile()
-
-            Text("MergeMole")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.appText)
-
-            Text(version)
-                .font(.callout)
-                .foregroundStyle(.appTextSecondary)
-
+            VStack(spacing: Layout.tight) {
+                Text("MergeMole")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.appText)
+                Text(version)
+                    .font(.callout)
+                    .foregroundStyle(.appTextSecondary)
+            }
             Text("Surface the pull requests that actually need you.")
                 .font(.callout)
                 .foregroundStyle(.appTextSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.top, Layout.tight)
-
             HStack(spacing: Layout.generous) {
                 Link(destination: repoURL) {
                     Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
@@ -650,29 +655,27 @@ private struct AboutSettings: View {
             .font(.callout)
             .tint(.appAccent)
             .padding(.top, Layout.snug)
+        }
+    }
 
-            Divider()
-                .frame(width: 200)
-                .padding(.vertical, Layout.roomy)
-
-            Toggle("Check for updates automatically", isOn: $autoUpdate)
-                .toggleStyle(.checkbox)
-
-            Button("Check for Updates…") {
-                NSWorkspace.shared.open(repoURL.appendingPathComponent("releases"))
+    /// Updates control + license, pinned to the bottom behind a hairline.
+    private var footer: some View {
+        VStack(spacing: Layout.roomy) {
+            Hairline()
+            HStack(spacing: Layout.base) {
+                Toggle("Check for updates automatically", isOn: $autoUpdate)
+                    .toggleStyle(.checkbox)
+                Spacer(minLength: Layout.base)
+                Button("Check Now") {
+                    NSWorkspace.shared.open(repoURL.appendingPathComponent("releases"))
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.bordered)
-
-            Spacer()
-
             Text("© 2026 MergeMole · MIT License")
                 .font(.caption2)
                 .foregroundStyle(.appTextTertiary)
-                .padding(.bottom, Layout.base)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(Layout.roomy)
-        .background(Color.appBackground)
     }
 
     private var version: String {

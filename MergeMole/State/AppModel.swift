@@ -149,10 +149,13 @@ enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// The top-level filters in the panel's tab bar. One tab per `PRRelationship` —
-/// the tab is the presentation layer (title, order, visibility); the relationship
-/// is the data. Order here is the order they appear in the bar.
+/// The top-level filters in the panel's tab bar. Most map one-to-one onto a
+/// `PRRelationship` — the tab is the presentation layer (title, order, visibility);
+/// the relationship is the data. `all` is the exception: it has no single
+/// relationship and surfaces every PR that involves you. Order here is the order
+/// they appear in the bar.
 enum PRTab: String, CaseIterable, Identifiable, Sendable {
+    case all
     case reviewRequested
     case assigned
     case created
@@ -163,6 +166,7 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .all:             return "All"
         case .reviewRequested: return "Review Requested"
         case .assigned:        return "Assigned"
         case .created:         return "Created"
@@ -176,6 +180,7 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
     var emptyMessage: String {
         let lead: String
         switch self {
+        case .all:             lead = "No open pull requests involve you right now."
         case .reviewRequested: lead = "No pull requests need your review right now."
         case .assigned:        lead = "No pull requests are assigned to you right now."
         case .created:         lead = "You don't have any open pull requests right now."
@@ -185,9 +190,11 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         return "\(lead) New ones will appear here automatically."
     }
 
-    /// The PR relationship this tab surfaces.
-    var relationship: PRRelationship {
+    /// The PR relationship this tab surfaces, or `nil` for `all` — which has no
+    /// single relationship and matches every PR.
+    var relationship: PRRelationship? {
         switch self {
+        case .all:             return nil
         case .reviewRequested: return .reviewRequested
         case .assigned:        return .assigned
         case .created:         return .created
@@ -197,9 +204,11 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// The identity dot beside the tab in Settings. A fixed hue per tab, distinct
-    /// from the brand accent (which means selection, never identity).
+    /// from the brand accent (which means selection, never identity). `all` is the
+    /// superset rather than a category, so it takes the neutral primary dot.
     var dotColor: Color {
         switch self {
+        case .all:             return .appText
         case .reviewRequested: return .appBlue
         case .assigned:        return .appPurple
         case .created:         return .appGreen
@@ -208,21 +217,38 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The Settings row's secondary line. The actionable tabs read as a live count;
-    /// Reviewed has no "to clear" count, so it describes itself instead.
-    func subtitle(count: Int) -> String {
+    /// The Tabs-list secondary line — describes what the tab collects, so that list
+    /// reads as "here's what each tab is for." (The Menu-bar count list uses the
+    /// count-led `countSubtitle` instead.)
+    var subtitle: String {
         switch self {
-        case .reviewRequested: return "\(count) awaiting your review"
-        case .assigned:        return "\(count) assigned to you"
-        case .created:         return "\(count) you opened"
-        case .mentioned:       return "\(count) mention\(count == 1 ? "" : "s")"
-        case .reviewed:        return "Recently reviewed by you"
+        case .all:             return "All PRs involving you"
+        case .reviewRequested: return "All PRs awaiting your review"
+        case .assigned:        return "All PRs assigned to you"
+        case .created:         return "All PRs you opened"
+        case .mentioned:       return "All PRs that mention you"
+        case .reviewed:        return "All PRs you've reviewed"
         }
     }
 
-    /// Tabs shown out of the box. The other two (mentioned, reviewed) are noisier
-    /// and opt-in via Settings — keeps the default bar to the day-to-day triage set.
-    static let defaultVisible: [PRTab] = [.reviewRequested, .assigned, .created]
+    /// The Menu-bar count secondary line — the same descriptors led by this tab's
+    /// live count, so each row reads as how much it contributes to the badge. Uses
+    /// participle forms ("involving", "mentioning") so they read right at any count.
+    func countSubtitle(_ count: Int) -> String {
+        let pr = "PR\(count == 1 ? "" : "s")"
+        switch self {
+        case .all:             return "\(count) \(pr) involving you"
+        case .reviewRequested: return "\(count) \(pr) awaiting your review"
+        case .assigned:        return "\(count) \(pr) assigned to you"
+        case .created:         return "\(count) \(pr) you opened"
+        case .mentioned:       return "\(count) \(pr) mentioning you"
+        case .reviewed:        return "\(count) \(pr) you've reviewed"
+        }
+    }
+
+    /// Tabs shown out of the box. All leads, then the day-to-day triage set; the
+    /// other two (mentioned, reviewed) are noisier and opt-in via Settings.
+    static let defaultVisible: [PRTab] = [.all, .reviewRequested, .assigned, .created]
 }
 
 /// Outcome of a connect attempt, for inline UI feedback.
@@ -459,7 +485,10 @@ final class AppModel {
         // build's tabs still appear) and dropping any we no longer ship.
         if let savedOrder = defaults.array(forKey: Key.tabOrder) as? [String] {
             let restored = savedOrder.compactMap(PRTab.init(rawValue:))
-            self.tabOrder = restored + PRTab.allCases.filter { !restored.contains($0) }
+            let added = PRTab.allCases.filter { !restored.contains($0) }
+            // New tabs normally append; All is the top-level "everything" view, so
+            // it leads even for users upgrading from a build that predates it.
+            self.tabOrder = added.filter { $0 == .all } + restored + added.filter { $0 != .all }
         } else {
             self.tabOrder = PRTab.allCases
         }
@@ -625,7 +654,8 @@ final class AppModel {
     }
 
     func pullRequests(for tab: PRTab) -> [PullRequest] {
-        pullRequests.filter { $0.relationships.contains(tab.relationship) }
+        guard let relationship = tab.relationship else { return pullRequests }
+        return pullRequests.filter { $0.relationships.contains(relationship) }
     }
 
     var tabCounts: [PRTab: Int] {
@@ -637,7 +667,10 @@ final class AppModel {
     /// shows. The basis for both the count and its priority.
     private var badgePullRequests: [PullRequest] {
         pullRequests.filter { pr in
-            badgeTabs.contains { pr.relationships.contains($0.relationship) }
+            badgeTabs.contains { tab in
+                guard let relationship = tab.relationship else { return true }
+                return pr.relationships.contains(relationship)
+            }
         }
     }
 
