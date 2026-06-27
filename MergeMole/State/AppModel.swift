@@ -265,6 +265,7 @@ final class AppModel {
     let secrets: SecretStore
 
     private let verdictCache = VerdictCache()
+    private let readStore = ReadStore()
     private static let maxConcurrentVerdicts = 4
 
     /// How long an open-panel refresh trusts the last sync before refetching.
@@ -291,6 +292,10 @@ final class AppModel {
 
     private(set) var pullRequests: [PullRequest] = []
     private(set) var verdicts: [PullRequest.ID: VerdictState] = [:]
+    /// Read/unread state: PR id → the content signature when last marked read. The
+    /// observed in-memory map (the disk copy lives in `readStore`). A PR is unread
+    /// when its entry is missing or no longer matches its current signature.
+    private(set) var readSignatures: [String: String] = [:]
     private(set) var isLoading = false
     private(set) var loadError: String?
     /// When the PR list last loaded successfully — shown in the error state so a
@@ -441,6 +446,7 @@ final class AppModel {
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
+        static let readStateInitialized = "readStateInitialized"
     }
 
     // MARK: Init
@@ -465,6 +471,7 @@ final class AppModel {
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .transparent
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
+        self.readSignatures = readStore.load()
 
         // Restore the saved tab order, appending any tabs added since (so a newer
         // build's tabs still appear) and dropping any we no longer ship.
@@ -605,12 +612,15 @@ final class AppModel {
         hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
         badgeTabs = [.reviewRequested]
         selectedTab = .reviewRequested
+        readSignatures = [:]
 
         // 2. Keychain — every slot we own.
         for key in SecretKey.allCases { secrets.set(nil, for: key) }
 
-        // 3. Verdict cache file.
+        // 3. Cache files (verdicts + read state). The `readStateInitialized` flag is
+        //    swept with the rest of UserDefaults below, so the next sync re-seeds.
         verdictCache.clear()
+        readStore.clear()
 
         // 4. Launch-at-login registration.
         LoginItem.set(false)
@@ -644,7 +654,7 @@ final class AppModel {
 
     /// PRs in the groups the user picked for the count (`badgeTabs`, default Review
     /// Requested), deduped across groups and independent of which tabs the panel
-    /// shows. The basis for both the count and its priority.
+    /// shows. The pool the unread count draws from.
     private var badgePullRequests: [PullRequest] {
         pullRequests.filter { pr in
             badgeTabs.contains { tab in
@@ -654,16 +664,89 @@ final class AppModel {
         }
     }
 
-    /// The number on the menu-bar icon and beside the panel-header brand. No groups
-    /// selected → no number.
-    var badgeCount: Int { badgePullRequests.count }
+    /// The unread PRs within the badge groups — what the menu-bar number counts, so
+    /// it reads as "new things to look at" and empties when you're caught up.
+    private var unreadBadgePullRequests: [PullRequest] {
+        badgePullRequests.filter { isUnread($0) }
+    }
 
-    /// The most urgent priority among the counted PRs — colors the panel-header
+    /// The number on the menu-bar icon: unread PRs in the selected groups. Drops to
+    /// zero when everything's been seen (the burrow empties).
+    var badgeCount: Int { unreadBadgePullRequests.count }
+
+    /// The most urgent priority among the unread counted PRs — colors the panel-header
     /// count (amber for high, red for urgent). `nil` when nothing is counted.
-    var badgePriority: Priority? { badgePullRequests.map { priority(of: $0) }.max() }
+    var badgePriority: Priority? { unreadBadgePullRequests.map { priority(of: $0) }.max() }
 
     func verdictState(for pr: PullRequest) -> VerdictState {
         verdicts[pr.id] ?? (aiEnabled ? .loading : .off)
+    }
+
+    // MARK: Read / unread
+
+    /// Unread when we have no record of this PR, or its content changed since the
+    /// user last marked it read. Uses the same `VerdictInput.signature` as the
+    /// verdict cache, so a PR re-surfaces as unread on exactly the changes that
+    /// re-run the AI (new commit, CI flip, review, labels) — not on mere chatter.
+    func isUnread(_ pr: PullRequest) -> Bool {
+        readSignatures[pr.id] != VerdictInput(pr).signature
+    }
+
+    /// Whether a tab holds any unread PRs — drives its dot in the tab bar.
+    func hasUnread(in tab: PRTab) -> Bool {
+        pullRequests(for: tab).contains { isUnread($0) }
+    }
+
+    /// The tabs currently holding unread PRs.
+    var tabsWithUnread: Set<PRTab> {
+        Set(PRTab.allCases.filter { hasUnread(in: $0) })
+    }
+
+    func markRead(_ pr: PullRequest) {
+        let signature = VerdictInput(pr).signature
+        guard readSignatures[pr.id] != signature else { return }   // already read in this state
+        readSignatures[pr.id] = signature
+        readStore.save(readSignatures)
+    }
+
+    func markUnread(_ pr: PullRequest) {
+        guard readSignatures[pr.id] != nil else { return }
+        readSignatures.removeValue(forKey: pr.id)
+        readStore.save(readSignatures)
+    }
+
+    /// Mark every PR in a tab read — the header's "Mark all read", scoped to the
+    /// current tab. One write for the whole batch.
+    func markAllRead(in tab: PRTab) {
+        var changed = false
+        for pr in pullRequests(for: tab) {
+            let signature = VerdictInput(pr).signature
+            guard readSignatures[pr.id] != signature else { continue }
+            readSignatures[pr.id] = signature
+            changed = true
+        }
+        if changed { readStore.save(readSignatures) }
+    }
+
+    /// Reconcile read state after each sync. On the very first run, treat the whole
+    /// existing list as already seen (so a new user doesn't open to a wall of
+    /// unread); then drop records for PRs that are gone, so the map tracks only the
+    /// live set and can't grow unbounded. Writes once, and only if something changed.
+    private func reconcileReadState() {
+        var changed = false
+
+        if !UserDefaults.standard.bool(forKey: Key.readStateInitialized) {
+            for pr in pullRequests { readSignatures[pr.id] = VerdictInput(pr).signature }
+            UserDefaults.standard.set(true, forKey: Key.readStateInitialized)
+            changed = true
+        }
+
+        let live = Set(pullRequests.map(\.id))
+        let before = readSignatures.count
+        readSignatures = readSignatures.filter { live.contains($0.key) }
+        if readSignatures.count != before { changed = true }
+
+        if changed { readStore.save(readSignatures) }
     }
 
     /// Whether verdicts should compute at all. Mirrors `activeEngine != nil` but
@@ -885,6 +968,7 @@ final class AppModel {
             if let avatar = result.viewerAvatarURL { currentUserAvatarURL = avatar }
             pullRequests = result.pullRequests
             lastSyncedAt = .now
+            reconcileReadState()
             isLoading = false
             await recomputeVerdicts()
         } catch {

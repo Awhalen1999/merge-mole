@@ -8,6 +8,9 @@ struct TabBar: View {
     @Binding var selection: PRTab
     var tabs: [PRTab]
     var counts: [PRTab: Int]
+    /// Tabs holding unread PRs — each gets a small accent dot. The count stays the
+    /// tab's total (read + unread); the dot is the only unread signal.
+    var unreadTabs: Set<PRTab>
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -27,6 +30,9 @@ struct TabBar: View {
             selection = tab
         } label: {
             HStack(spacing: Layout.snug) {
+                if unreadTabs.contains(tab) {
+                    Circle().fill(Color.appAccent).frame(width: 6, height: 6)
+                }
                 Text(tab.title)
                 if let count = counts[tab], count > 0 {
                     Text("\(count)")

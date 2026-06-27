@@ -17,7 +17,10 @@ struct RootView: View {
         return VStack(spacing: 0) {
             PanelHeader(showsRefresh: state.showsRefresh)
             if state.showsTabs {
-                TabBar(selection: $model.selectedTab, tabs: model.visibleTabs, counts: model.tabCounts)
+                TabBar(selection: $model.selectedTab,
+                       tabs: model.visibleTabs,
+                       counts: model.tabCounts,
+                       unreadTabs: model.tabsWithUnread)
             }
             Hairline()
             content(state)

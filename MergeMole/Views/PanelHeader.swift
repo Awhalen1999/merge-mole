@@ -13,11 +13,24 @@ struct PanelHeader: View {
     var body: some View {
         HStack(spacing: Layout.snug) {
             if showsRefresh { refreshButton }
+            if model.hasUnread(in: model.selectedTab) { markAllReadButton }
             Spacer(minLength: Layout.base)
             settingsMenu
         }
         .padding(.horizontal, Layout.margin)
         .frame(height: Layout.headerHeight)
+    }
+
+    /// Marks every PR in the current tab as read. Sits beside Refresh on the left,
+    /// and only appears when the current tab actually has unread to clear.
+    private var markAllReadButton: some View {
+        Button {
+            model.markAllRead(in: model.selectedTab)
+        } label: {
+            Label("Mark all read", systemImage: "checkmark")
+        }
+        .buttonStyle(HeaderButtonStyle())
+        .help("Mark every PR in this tab as read")
     }
 
     private var refreshButton: some View {

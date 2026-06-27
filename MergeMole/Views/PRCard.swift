@@ -11,14 +11,31 @@ struct PRCard: View {
     let pr: PullRequest
     let verdict: VerdictState
 
+    @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
     @State private var hovering = false
 
+    /// Read/unread is read live from the model so the dot and the context-menu label
+    /// always reflect the current state (the card re-renders when read state changes).
+    private var isUnread: Bool { model.isUnread(pr) }
+
     var body: some View {
-        Button { openURL(pr.url) } label: { row }
+        Button {
+            model.markRead(pr)          // opening a PR counts as reading it
+            openURL(pr.url)
+        } label: { row }
             .buttonStyle(.plain)
             .onHover { hovering = $0 }
             .animation(.easeOut(duration: 0.12), value: hovering)
+            // Rebuilt from live state each time it opens, so the label always matches
+            // the PR's current read/unread state.
+            .contextMenu {
+                if isUnread {
+                    Button("Mark as Read") { model.markRead(pr) }
+                } else {
+                    Button("Mark as Unread") { model.markUnread(pr) }
+                }
+            }
     }
 
     private var row: some View {
@@ -55,9 +72,13 @@ struct PRCard: View {
 
     // MARK: Rows
 
-    /// Priority (only when it wants attention) + the always-on size glyph.
+    /// Leading unread dot (when unseen) · priority (only when it wants attention) ·
+    /// the always-on size glyph. One `snug` gap throughout so the row reads evenly.
     private var badges: some View {
         HStack(spacing: Layout.snug) {
+            if isUnread {
+                Circle().fill(Color.appAccent).frame(width: 7, height: 7)
+            }
             if let priority = readyVerdict?.priority, priority >= .high {
                 PriorityBadge(priority: priority)
             }
@@ -216,4 +237,5 @@ struct PRCard: View {
     }
     .frame(width: 400)
     .background(Color.appBackground)
+    .environment(AppModel(secrets: InMemorySecretStore()))
 }
