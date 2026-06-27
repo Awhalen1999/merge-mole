@@ -469,7 +469,7 @@ final class AppModel {
         self.byoModel = defaults.string(forKey: Key.byoModel) ?? ""
         self.byoProvider = BYOProvider(rawValue: defaults.string(forKey: Key.byoProvider) ?? "") ?? .openAI
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
-        self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .transparent
+        self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .solid
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
         self.readSignatures = readStore.load()
 
@@ -607,7 +607,7 @@ final class AppModel {
         byoStatus = .untested
         modelDiscovery = .idle
         refreshInterval = .every15
-        panelBackground = .transparent
+        panelBackground = .solid
         tabOrder = PRTab.allCases
         hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
         badgeTabs = [.reviewRequested]
