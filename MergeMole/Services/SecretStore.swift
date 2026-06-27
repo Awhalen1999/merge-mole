@@ -1,8 +1,8 @@
 import Foundation
 
-/// Where secrets live. Per PLAN.md, the GitHub token and any BYO API keys go in
-/// the Keychain — never UserDefaults. A `KeychainSecretStore` conforming to this
-/// arrives with real auth at Step 3; everything else only ever sees the protocol.
+/// Where secrets live. Per docs/plan.md, the GitHub token and any BYO API keys go in
+/// the Keychain — never UserDefaults. Everything else only ever sees this protocol;
+/// `KeychainSecretStore` is the real impl, `InMemorySecretStore` backs previews/tests.
 protocol SecretStore: AnyObject {
     func string(for key: SecretKey) -> String?
     func set(_ value: String?, for key: SecretKey)

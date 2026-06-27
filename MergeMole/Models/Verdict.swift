@@ -10,7 +10,7 @@ struct Verdict: Codable, Hashable, Sendable {
     /// One-line, plain-language summary of what the PR *is*.
     var summary: String
     /// One clause of *why* the verdict landed where it did. Every verdict is
-    /// auditable — never a black box (PLAN.md, guiding principles).
+    /// auditable — never a black box (docs/plan.md, guiding principles).
     var rationale: String
 }
 
