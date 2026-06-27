@@ -1,42 +1,23 @@
 import SwiftUI
 import AppKit
 
-/// The panel's top bar: brand on the left, controls on the right, on one fixed
+/// The panel's top bar: Refresh on the left, the ⋮ menu on the right, on one fixed
 /// height so it never shifts between states. Refresh appears only when there's a
 /// connection to refresh; the ⋮ menu is always present — it's the only route to
-/// Settings / Quit in this menu-bar agent app.
+/// Settings / Quit in this menu-bar agent app. The left side has room for more
+/// controls as we add them.
 struct PanelHeader: View {
     var showsRefresh: Bool
     @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(spacing: Layout.snug) {
-            BrandMark(size: 18)
-            Text("MergeMole")
-                .font(.headline)
-                .foregroundStyle(.appText)
-            if model.badgeCount > 0 { brandCount }
-
-            Spacer(minLength: Layout.base)
-
             if showsRefresh { refreshButton }
+            Spacer(minLength: Layout.base)
             settingsMenu
         }
         .padding(.horizontal, Layout.margin)
         .frame(height: Layout.headerHeight)
-    }
-
-    /// The live count beside the brand, mirroring the menu bar. Quiet (a neutral
-    /// chip) by default; takes the matching amber/red — solid red when urgent, the
-    /// same as the cards — when an urgent/high PR is in the count, so the panel
-    /// echoes the urgency at a glance. (Color works here; the menu bar can't tint.)
-    @ViewBuilder private var brandCount: some View {
-        let count = "\(model.badgeCount)"
-        switch model.badgePriority {
-        case .urgent: Pill(count, tint: .appRed, filled: true)
-        case .high:   Pill(count, tint: .appAmber)
-        default:      Pill(count, tint: .appTextSecondary)
-        }
     }
 
     private var refreshButton: some View {

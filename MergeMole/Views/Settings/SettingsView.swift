@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-/// The Settings window (⌘,). Three tabs — General / Providers / About — in the
+/// The Settings window (⌘,). Four tabs — General / Tabs / Providers / About — in the
 /// native macOS preferences `TabView`, so the chrome (centered title + toolbar
 /// tabs) is the system's. Content is Flexoki-skinned section cards on a *solid*
 /// window surface — glass is for the transient panel, not a settings window. Form
@@ -13,6 +13,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettings()
                 .tabItem { Label("General", systemImage: "slider.horizontal.3") }
+            TabsSettings()
+                .tabItem { Label("Tabs", systemImage: "rectangle.3.group") }
             ProvidersSettings()
                 .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
             AboutSettings()
@@ -147,7 +149,34 @@ private struct GeneralSettings: View {
                 }
             }
 
-            SettingsSection("Tabs",
+            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
+                Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
+                    .buttonStyle(.bordered)
+                    .tint(.appRed)
+            }
+        }
+        .onAppear { launchAtLogin = LoginItem.isEnabled }
+        .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
+            Button("Erase everything", role: .destructive) { model.resetAll() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
+        }
+    }
+
+}
+
+// MARK: - Tabs
+
+/// Everything about the panel's tabs in one place: which tabs show and in what order,
+/// and which of those groups feed the menu-bar badge count. Both lists are built from
+/// `TabSettingRow`, so they read as one consistent surface.
+private struct TabsSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        SettingsScaffold {
+            SettingsSection("Show these tabs",
                             subtitle: "Drag to reorder. Uncheck to hide a tab from the panel.",
                             padded: false) {
                 TabReorderList()
@@ -165,19 +194,6 @@ private struct GeneralSettings: View {
                     }
                 }
             }
-
-            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
-                Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
-                    .buttonStyle(.bordered)
-                    .tint(.appRed)
-            }
-        }
-        .onAppear { launchAtLogin = LoginItem.isEnabled }
-        .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
-            Button("Erase everything", role: .destructive) { model.resetAll() }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
         }
     }
 
@@ -579,19 +595,30 @@ private struct AboutSettings: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            hero
+            identity
+            links
+            updates
             Spacer()
-            footer
+            Text("© 2026 MergeMole · MIT License")
+                .font(.caption2)
+                .foregroundStyle(.appTextTertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
         .padding(Layout.generous)
         .background(Color.appBackground)
     }
 
-    /// Identity block — icon, name + version, tagline, links — centered.
-    private var hero: some View {
+    /// Icon, name, version + build date, tagline — the centered identity block.
+    private var identity: some View {
         VStack(spacing: Layout.base) {
-            AppIconTile()
+            // The app-icon artwork, loaded straight from the asset catalog — not via
+            // NSApplicationIcon, which is an unreliable LaunchServices lookup for a
+            // menu-bar accessory app. This shows the real mark in every context.
+            Image("AppLogo")
+                .resizable()
+                .frame(width: 72, height: 72)
+                .clipShape(.rect(cornerRadius: 16, style: .continuous))
             VStack(spacing: Layout.tight) {
                 Text("MergeMole")
                     .font(.title2.weight(.semibold))
@@ -599,49 +626,66 @@ private struct AboutSettings: View {
                 Text(version)
                     .font(.callout)
                     .foregroundStyle(.appTextSecondary)
+                if let buildDate {
+                    Text("Built \(buildDate)")
+                        .font(.caption)
+                        .foregroundStyle(.appTextTertiary)
+                }
             }
             Text("Surface the pull requests that actually need you.")
                 .font(.callout)
                 .foregroundStyle(.appTextSecondary)
-                .multilineTextAlignment(.center)
-            HStack(spacing: Layout.generous) {
-                Link(destination: repoURL) {
-                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-                Link(destination: websiteURL) {
-                    Label("Website", systemImage: "globe")
-                }
-            }
-            .font(.callout)
-            .tint(.appAccent)
-            .padding(.top, Layout.snug)
         }
     }
 
-    /// Updates control + license, pinned to the bottom behind a hairline.
-    private var footer: some View {
+    /// External links, stacked and centered.
+    private var links: some View {
         VStack(spacing: Layout.roomy) {
-            Hairline()
-            HStack(spacing: Layout.base) {
-                Toggle("Check for updates automatically", isOn: $autoUpdate)
-                    .toggleStyle(.checkbox)
-                Spacer(minLength: Layout.base)
-                Button("Check Now") {
-                    NSWorkspace.shared.open(repoURL.appendingPathComponent("releases"))
-                }
-                .buttonStyle(.bordered)
+            Link(destination: repoURL) {
+                Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
             }
-            Text("© 2026 MergeMole · MIT License")
-                .font(.caption2)
-                .foregroundStyle(.appTextTertiary)
-                .frame(maxWidth: .infinity, alignment: .center)
+            Link(destination: websiteURL) {
+                Label("Website", systemImage: "globe")
+            }
         }
+        .font(.callout)
+        .tint(.appAccent)
+        .padding(.top, Layout.generous)
+    }
+
+    /// Update controls — in the centered flow, not pinned to the bottom. No release
+    /// channel yet: the app isn't mature enough to split stable/beta tracks.
+    private var updates: some View {
+        VStack(spacing: Layout.roomy) {
+            Toggle("Check for updates automatically", isOn: $autoUpdate)
+                .toggleStyle(.checkbox)
+            Button("Check for Updates…") {
+                NSWorkspace.shared.open(repoURL.appendingPathComponent("releases"))
+            }
+            .buttonStyle(.bordered)
+            // Neutral text — the window-level accent tint would otherwise make this a
+            // loud blue; a check-for-updates button is secondary, not a primary action.
+            .tint(.appText)
+        }
+        .padding(.top, Layout.generous)
     }
 
     private var version: String {
         let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
         return "Version \(short) (\(build))"
+    }
+
+    /// When the app was last built, from the executable's modification date — the
+    /// closest stand-in for a build timestamp without baking one in at compile time.
+    private var buildDate: String? {
+        guard let url = Bundle.main.executableURL,
+              let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+        else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

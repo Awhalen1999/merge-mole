@@ -131,5 +131,5 @@ To stop two screens from drifting apart, the chrome is built once and reused:
   `padded: false` for full-bleed row lists whose dividers run edge-to-edge.
 - **`TabSettingRow`** (`Views/Components/TabReorderList.swift`) — one row (identity dot
   + title + subtitle + trailing control) shared by Settings → Tabs and → Menu-bar count.
-- **`InlineStatus`**, **`RadioCard`**, **`AppIconTile`**, **`BrandMark`** — shared pieces
-  so connect/verify flows, AI options, and the brand mark look identical everywhere.
+- **`InlineStatus`**, **`RadioCard`**, **`BrandMark`** — shared pieces so connect/verify
+  flows, AI options, and the brand mark look identical everywhere.
