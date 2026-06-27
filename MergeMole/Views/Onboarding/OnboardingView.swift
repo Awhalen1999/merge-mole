@@ -136,30 +136,37 @@ struct OnboardingView: View {
     }
 
     private var aiStep: some View {
-        VStack(spacing: Layout.roomy) {
-            Spacer()
-            StepHeading("How should MergeMole triage?",
-                        "Pick the engine that rates priority. You can change this anytime in Settings.")
-            VStack(spacing: Layout.base) {
-                ForEach(AIMode.allCases) { mode in
-                    RadioCard(title: mode.cardTitle,
-                              detail: mode.detail,
-                              badge: mode == .onDevice ? "Recommended" : nil,
-                              selected: model.aiMode == mode) {
-                        model.aiMode = mode
+        // Scrolls because picking "Custom model" reveals the full connection form,
+        // which can grow past the fixed window height.
+        ScrollView {
+            VStack(spacing: Layout.roomy) {
+                StepHeading("How should MergeMole triage?",
+                            "Pick the engine that rates priority. You can change this anytime in Settings.")
+                VStack(spacing: Layout.base) {
+                    ForEach(AIMode.allCases) { mode in
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  badge: mode == .onDevice ? "Recommended" : nil,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        }
+                        // On-device flags when it can't run here; "Custom model"
+                        // reveals the full BYO connection form — same as Settings.
+                        if mode == .onDevice && model.onDeviceUnavailable {
+                            InlineStatus(kind: .error("On-device AI isn't available on this Mac. Cards show data only."))
+                        }
+                        if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
+                            CustomModelForm().cardSurface()
+                        }
                     }
                 }
+                .animation(.easeOut(duration: 0.15), value: model.aiMode)
             }
-            if model.aiMode == .bringYourOwn {
-                Label("Add your endpoint and key in Settings → Providers to finish setup.",
-                      systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundStyle(.appTextSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            Spacer()
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Layout.roomy)
         }
-        .frame(maxWidth: 420)
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     private var personalizeStep: some View {

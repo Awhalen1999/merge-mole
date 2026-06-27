@@ -316,60 +316,194 @@ private struct AITriageSection: View {
     }
 }
 
-/// The Custom-model form — provider preset (prefills the base URL), endpoint, key,
-/// and model, plus a Verify button. Model is a free field, not a pop-up: arbitrary
-/// OpenAI-compatible endpoints take any model name.
-private struct CustomModelForm: View {
+/// The Custom-model form. A single connection (one key + one model); switching
+/// provider clears it after a confirmation. Flow:
+///   1. Pick a provider (Base URL is shown only for the open-ended "compatible" case).
+///   2. Enter the API key and press **Connect** — saves the key and fetches the
+///      endpoint's model list. Nothing happens automatically while you type.
+///   3. The Model picker unlocks once connected; choose a model, then **Test
+///      connection** to confirm it actually answers.
+///
+/// Shared by Settings → Providers and the onboarding AI step, so the BYO setup is
+/// identical in both places.
+struct CustomModelForm: View {
     @Environment(AppModel.self) private var model
     @State private var apiKey = ""
-    @State private var verifying = false
-    @State private var feedback: InlineFeedback?
+    /// A provider the user picked that needs a "this will disconnect you" confirm.
+    @State private var pendingProvider: BYOProvider?
+
+    private var isConnecting: Bool {
+        if case .loading = model.modelDiscovery { return true }
+        return false
+    }
+    private var isConnected: Bool {
+        if case .loaded = model.modelDiscovery { return true }
+        return false
+    }
+    private var isTesting: Bool {
+        if case .testing = model.byoStatus { return true }
+        return false
+    }
+
+    /// Connect needs an endpoint, plus a key for the hosted providers (local
+    /// endpoints authenticate with none).
+    private var canConnect: Bool {
+        guard !model.byoEndpoint.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if model.byoProvider == .compatible { return true }
+        return !apiKey.isEmpty || model.hasBYOKey
+    }
 
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Layout.roomy) {
+            connectionHeader
+
             Grid(alignment: .leading, horizontalSpacing: Layout.roomy, verticalSpacing: Layout.base) {
                 GridRow {
                     fieldLabel("Provider")
-                    Picker("", selection: $model.byoProvider) {
+                    Picker("", selection: providerSelection) {
                         ForEach(BYOProvider.allCases) { Text($0.label).tag($0) }
                     }
                     .labelsHidden()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .onChange(of: model.byoProvider) { _, _ in model.applyProviderPreset() }
                 }
-                GridRow {
-                    fieldLabel("Base URL")
-                    TextField("", text: $model.byoEndpoint, prompt: Text("https://api.openai.com/v1"))
-                        .settingsField()
+
+                // Base URL is only the user's to set for a generic OpenAI-compatible
+                // endpoint. For OpenAI and Anthropic it's fixed by the preset, so we
+                // hide it rather than show an editable field nobody should touch.
+                if model.byoProvider == .compatible {
+                    GridRow {
+                        fieldLabel("Base URL")
+                        TextField("", text: $model.byoEndpoint,
+                                  prompt: Text("http://localhost:11434/v1  (Ollama)"))
+                            .settingsField()
+                    }
                 }
+
                 GridRow {
                     fieldLabel("API key")
-                    SecureField("", text: $apiKey,
-                                prompt: Text(model.hasBYOKey ? "•••••• stored — leave blank to keep" : "leave blank for local"))
-                        .settingsField()
+                    HStack(spacing: Layout.snug) {
+                        SecureField("", text: $apiKey, prompt: Text(keyPrompt))
+                            .settingsField()
+                            .onSubmit { if canConnect && !isConnecting { connect() } }
+                            // Editing the key invalidates the fetched list — re-lock
+                            // the model picker until the user reconnects.
+                            .onChange(of: apiKey) { _, _ in model.resetBYOConnection() }
+                        Button(isConnected ? "Reconnect" : "Connect") { connect() }
+                            .buttonStyle(.bordered)
+                            .tint(.appAccent)
+                            .disabled(!canConnect || isConnecting)
+                            .fixedSize()
+                    }
                 }
+
                 GridRow {
                     fieldLabel("Model")
-                    TextField("", text: $model.byoModel, prompt: Text(model.byoProvider.modelPlaceholder))
-                        .settingsField()
+                        .gridColumnAlignment(.leading)
+                    ModelPickerField()
                 }
             }
 
+            connectStatus
+
             HStack(spacing: Layout.base) {
-                Button("Verify connection") { verify() }
+                Button("Test connection") { test() }
                     .buttonStyle(.borderedProminent)
                     .tint(.appAccent)
-                    .disabled(verifying || !model.byoConfigured)
-                if verifying { InlineStatus(kind: .progress("Verifying…")) }
-                else if let feedback {
-                    switch feedback {
-                    case .ok(let m):    InlineStatus(kind: .ok(m))
-                    case .error(let m): InlineStatus(kind: .error(m))
-                    }
+                    .disabled(isTesting || !model.byoConfigured)
+                testStatus
+                Spacer(minLength: Layout.base)
+                if model.hasBYOKey || !model.byoModel.isEmpty {
+                    Button("Disconnect") { disconnect() }
+                        .buttonStyle(.borderless)
+                        .tint(.appRed)
+                        .help("Forget the saved key and model")
                 }
             }
         }
+        .confirmationDialog(
+            "Switch provider?",
+            isPresented: Binding(get: { pendingProvider != nil },
+                                 set: { if !$0 { pendingProvider = nil } }),
+            presenting: pendingProvider
+        ) { provider in
+            Button("Switch & disconnect", role: .destructive) {
+                model.switchProvider(to: provider)
+                apiKey = ""
+                pendingProvider = nil
+            }
+            Button("Cancel", role: .cancel) { pendingProvider = nil }
+        } message: { provider in
+            Text("Switching to \(provider.label) disconnects you from \(connectedSummary) and clears the saved key.")
+        }
+    }
+
+    /// Persistent "are we wired up?" line at the top of the form.
+    @ViewBuilder private var connectionHeader: some View {
+        if model.byoReady {
+            StatusItem(marker: .dot,
+                       text: "Connected · \(model.byoProvider.label) · \(model.byoModel)",
+                       tint: .appGreen)
+        } else {
+            StatusItem(marker: .ring, text: "Not connected", tint: .appTextTertiary)
+        }
+    }
+
+    /// Provider-picker binding that intercepts a change when there's a connection to
+    /// lose, routing it through the confirmation first.
+    private var providerSelection: Binding<BYOProvider> {
+        Binding(
+            get: { model.byoProvider },
+            set: { newValue in
+                guard newValue != model.byoProvider else { return }
+                if model.hasBYOKey || !model.byoModel.isEmpty {
+                    pendingProvider = newValue
+                } else {
+                    model.switchProvider(to: newValue)
+                    apiKey = ""
+                }
+            }
+        )
+    }
+
+    private var connectedSummary: String {
+        model.byoModel.isEmpty
+            ? "your current model"
+            : "\(model.byoProvider.label) · \(model.byoModel)"
+    }
+
+    /// Result of step 2 (Connect): connecting / connected + model count / failure.
+    @ViewBuilder private var connectStatus: some View {
+        switch model.modelDiscovery {
+        case .idle:
+            EmptyView()
+        case .loading:
+            InlineStatus(kind: .progress("Connecting…"))
+        case .loaded(let models):
+            InlineStatus(kind: .ok(models.isEmpty
+                ? "Connected — endpoint listed no models, type one below."
+                : "Connected — \(models.count) models available. Choose one below."))
+        case .failed(let message):
+            InlineStatus(kind: .error(message))
+        }
+    }
+
+    /// Result of step 3 (Test connection).
+    @ViewBuilder private var testStatus: some View {
+        switch model.byoStatus {
+        case .untested:        EmptyView()
+        case .testing:         InlineStatus(kind: .progress("Testing…"))
+        case .ok(let m):       InlineStatus(kind: .ok("Ready — triaging with \(m)"))
+        case .failed(let m):   InlineStatus(kind: .error(m))
+        }
+    }
+
+    /// Required for the hosted providers, optional for a local endpoint.
+    private var keyPrompt: String {
+        if model.hasBYOKey { return "•••••• saved — press Connect to reuse it" }
+        return model.byoProvider == .compatible
+            ? "Optional — leave blank for local models"
+            : "Paste your API key, then Connect"
     }
 
     private func fieldLabel(_ text: String) -> some View {
@@ -379,21 +513,69 @@ private struct CustomModelForm: View {
             .gridColumnAlignment(.leading)
     }
 
-    private func verify() {
+    /// Step 2: save the typed key (if any), then fetch the endpoint's model list.
+    private func connect() {
         Task {
-            if !apiKey.isEmpty {
-                model.setBYOAPIKey(apiKey)
-                apiKey = ""
+            if !apiKey.isEmpty { model.setBYOAPIKey(apiKey) }
+            await model.discoverModels()
+        }
+    }
+
+    /// Step 3: confirm the chosen model actually answers, and re-triage on success.
+    private func test() {
+        Task { await model.verifyBYO() }
+    }
+
+    /// Forget the saved key + model.
+    private func disconnect() {
+        apiKey = ""
+        model.clearBYOConnection()
+    }
+}
+
+/// The Model row: a text field paired with a ▾ menu of the models Connect fetched.
+/// Locked until the endpoint is connected (or a model is already saved from a prior
+/// session), so the flow reads top-to-bottom: connect, then choose.
+private struct ModelPickerField: View {
+    @Environment(AppModel.self) private var model
+
+    private var models: [String] {
+        if case .loaded(let m) = model.modelDiscovery { return m }
+        return []
+    }
+    private var isConnected: Bool {
+        if case .loaded = model.modelDiscovery { return true }
+        return false
+    }
+    /// Editable once connected, or when a model is already configured (returning user).
+    private var isEnabled: Bool {
+        isConnected || !model.byoModel.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        @Bindable var model = model
+        HStack(spacing: Layout.snug) {
+            TextField("", text: $model.byoModel,
+                      prompt: Text(isConnected ? "Choose a model" : "Connect first to load models"))
+                .settingsField()
+                .disabled(!isEnabled)
+            Menu {
+                if models.isEmpty {
+                    Text("No models — connect first")
+                } else {
+                    ForEach(models, id: \.self) { id in
+                        Button(id) { model.byoModel = id }
+                    }
+                }
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
             }
-            verifying = true
-            feedback = nil
-            if let error = await model.testRemoteModel() {
-                feedback = .error(error)
-            } else {
-                feedback = .ok("Connected to \(model.byoModel)")
-                await model.refreshVerdicts()
-            }
-            verifying = false
+            .menuStyle(.button)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(models.isEmpty)
+            .help("Choose from the models this endpoint offers")
         }
     }
 }

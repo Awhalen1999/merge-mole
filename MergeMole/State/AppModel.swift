@@ -71,8 +71,8 @@ enum RefreshInterval: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// A Custom-model provider preset (Providers → AI Triage). Picking one prefills the
-/// base URL; the engine is the same OpenAI-compatible client regardless, so
-/// "Anthropic" simply points at Anthropic's OpenAI-compatible endpoint.
+/// base URL and selects the wire protocol: OpenAI and "OpenAI-compatible" speak Chat
+/// Completions, while "Anthropic" uses Claude's native Messages API.
 enum BYOProvider: String, CaseIterable, Identifiable, Sendable {
     case openAI, anthropic, compatible
 
@@ -104,6 +104,33 @@ enum BYOProvider: String, CaseIterable, Identifiable, Sendable {
         case .compatible: return "llama3.1  •  mistral-large"
         }
     }
+
+    /// The wire protocol the engine speaks for this preset.
+    var apiFormat: RemoteAPIFormat {
+        switch self {
+        case .anthropic:          return .anthropic
+        case .openAI, .compatible: return .openAI
+        }
+    }
+}
+
+/// Outcome of the Settings "Verify connection" check. Lives on the model (not the
+/// view) so it survives the Settings window rebuilding, and resets to `.untested`
+/// the moment the endpoint / model / provider changes.
+enum BYOStatus: Equatable, Sendable {
+    case untested
+    case testing
+    case ok(model: String)
+    case failed(String)
+}
+
+/// State of the "what models does this endpoint offer?" lookup that backs the model
+/// picker. Best-effort — the model field always accepts a typed value regardless.
+enum ModelDiscovery: Equatable, Sendable {
+    case idle
+    case loading
+    case loaded([String])
+    case failed(String)
 }
 
 /// The panel's backdrop (General → Appearance). Transparent floats content straight
@@ -324,24 +351,44 @@ final class AppModel {
         }
     }
 
-    /// BYO endpoint + model name aren't secrets, so they live in UserDefaults.
-    /// The BYO API key and the GitHub token go through `secrets` (Keychain).
+    // MVP: a single Custom-model connection — one endpoint + one model + one key.
+    // Switching provider clears all three (see `switchProvider`), so there's never a
+    // mismatched key/model to reason about. Endpoint + model live in UserDefaults;
+    // the key goes through `secrets` (Keychain).
+
     var byoEndpoint: String {
-        didSet { UserDefaults.standard.set(byoEndpoint, forKey: Key.byoEndpoint) }
+        didSet {
+            UserDefaults.standard.set(byoEndpoint, forKey: Key.byoEndpoint)
+            byoStatus = .untested
+            modelDiscovery = .idle
+        }
     }
 
+    /// Editing the model invalidates a prior test result.
     var byoModel: String {
-        didSet { UserDefaults.standard.set(byoModel, forKey: Key.byoModel) }
+        didSet {
+            UserDefaults.standard.set(byoModel, forKey: Key.byoModel)
+            byoStatus = .untested
+        }
     }
 
-    /// The Custom-model provider preset. Persisted; selecting one prefills the
-    /// endpoint via `applyProviderPreset()`.
+    /// The provider preset. Don't set this directly to change provider — go through
+    /// `switchProvider(to:)`, which also clears the single key/model/endpoint. The
+    /// didSet only persists the value and resets transient state.
     var byoProvider: BYOProvider {
         didSet {
             guard byoProvider != oldValue else { return }
             UserDefaults.standard.set(byoProvider.rawValue, forKey: Key.byoProvider)
+            byoStatus = .untested
+            modelDiscovery = .idle
         }
     }
+
+    /// Verification outcome for the current Custom-model config (Settings only).
+    private(set) var byoStatus: BYOStatus = .untested
+
+    /// The models the configured endpoint advertises (Settings model picker).
+    private(set) var modelDiscovery: ModelDiscovery = .idle
 
     /// How often the background scheduler refetches. Changing it reschedules.
     var refreshInterval: RefreshInterval {
@@ -403,6 +450,18 @@ final class AppModel {
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .transparent
         self.hasCompletedOnboarding = onboarded ?? defaults.bool(forKey: Self.onboardedDefaultsKey)
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
+
+        // Consolidate any key written by the short-lived per-provider build back into
+        // the single slot the MVP uses, then clear the old per-provider slots.
+        if secrets.string(for: .remoteModelAPIKey) == nil {
+            for key in Self.legacyPerProviderKeys {
+                if let value = secrets.string(for: key), !value.isEmpty {
+                    secrets.set(value, for: .remoteModelAPIKey)
+                    break
+                }
+            }
+        }
+        for key in Self.legacyPerProviderKeys { secrets.set(nil, for: key) }
 
         // Restore the saved tab order, appending any tabs added since (so a newer
         // build's tabs still appear) and dropping any we no longer ship.
@@ -469,7 +528,12 @@ final class AppModel {
         startAutoRefresh()   // cancels the scheduler (no-op while disconnected)
     }
 
-    // MARK: BYO API key (non-displayed; lives in Keychain)
+    // MARK: BYO API key (non-displayed; lives in Keychain — one slot for the MVP)
+
+    /// Keychain slots used by the short-lived per-provider build, consolidated back
+    /// into the single slot on launch.
+    private static let legacyPerProviderKeys: [SecretKey] =
+        [.remoteModelAPIKeyOpenAI, .remoteModelAPIKeyAnthropic, .remoteModelAPIKeyCompatible]
 
     var byoAPIKey: String { secrets.string(for: .remoteModelAPIKey) ?? "" }
 
@@ -478,14 +542,36 @@ final class AppModel {
         secrets.set(trimmed.isEmpty ? nil : trimmed, for: .remoteModelAPIKey)
     }
 
-    /// Whether a Custom-model key is stored — drives the "key saved" hint without
-    /// ever reading the secret back into the UI.
+    /// Whether a key is stored — drives the "key saved" hint without ever reading the
+    /// secret back into the UI.
     var hasBYOKey: Bool { !byoAPIKey.isEmpty }
 
-    /// Prefill the endpoint for the chosen provider preset. Leaves a user-entered
-    /// endpoint alone for the open-ended "OpenAI-compatible" case.
-    func applyProviderPreset() {
-        if let endpoint = byoProvider.defaultEndpoint { byoEndpoint = endpoint }
+    /// BYO is wired for triage: an endpoint and a model, plus a key for the hosted
+    /// providers (local endpoints need none). Drives the "Connected" indicator and
+    /// persists across launches, so a returning user sees it immediately.
+    var byoReady: Bool {
+        byoConfigured && (byoProvider == .compatible || hasBYOKey)
+    }
+
+    /// Forget the saved key + model and reset state — a full disconnect. The endpoint
+    /// keeps its preset so reconnecting is one step.
+    func clearBYOConnection() {
+        setBYOAPIKey("")
+        byoModel = ""
+        byoStatus = .untested
+        modelDiscovery = .idle
+    }
+
+    /// Switch provider, clearing the single saved key + model (the MVP keeps exactly
+    /// one connection). The endpoint resets to the new provider's preset — blank for
+    /// the open-ended "compatible" case, which the user fills in.
+    func switchProvider(to provider: BYOProvider) {
+        setBYOAPIKey("")
+        byoModel = ""
+        byoProvider = provider
+        byoEndpoint = provider.defaultEndpoint ?? ""
+        byoStatus = .untested
+        modelDiscovery = .idle
     }
 
     // MARK: Onboarding
@@ -567,7 +653,8 @@ final class AppModel {
             return RemoteVerdictEngine(
                 endpoint: byoEndpoint.trimmingCharacters(in: .whitespaces),
                 model: byoModel.trimmingCharacters(in: .whitespaces),
-                apiKey: byoAPIKey
+                apiKey: byoAPIKey,
+                format: byoProvider.apiFormat
             )
         }
     }
@@ -581,7 +668,7 @@ final class AppModel {
         switch aiMode {
         case .off:          return "off"
         case .onDevice:     return "ondevice@\(version)"
-        case .bringYourOwn: return "byo:\(byoModel)@\(version)"
+        case .bringYourOwn: return "byo:\(byoProvider.rawValue):\(byoModel)@\(version)"
         }
     }
 
@@ -604,13 +691,59 @@ final class AppModel {
         let engine = RemoteVerdictEngine(
             endpoint: byoEndpoint.trimmingCharacters(in: .whitespaces),
             model: byoModel.trimmingCharacters(in: .whitespaces),
-            apiKey: byoAPIKey
+            apiKey: byoAPIKey,
+            format: byoProvider.apiFormat
         )
         do {
             try await engine.validate()
             return nil
         } catch {
             return error.localizedDescription
+        }
+    }
+
+    /// Run the verify check and, on success, re-triage with the new engine. Drives
+    /// the Settings "Verify connection" button; the outcome persists in `byoStatus`
+    /// so the form reflects it until the config changes.
+    func verifyBYO() async {
+        byoStatus = .testing
+        if let error = await testRemoteModel() {
+            byoStatus = .failed(error)
+        } else {
+            byoStatus = .ok(model: byoModel.trimmingCharacters(in: .whitespaces))
+            await refreshVerdicts()
+        }
+    }
+
+    /// Drop the connection back to "not connected" — the fetched model list and any
+    /// test result no longer reflect the current credentials. Called when the API key
+    /// is edited, so the model picker re-locks until the user reconnects.
+    func resetBYOConnection() {
+        modelDiscovery = .idle
+        byoStatus = .untested
+    }
+
+    /// Ask the endpoint which models it offers (`GET /v1/models`) and stash the
+    /// result in `modelDiscovery` for the Settings model picker. `typedKey` lets the
+    /// form pass a key the user has entered but not yet saved, so discovery works
+    /// during first-time setup. Failures are non-fatal — the field still takes a
+    /// typed value.
+    func discoverModels(typedKey: String = "") async {
+        let endpoint = byoEndpoint.trimmingCharacters(in: .whitespaces)
+        guard !endpoint.isEmpty else { modelDiscovery = .idle; return }
+        modelDiscovery = .loading
+        let key = typedKey.isEmpty ? byoAPIKey : typedKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let engine = RemoteVerdictEngine(
+            endpoint: endpoint,
+            model: byoModel.trimmingCharacters(in: .whitespaces),
+            apiKey: key,
+            format: byoProvider.apiFormat
+        )
+        do {
+            let models = try await engine.availableModels()
+            modelDiscovery = .loaded(models.sorted())
+        } catch {
+            modelDiscovery = .failed(error.localizedDescription)
         }
     }
 

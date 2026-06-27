@@ -11,7 +11,10 @@ protocol SecretStore: AnyObject {
 /// Known secret slots, kept in one place so call sites can't typo a raw string.
 enum SecretKey: String, CaseIterable, Sendable {
     case githubToken
-    case remoteModelAPIKey
+    case remoteModelAPIKey            // legacy single slot — migrated to the per-provider slots below
+    case remoteModelAPIKeyOpenAI
+    case remoteModelAPIKeyAnthropic
+    case remoteModelAPIKeyCompatible
 }
 
 /// In-memory stand-in so the seam compiles and runs today. Values do NOT persist
