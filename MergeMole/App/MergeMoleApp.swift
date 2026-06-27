@@ -2,9 +2,17 @@ import SwiftUI
 
 @main
 struct MergeMoleApp: App {
-    /// One shared model for every scene — the menu-bar panel and Settings both read
-    /// and write the same state.
-    @State private var model = AppModel()
+    // DEMO ONLY (demo-data branch): fake PRs + canned verdicts via the sample
+    // provider/engine, with a seeded in-memory token so the panel shows the
+    // "connected" list. Never touches real GitHub or the real keychain. Revert this
+    // to `@State private var model = AppModel()` before merging.
+    @State private var model: AppModel = {
+        let secrets = InMemorySecretStore()
+        secrets.set("demo", for: .githubToken)   // forces the connected UI
+        return AppModel(prProvider: SamplePRProvider(),
+                        verdictEngine: SampleVerdictEngine(),
+                        secrets: secrets)
+    }()
 
     var body: some Scene {
         // .window style gives a real SwiftUI panel under the menu-bar icon.
