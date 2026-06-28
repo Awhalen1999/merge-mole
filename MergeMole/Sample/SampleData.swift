@@ -137,40 +137,45 @@ enum SampleData {
         ),
     ]
 
-    /// A deterministic stand-in for a real AI verdict. Derives priority from
-    /// review/CI signals — close enough to make the card look alive before the
-    /// Foundation Models engine lands at Step 5.
+    /// Hand-authored verdicts that read like the real model — a plain-language
+    /// summary of *what the PR is* plus one sharp clause of *why* it landed where it
+    /// did. Keyed by PR id so each card looks like a genuine triage in the demo,
+    /// not a template. (The live app gets these from Foundation Models / a BYO model.)
     static func verdict(for pr: PullRequest) -> Verdict {
-        let priority: Priority
-        let rationale: String
-        if pr.isDraft {
-            priority = .low
-            rationale = "Still a draft — not ready for review yet."
-        } else if pr.checksState == .failing {
-            priority = .low
-            rationale = "CI is red; wait for the author to fix it."
-        } else if pr.reviewState == .pending && pr.checksState == .passing {
-            priority = pr.sizeBucket <= .s ? .high : .normal
-            rationale = pr.sizeBucket <= .s
-                ? "Small, green, and waiting — a quick win to clear."
-                : "Green and waiting on your review."
-        } else if pr.reviewState == .changesRequested {
-            priority = .normal
-            rationale = "Changes already requested; just a re-check."
-        } else {
-            priority = .low
-            rationale = "Already approved — nothing blocking from you."
+        switch pr.id {
+        case "PR_1":
+            return Verdict(
+                priority: .high,
+                summary: "Guards the token-refresh path with an actor so concurrent requests can't double-refresh.",
+                rationale: "Small, green, and waiting — a quick win that closes a real race."
+            )
+        case "PR_2":
+            return Verdict(
+                priority: .high,
+                summary: "Moves billing off the legacy queue onto the new event bus, across the charge and invoice paths.",
+                rationale: "High blast radius on payments — red CI and merge conflicts to clear first."
+            )
+        case "PR_3":
+            return Verdict(
+                priority: .normal,
+                summary: "Bumps SwiftLint to 0.55 — mostly autofixes plus two manual rule suppressions.",
+                rationale: "Routine, but changes were requested — just a re-check."
+            )
+        case "PR_4":
+            return Verdict(
+                priority: .low,
+                summary: "An early draft of the redesigned onboarding flow; the layout is still in flux.",
+                rationale: "Still a draft — not ready for review yet."
+            )
+        case "PR_5":
+            return Verdict(
+                priority: .low,
+                summary: "Adds dark-mode color tokens to the design system — pure additions, nothing existing changed.",
+                rationale: "Already approved and additive — nothing blocking from you."
+            )
+        default:
+            return Verdict(priority: .normal, summary: pr.title, rationale: "Waiting on your review.")
         }
-
-        return Verdict(
-            priority: priority,
-            summary: summary(for: pr),
-            rationale: rationale
-        )
-    }
-
-    private static func summary(for pr: PullRequest) -> String {
-        "Touches \(pr.changedFiles) file\(pr.changedFiles == 1 ? "" : "s") in \(pr.repository.split(separator: "/").last.map(String.init) ?? pr.repository)."
     }
 
     /// Sample timestamps as live ages so the demo reads naturally ("18m", "4h").
