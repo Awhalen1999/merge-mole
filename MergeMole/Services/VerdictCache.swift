@@ -35,18 +35,20 @@ final class VerdictCache {
         entries[Self.key(pr, engine)] = Entry(signature: VerdictInput(pr).signature, verdict: verdict)
     }
 
-    /// Drop entries for PRs that are no longer present (closed, merged, or filtered
-    /// out) so the file can't grow without bound. Entries are kept across every
-    /// engine tag for the PRs that *are* present, so switching engines back stays
-    /// instant. Returns whether anything changed, so callers can skip a needless
-    /// write. The key is `engine␟prID`, so the id is the part after the separator.
+    /// Drop entries that are no longer valid: their PR is gone (closed/merged/filtered
+    /// out), OR they were written under a superseded prompt `version`. Entries for live
+    /// PRs *on the current version* are kept across every engine tag, so switching
+    /// engines back stays instant — but a version bump no longer leaves dead entries
+    /// behind for still-open PRs. Returns whether anything changed, so callers can skip
+    /// a needless write. The key is `engineTag␟prID`, and `engineTag` ends in `@<version>`.
     @discardableResult
-    func prune(toCurrent prs: [PullRequest]) -> Bool {
+    func prune(toCurrent prs: [PullRequest], version: String) -> Bool {
         let liveIDs = Set(prs.map(\.id))
         let before = entries.count
         entries = entries.filter { key, _ in
-            guard let id = key.split(separator: "\u{1F}").last else { return false }
-            return liveIDs.contains(String(id))
+            let parts = key.split(separator: "\u{1F}", maxSplits: 1)
+            guard parts.count == 2, liveIDs.contains(String(parts[1])) else { return false }
+            return parts[0].hasSuffix("@\(version)")   // current prompt version only
         }
         return entries.count != before
     }

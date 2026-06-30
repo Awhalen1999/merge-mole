@@ -801,14 +801,17 @@ final class AppModel {
 
     /// Identifies which engine produced a verdict, so the cache keeps them
     /// separate (switching engines re-evaluates rather than serving stale output).
+    /// The prompt/output-contract version, baked into every cache key (`engineTag`).
+    /// Bump on any material change to the prompt or output so verdicts cached under an
+    /// older prompt are re-run rather than served stale — and `VerdictCache.prune`
+    /// then sweeps the superseded-version entries. (v5: tighter review line, no em dashes.)
+    static let promptVersion = "v5"
+
     private var engineTag: String {
-        // Bump when the prompt or output contract changes materially, so verdicts
-        // cached under an older prompt are re-run rather than served stale.
-        let version = "v5"   // v5: tighter review line + no em dashes
         switch aiMode {
         case .off:          return "off"
-        case .onDevice:     return "ondevice@\(version)"
-        case .bringYourOwn: return "byo:\(byoProvider.rawValue):\(byoModel)@\(version)"
+        case .onDevice:     return "ondevice@\(Self.promptVersion)"
+        case .bringYourOwn: return "byo:\(byoProvider.rawValue):\(byoModel)@\(Self.promptVersion)"
         }
     }
 
@@ -1072,7 +1075,7 @@ final class AppModel {
 
         // Forget PRs that are gone (closed/merged), then save — but only when the
         // cache actually changed, so a fully-cached reopen does no disk write.
-        let pruned = verdictCache.prune(toCurrent: pullRequests)
+        let pruned = verdictCache.prune(toCurrent: pullRequests, version: Self.promptVersion)
         if stored || pruned { verdictCache.persist() }
     }
 
