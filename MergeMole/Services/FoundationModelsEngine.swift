@@ -19,32 +19,39 @@ struct FoundationModelsEngine: VerdictEngine {
     }
 
     func verdict(for pr: PullRequest) async throws -> Verdict {
-        let session = LanguageModelSession { Self.instructions }
+        let input = VerdictInput(pr)
+        let session = LanguageModelSession { VerdictGuidance.systemPrompt }
         let response = try await session.respond(
-            to: VerdictInput(pr).promptText,
+            to: input.promptText,
             generating: GeneratedVerdict.self
         )
-        return response.content.toVerdict
+        // The deterministic floor can only raise the model's call, never lower it.
+        return response.content.toVerdict.raisingPriority(toAtLeast: input.priorityFloor)
     }
 
-    private static let instructions = """
-    You triage GitHub pull requests for a busy reviewer who wants, at a glance, to \
-    know what each PR is and whether to look now. From the metadata and description, \
-    judge the priority, then write a one-line summary and one \
-    clause of why. Be specific and concrete; never invent details the input doesn't \
-    support. If the description is thin, judge from the title, size, and file count.
-    """
+    /// On-device asks for one at a time: the Neural Engine runs inference serially
+    /// anyway, so firing several at once wins no speed — it just spikes CPU, heat,
+    /// and battery. One keeps the menu-bar app feather-light on modest Macs.
+    var maxConcurrency: Int { 1 }
+
+    /// Warm the shared system model into memory before the first real verdict, so
+    /// opening the panel doesn't stall on a cold load — the failure that used to
+    /// leave a batch half-analyzed. Cheap and idempotent; the OS evicts the model
+    /// under memory pressure, so this never pins RAM behind a closed panel.
+    func prewarm() {
+        LanguageModelSession { VerdictGuidance.systemPrompt }.prewarm()
+    }
 }
 
 // MARK: - Guided-generation type (maps to the domain Verdict)
 
 @Generable
 private struct GeneratedVerdict {
-    @Guide(description: "How urgently the reviewer should look, given review state, CI, size, and risk.")
+    @Guide(description: "How urgently the reviewer should look. Most PRs are normal; reserve high/urgent for clear signals. Never go below any stated priority floor.")
     let priority: GeneratedPriority
-    @Guide(description: "What the PR actually does, in one concrete line of at most 14 words. Start with a verb, no \"This PR\" preamble, and don't just repeat the title.")
+    @Guide(description: "What the PR does, in one present-tense line of at most 14 words. Start with a verb, no \"This PR\" preamble, no trailing period, no em dashes, and don't just repeat the title.")
     let summary: String
-    @Guide(description: "The single most decision-relevant reason for the priority call, as one short clause.")
+    @Guide(description: "One short sentence, at most 25 words, naming the single biggest thing to watch or where to look first. A quick peek, not a full analysis. Don't enumerate risks or restate the summary. No em dashes, no trailing period.")
     let rationale: String
 
     var toVerdict: Verdict {

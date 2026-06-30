@@ -42,8 +42,10 @@ struct RemoteVerdictEngine: VerdictEngine {
     let format: RemoteAPIFormat
 
     func verdict(for pr: PullRequest) async throws -> Verdict {
-        let content = try await complete(system: Self.instructions, user: VerdictInput(pr).promptText)
-        return try Self.parseVerdict(content)
+        let input = VerdictInput(pr)
+        let content = try await complete(system: Self.systemPrompt, user: input.promptText)
+        // The deterministic floor can only raise the model's call, never lower it.
+        return try Self.parseVerdict(content).raisingPriority(toAtLeast: input.priorityFloor)
     }
 
     /// Lightweight reachability/auth/model check for the Settings "Verify" button.
@@ -221,15 +223,13 @@ struct RemoteVerdictEngine: VerdictEngine {
 
     // MARK: Prompt
 
-    /// The allowed-value lists come straight from the enums, so the prompt and the
-    /// parser can't disagree about the vocabulary. The summary guidance matches the
-    /// on-device engine's, so verdicts read the same regardless of backend.
-    private static let instructions = """
-    You triage GitHub pull requests for a busy reviewer. Respond with ONLY a JSON \
-    object and no other text: {"priority": one of \(Priority.wireList), "summary": \
-    what the PR does in one concrete line of at most 14 words (start with a verb, no \
-    "This PR" preamble, don't just repeat the title), "rationale": one short clause \
-    giving the main reason for the priority call}. Be specific; never invent details \
-    the input doesn't support.
+    /// The shared behavioural spec (`VerdictGuidance`, identical to the on-device
+    /// engine so verdicts read the same across backends) plus a remote-only
+    /// JSON-format instruction — the on-device engine uses guided generation, so the
+    /// format ask belongs here, not in the shared prompt. The allowed priority values
+    /// come straight from the enum, so the prompt and parser can't drift.
+    private static let systemPrompt = VerdictGuidance.systemPrompt + "\n\n" + """
+    Respond with ONLY a JSON object and no other text: {"priority": "<\(Priority.wireList)>", \
+    "summary": "<the summary line>", "rationale": "<the review line>"}
     """
 }

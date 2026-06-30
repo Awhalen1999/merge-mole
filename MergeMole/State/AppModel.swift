@@ -273,7 +273,6 @@ final class AppModel {
 
     private let verdictCache = VerdictCache()
     private let readStore = ReadStore()
-    private static let maxConcurrentVerdicts = 4
 
     /// How long an open-panel refresh trusts the last sync before refetching.
     /// Short enough to feel live, long enough that rapid open/close doesn't spam
@@ -289,6 +288,12 @@ final class AppModel {
     /// re-probe Foundation Models on every access. Refreshed at the start of each
     /// recompute, so it tracks Apple Intelligence being toggled between refreshes.
     private(set) var onDeviceAvailable = FoundationModelsEngine.isAvailable
+
+    /// True while the menu-bar panel is open. Verdicts run the model only when the
+    /// user is actually looking: background fetches still refresh the list and the
+    /// badge, but the on-device model never spins up behind a closed panel — so an
+    /// idle menu-bar app stays genuinely idle (no RAM, no Neural Engine, no battery).
+    private(set) var isPanelOpen = false
 
     private(set) var currentUser: String
     /// The signed-in user's GitHub avatar, for the Settings connection card. Filled
@@ -685,10 +690,6 @@ final class AppModel {
     /// zero when everything's been seen (the burrow empties).
     var badgeCount: Int { unreadBadgePullRequests.count }
 
-    /// The most urgent priority among the unread counted PRs — colors the panel-header
-    /// count (amber for high, red for urgent). `nil` when nothing is counted.
-    var badgePriority: Priority? { unreadBadgePullRequests.map { priority(of: $0) }.max() }
-
     func verdictState(for pr: PullRequest) -> VerdictState {
         verdicts[pr.id] ?? (aiEnabled ? .loading : .off)
     }
@@ -803,7 +804,7 @@ final class AppModel {
     private var engineTag: String {
         // Bump when the prompt or output contract changes materially, so verdicts
         // cached under an older prompt are re-run rather than served stale.
-        let version = "v3"   // v3: merge-conflict signal added to the prompt
+        let version = "v5"   // v5: tighter review line + no em dashes
         switch aiMode {
         case .off:          return "off"
         case .onDevice:     return "ondevice@\(version)"
@@ -950,6 +951,22 @@ final class AppModel {
 
     // MARK: Loading
 
+    /// The panel just opened. Warm the on-device model (so the first verdict is
+    /// snappy, not cold) while the refresh fetches in parallel, then let
+    /// `recomputeVerdicts` run the model now that someone's watching.
+    func panelOpened() {
+        onDeviceAvailable = FoundationModelsEngine.isAvailable
+        isPanelOpen = true
+        activeEngine?.prewarm()              // no-op for remote/off; loads assets for on-device
+        Task { await loadIfStale() }
+    }
+
+    /// The panel closed. Stop feeding the model: any in-flight verdict finishes and
+    /// caches, but `recomputeVerdicts` schedules nothing new behind a closed panel.
+    func panelClosed() {
+        isPanelOpen = false
+    }
+
     /// The auto-refresh that fires when the panel opens. Skips the fetch if a load
     /// is already in flight, or if we synced within `staleInterval` — so reopening
     /// repeatedly stays cheap. Manual Refresh calls `load()` directly to force one.
@@ -1019,24 +1036,22 @@ final class AppModel {
         }
 
         var stored = false
-        if !stale.isEmpty {
-            // Bounded concurrency: the on-device model shouldn't be hit with dozens
-            // of requests at once. Cards fill in as each verdict lands.
+        // Run the model only while the panel is open. A background fetch updates the
+        // list and badge, but the on-device model never spins up behind a closed
+        // panel — stale PRs stay `.loading` and analyze the moment the panel opens.
+        if isPanelOpen && !stale.isEmpty {
+            // Concurrency the engine asks for: 1 on-device (the Neural Engine
+            // serializes anyway, and a trickle keeps the Mac cool), more for remote.
+            // Cards fill in as each verdict lands.
             await withTaskGroup(of: (PullRequest, VerdictState).self) { group in
                 var next = 0
                 func schedule() {
-                    // Stop feeding the model once this pass is cancelled (the panel
-                    // closed): in-flight verdicts still finish and cache, but nothing
-                    // new starts — a cold boot doesn't burn 25 analyses you closed on.
-                    guard !Task.isCancelled, next < stale.count else { return }
+                    guard next < stale.count else { return }
                     let pr = stale[next]
                     next += 1
-                    group.addTask {
-                        do { return (pr, .ready(try await engine.verdict(for: pr))) }
-                        catch { return (pr, .failed("Couldn't analyze this PR.")) }
-                    }
+                    group.addTask { (pr, await Self.verdict(for: pr, using: engine)) }
                 }
-                for _ in 0..<min(Self.maxConcurrentVerdicts, stale.count) { schedule() }
+                for _ in 0..<min(engine.maxConcurrency, stale.count) { schedule() }
                 for await (pr, state) in group {
                     // A newer recompute superseded us (mode/config changed): drain the
                     // in-flight tasks without writing, and schedule no more.
@@ -1046,7 +1061,10 @@ final class AppModel {
                         verdictCache.store(verdict, for: pr, engine: tag)
                         stored = true
                     }
-                    schedule()
+                    // Feed the model only while the panel stays open. If it closed
+                    // mid-pass, in-flight verdicts still finish and cache, but nothing
+                    // new starts — a closed panel never burns analyses you're not watching.
+                    if isPanelOpen { schedule() }
                 }
             }
             guard generation == recomputeGeneration else { return }
@@ -1056,6 +1074,25 @@ final class AppModel {
         // cache actually changed, so a fully-cached reopen does no disk write.
         let pruned = verdictCache.prune(toCurrent: pullRequests)
         if stored || pruned { verdictCache.persist() }
+    }
+
+    /// One verdict, retried a couple times with brief backoff. Cold-start and
+    /// transient model/network hiccups are the usual miss here; a retry clears them,
+    /// so a single failure no longer strands a card on `.failed` until its content
+    /// changes. `nonisolated` so it runs off the main actor, like the task group wants.
+    private nonisolated static func verdict(
+        for pr: PullRequest, using engine: VerdictEngine, retries: Int = 2
+    ) async -> VerdictState {
+        for attempt in 0...retries {
+            if Task.isCancelled { break }
+            do { return .ready(try await engine.verdict(for: pr)) }
+            catch {
+                // Back off a touch before retrying (400ms, then 800ms) so we're not
+                // hammering a model that's still warming or an endpoint that's busy.
+                if attempt < retries { try? await Task.sleep(for: .milliseconds(400 << attempt)) }
+            }
+        }
+        return .failed("Couldn't analyze this PR.")
     }
 
     private func priority(of pr: PullRequest) -> Priority {

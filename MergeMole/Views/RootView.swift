@@ -37,7 +37,11 @@ struct RootView: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(Color.appHairline, lineWidth: 1)
         )
-        .task { await model.loadIfStale() }   // refresh on open, but not if just synced
+        // The panel drives AI work: opening it warms the model and refreshes;
+        // closing it stops feeding the model. Background fetches keep the badge
+        // live, but the model only runs while you're actually looking.
+        .onAppear { model.panelOpened() }
+        .onDisappear { model.panelClosed() }
     }
 
     /// The user-selected panel backdrop.

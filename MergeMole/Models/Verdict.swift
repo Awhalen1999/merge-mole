@@ -9,9 +9,19 @@ struct Verdict: Codable, Hashable, Sendable {
     var priority: Priority
     /// One-line, plain-language summary of what the PR *is*.
     var summary: String
-    /// One clause of *why* the verdict landed where it did. Every verdict is
-    /// auditable — never a black box (docs/plan.md, guiding principles).
+    /// One line on *how to approach the review* — likely scope and what to watch.
+    /// (Named `rationale` for history; it's the card's secondary AI line.)
     var rationale: String
+
+    /// Apply the deterministic priority floor: the keyword/label scan can only ever
+    /// *raise* the model's call, never lower it — so a `hotfix`/`security`/`blocking`
+    /// signal reliably lands as high/urgent even if the model under-rates it.
+    func raisingPriority(toAtLeast floor: Priority) -> Verdict {
+        guard floor > priority else { return self }
+        var copy = self
+        copy.priority = floor
+        return copy
+    }
 }
 
 /// What to look at first. Drives ordering and the menu-bar count.
