@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"
+     xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>MergeMole</title>
+        <link>https://downloads.mergemole.app/appcast.xml</link>
+        <description>Most recent updates for MergeMole.</description>
+        <language>en</language>
+        <!-- No <item> yet: an empty channel means "you're up to date".
+             The release GitHub Action regenerates this file on every tagged release. -->
+    </channel>
+</rss>
