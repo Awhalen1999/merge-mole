@@ -604,7 +604,7 @@ private struct AboutSettings: View {
             links
             updates
             Spacer()
-            Text("© 2026 MergeMole · All rights reserved")
+            Text("© 2026 MergeMole · MIT License")
                 .font(.caption2)
                 .foregroundStyle(.appTextTertiary)
         }
