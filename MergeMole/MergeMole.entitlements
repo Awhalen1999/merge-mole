@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Keep the app sandboxed (was previously set via the ENABLE_APP_SANDBOX build flag). -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Outgoing network: GitHub API, BYO AI endpoints, and Sparkle update downloads. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Read files the user explicitly picks (was ENABLE_USER_SELECTED_FILES = readonly). -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	<!-- Sparkle sandbox requirement: lets the app reach Sparkle's installer/downloader
+	     XPC helpers. The names are namespaced to our bundle id so they're unique to us. -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spks</string>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spki</string>
+	</array>
+</dict>
+</plist>

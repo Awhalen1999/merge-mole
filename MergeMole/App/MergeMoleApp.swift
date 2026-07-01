@@ -6,10 +6,13 @@ struct MergeMoleApp: App {
     /// and write the same state.
     @State private var model = AppModel()
 
+    /// Sparkle's updater, created once and shared into Settings so the About tab drives
+    /// the same instance as the background checker.
+    @State private var updater = Updater()
+
     var body: some Scene {
         // .window style gives a real SwiftUI panel under the menu-bar icon.
-        // Animated icon states (mono → amber → red) come later via NSStatusItem
-        // at Step 7; the systemImage is the placeholder until then.
+        // Animated icon states (mono → amber → red) come later via NSStatusItem.
         MenuBarExtra {
             RootView()
                 .environment(model)
@@ -21,6 +24,7 @@ struct MergeMoleApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .environment(updater)
         }
     }
 }

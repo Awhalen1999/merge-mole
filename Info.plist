@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sparkle: custom Info.plist keys can't be set via INFOPLIST_KEY_* build settings
+	     (those only cover Apple's allowlist), so they live here. GENERATE_INFOPLIST_FILE
+	     stays on and merges the standard keys (bundle id, version, LSUIElement, …) on top
+	     of this partial file. -->
+	<key>SUFeedURL</key>
+	<string>https://downloads.mergemole.app/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>nzUEn0kfWAGV8LzLqetG1GWx/QWQy/LwgUEvikR91iM=</string>
+	<!-- Required for Sparkle inside the App Sandbox: lets it launch its installer helper. -->
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<!-- Default: automatic update checks on (user can turn off in Settings → About). -->
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<!-- Check once a day (seconds). Sparkle's own default too — set explicitly to document intent. -->
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+</dict>
+</plist>

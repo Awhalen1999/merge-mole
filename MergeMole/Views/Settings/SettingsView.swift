@@ -1,6 +1,4 @@
 import SwiftUI
-import AppKit
-import UniformTypeIdentifiers
 
 /// The Settings window (⌘,). Four tabs — General / Tabs / Providers / About — in the
 /// native macOS preferences `TabView`, so the chrome (centered title + toolbar
@@ -593,7 +591,7 @@ private struct ModelPickerField: View {
 // MARK: - About
 
 private struct AboutSettings: View {
-    @AppStorage("checkForUpdatesAutomatically") private var autoUpdate = true
+    @Environment(Updater.self) private var updater
 
     // Edit these in one place. Website is a placeholder until the marketing page is up.
     private let repoURL = URL(string: "https://github.com/Awhalen1999/merge-mole")!
@@ -606,7 +604,7 @@ private struct AboutSettings: View {
             links
             updates
             Spacer()
-            Text("© 2026 MergeMole · MIT License")
+            Text("© 2026 MergeMole · All rights reserved")
                 .font(.caption2)
                 .foregroundStyle(.appTextTertiary)
         }
@@ -660,19 +658,23 @@ private struct AboutSettings: View {
         .padding(.top, Layout.generous)
     }
 
-    /// Update controls — in the centered flow, not pinned to the bottom. No release
+    /// Update controls — in the centered flow, not pinned to the bottom. Both the
+    /// toggle and the button drive Sparkle directly (see `Updater`). No release
     /// channel yet: the app isn't mature enough to split stable/beta tracks.
     private var updates: some View {
         VStack(spacing: Layout.roomy) {
-            Toggle("Check for updates automatically", isOn: $autoUpdate)
-                .toggleStyle(.checkbox)
-            Button("Check for Updates…") {
-                NSWorkspace.shared.open(repoURL.appendingPathComponent("releases"))
-            }
-            .buttonStyle(.bordered)
-            // Neutral text — the window-level accent tint would otherwise make this a
-            // loud blue; a check-for-updates button is secondary, not a primary action.
-            .tint(.appText)
+            Toggle("Check for updates automatically", isOn: Binding(
+                get: { updater.automaticallyChecksForUpdates },
+                set: { updater.setAutomaticChecks($0) }
+            ))
+            .toggleStyle(.checkbox)
+            Button("Check for Updates…") { updater.checkForUpdates() }
+                .buttonStyle(.bordered)
+                // Neutral text — the window-level accent tint would otherwise make this
+                // a loud blue; a check-for-updates button is secondary, not primary.
+                .tint(.appText)
+                // Sparkle can't run two checks at once; mirror its readiness.
+                .disabled(!updater.canCheckForUpdates)
         }
         .padding(.top, Layout.generous)
     }
@@ -699,4 +701,5 @@ private struct AboutSettings: View {
 #Preview {
     SettingsView()
         .environment(AppModel(secrets: InMemorySecretStore()))
+        .environment(Updater())
 }
