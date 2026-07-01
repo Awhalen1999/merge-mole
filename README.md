@@ -2,10 +2,11 @@
 
 # MergeMole
 
-**Your GitHub pull requests, triaged by AI, in your menu bar.**
+**Your pull requests, triaged by AI, in your menu bar.**
 
-MergeMole shows your open PRs in a panel under the menu-bar icon and uses AI to tell you
-what each PR *is* and what to *prioritize* — it triages, it doesn't just list.
+MergeMole reads the PRs that need your attention and ranks them by **priority and effort**.
+Each one gets a one-line AI summary of what the PR does and a quick look at its review
+status — all **completely free**, and by default **your code never leaves your Mac**.
 
 [**Download for macOS**](https://github.com/Awhalen1999/merge-mole/releases/latest) · [Website](https://mergemole.app)
 
@@ -18,7 +19,8 @@ what each PR *is* and what to *prioritize* — it triages, it doesn't just list.
 If you review a lot of PRs, you're drowning in them. Other menu-bar PR apps just dump a
 list — you still open each one to figure out what matters. MergeMole's bet is that a short
 AI verdict (a one-line summary, a priority, and one clause of *why*) turns that list into
-a ranked work queue you can act on without switching to the browser.
+a ranked work queue you can act on without switching to the browser. It's free, and the
+default triage runs entirely on-device.
 
 ## How it works
 
@@ -33,7 +35,8 @@ a ranked work queue you can act on without switching to the browser.
 
 ## AI options
 
-- **On-device** — uses Apple's on-device model where available; nothing leaves your Mac.
+- **On-device (default)** — priority, effort, and the AI summary are inferred locally with
+  Apple's Foundation Models. Free, no limits, and **nothing leaves your Mac**.
 - **Bring your own** — connect your own OpenAI-compatible, Anthropic, or local (Ollama)
   endpoint with your own key.
 - **Off** — use MergeMole as a plain, fast PR organizer with no AI.
@@ -50,6 +53,8 @@ endpoint you choose.
 ## Requirements
 
 - macOS 26.5 or later
+- On-device AI uses Apple's Foundation Models (Apple Silicon). No Apple Intelligence?
+  MergeMole still works — use *Bring your own* AI or turn triage off.
 
 ## Updates
 
