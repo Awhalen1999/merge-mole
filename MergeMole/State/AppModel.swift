@@ -448,6 +448,10 @@ final class AppModel {
 
     private(set) var isGitHubConnected: Bool
 
+    /// Set when GitHub rejected the stored token (expired/revoked) mid-session, so the
+    /// connect screen can say "reconnect" with context instead of a bare first-run prompt.
+    private(set) var tokenRejected = false
+
     /// UserDefaults keys for the app's non-secret preferences. These live in
     /// `~/Library/Application Support/../Preferences/app.mergemole.MergeMole.plist`
     /// (the standard domain). Secrets are NOT here — they go through `secrets`
@@ -536,7 +540,10 @@ final class AppModel {
         guard !token.isEmpty else { return .failed(message: "Enter a token.") }
         do {
             let login = try await GitHubAPI.viewerLogin(token: token)
-            secrets.set(token, for: .githubToken)
+            guard secrets.set(token, for: .githubToken) else {
+                return .failed(message: "Couldn't save your token to the Keychain. Check macOS Keychain access and try again.")
+            }
+            tokenRejected = false
             isGitHubConnected = true
             currentUser = login
             startAutoRefresh()   // now that we're connected, arm the periodic refetch
@@ -550,6 +557,7 @@ final class AppModel {
     func disconnectGitHub() {
         secrets.set(nil, for: .githubToken)
         isGitHubConnected = false
+        tokenRejected = false   // a deliberate disconnect isn't a rejection
         pullRequests = []
         verdicts = [:]
         currentUserAvatarURL = nil
@@ -1008,7 +1016,17 @@ final class AppModel {
             isLoading = false
             await recomputeVerdicts()
         } catch {
-            loadError = error.localizedDescription
+            // A 401 means the token expired or was revoked mid-session. Drop the dead
+            // token and route back to the connect screen (with context) instead of
+            // stranding the user on a "Try again" that can only fail again.
+            if let gh = error as? GitHubError, case .badToken = gh {
+                secrets.set(nil, for: .githubToken)
+                isGitHubConnected = false
+                tokenRejected = true
+                startAutoRefresh()   // cancels the now-pointless scheduler
+            } else {
+                loadError = error.localizedDescription
+            }
             isLoading = false
         }
     }
@@ -1088,7 +1106,7 @@ final class AppModel {
     ) async -> VerdictState {
         for attempt in 0...retries {
             if Task.isCancelled { break }
-            do { return .ready(try await engine.verdict(for: pr)) }
+            do { return .ready(try await withTimeout(seconds: 60) { try await engine.verdict(for: pr) }) }
             catch {
                 // Back off a touch before retrying (400ms, then 800ms) so we're not
                 // hammering a model that's still warming or an endpoint that's busy.
@@ -1097,6 +1115,25 @@ final class AppModel {
         }
         return .failed("Couldn't analyze this PR.")
     }
+
+    /// Runs `work`, failing if it doesn't finish within `seconds` — so one stuck
+    /// inference or a hung endpoint can't strand a card (and, on-device where analysis
+    /// runs one at a time, block every card queued behind it). The loser is cancelled.
+    private nonisolated static func withTimeout<T: Sendable>(
+        seconds: Double, _ work: @Sendable @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await work() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                throw TimeoutError()
+            }
+            defer { group.cancelAll() }
+            return try await group.next()!
+        }
+    }
+
+    private struct TimeoutError: Error {}
 
     private func priority(of pr: PullRequest) -> Priority {
         if case .ready(let verdict) = verdictState(for: pr) { return verdict.priority }

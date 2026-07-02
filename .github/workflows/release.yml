@@ -127,7 +127,9 @@ jobs:
           rm -rf "$STAGING"; mkdir -p "$STAGING"
           cp -R "$APP" "$STAGING/"
           ln -s /Applications "$STAGING/Applications"
-          DMG="$RUNNER_TEMP/$APP_NAME-$VERSION.dmg"
+          # Stable, version-less filename so the website can link to a single URL that
+          # always resolves to the latest: /releases/latest/download/MergeMole.dmg
+          DMG="$RUNNER_TEMP/$APP_NAME.dmg"
           hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
           echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
           PLIST="$APP/Contents/Info.plist"
@@ -196,7 +198,7 @@ jobs:
           [ -z "$NOTES" ] && NOTES="Release $TAG"
           printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
           PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
-          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APP_NAME}-${VERSION}.dmg"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APP_NAME}.dmg"
           python3 scripts/update_appcast.py \
             --appcast ghpages/appcast.xml \
             --changelog ghpages/changelog.json \

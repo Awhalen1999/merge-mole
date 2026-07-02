@@ -5,7 +5,9 @@ import Foundation
 /// `KeychainSecretStore` is the real impl, `InMemorySecretStore` backs previews/tests.
 protocol SecretStore: AnyObject {
     func string(for key: SecretKey) -> String?
-    func set(_ value: String?, for key: SecretKey)
+    /// Returns whether the write succeeded. Callers that must confirm a secret is
+    /// durably saved (e.g. the GitHub connect flow) check this; others can ignore it.
+    @discardableResult func set(_ value: String?, for key: SecretKey) -> Bool
 }
 
 /// Known secret slots, kept in one place so call sites can't typo a raw string.
@@ -25,7 +27,9 @@ final class InMemorySecretStore: SecretStore {
 
     func string(for key: SecretKey) -> String? { storage[key] }
 
-    func set(_ value: String?, for key: SecretKey) {
+    @discardableResult
+    func set(_ value: String?, for key: SecretKey) -> Bool {
         if let value { storage[key] = value } else { storage[key] = nil }
+        return true
     }
 }

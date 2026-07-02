@@ -41,6 +41,18 @@ struct RemoteVerdictEngine: VerdictEngine {
     let apiKey: String
     let format: RemoteAPIFormat
 
+    /// Bounded-timeout session so a hung endpoint fails instead of stranding a card on
+    /// "Analyzing…". The request timeout is generous (models can be slow); the
+    /// per-verdict guard in `AppModel` is the tighter backstop. `waitsForConnectivity
+    /// = false` so offline errors out at once instead of queueing.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 45
+        config.timeoutIntervalForResource = 60
+        config.waitsForConnectivity = false
+        return URLSession(configuration: config)
+    }()
+
     func verdict(for pr: PullRequest) async throws -> Verdict {
         let input = VerdictInput(pr)
         let content = try await complete(system: Self.systemPrompt, user: input.promptText)
@@ -130,7 +142,7 @@ struct RemoteVerdictEngine: VerdictEngine {
     private func send(_ request: URLRequest) async throws -> Data {
         let data: Data, response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await Self.session.data(for: request)
         } catch {
             throw RemoteModelError.network
         }

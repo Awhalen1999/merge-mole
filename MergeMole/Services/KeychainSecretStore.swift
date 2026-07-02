@@ -29,18 +29,23 @@ final class KeychainSecretStore: SecretStore {
         return value
     }
 
-    func set(_ value: String?, for key: SecretKey) {
+    @discardableResult
+    func set(_ value: String?, for key: SecretKey) -> Bool {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key.rawValue,
         ]
-        SecItemDelete(base as CFDictionary)
+        SecItemDelete(base as CFDictionary)   // a "not found" here is fine — we ignore it
 
-        guard let value, let data = value.data(using: .utf8) else { return }
+        // Clearing a slot: the delete above is the whole operation, and succeeded.
+        guard let value, let data = value.data(using: .utf8) else { return true }
+
         var insert = base
         insert[kSecValueData as String] = data
         insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(insert as CFDictionary, nil)
+        // Report whether the write actually landed, so the caller can tell the user
+        // instead of claiming success on a locked/policy-blocked Keychain.
+        return SecItemAdd(insert as CFDictionary, nil) == errSecSuccess
     }
 }

@@ -64,6 +64,17 @@ enum GitHubAPI {
         return decoder
     }()
 
+    /// A short-timeout session so a stalled connection (captive-portal wifi, a VPN
+    /// dropping) fails fast instead of leaving the panel spinning. `waitsForConnectivity
+    /// = false` means "offline" errors out immediately rather than queueing the request.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 20
+        config.timeoutIntervalForResource = 30
+        config.waitsForConnectivity = false
+        return URLSession(configuration: config)
+    }()
+
     /// The PRs that involve you, plus your login — one round-trip. Five aliased
     /// searches (one per relationship) run in the single query; a PR that shows up
     /// in more than one bucket is merged once, accumulating every relationship.
@@ -118,7 +129,7 @@ enum GitHubAPI {
 
         let data: Data, response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             throw GitHubError.network
         }
@@ -139,8 +150,12 @@ enum GitHubAPI {
         log.debug("GitHub GraphQL response:\n\(pretty ?? String(decoding: data, as: UTF8.self), privacy: .public)")
         #endif
 
-        // GraphQL-level errors come back with HTTP 200 and an `errors` array.
-        if let message = (try? decoder.decode(GraphQLErrors.self, from: data))?.errors?.first?.message {
+        // GraphQL errors come back as HTTP 200 with an `errors` array — but often
+        // alongside partial `data` (e.g. one of the five aliased searches failed while
+        // the rest succeeded). Keep the partial results; only surface the error when
+        // there's no usable data at all, so one flaky bucket can't wipe the whole list.
+        let hasData = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["data"] is [String: Any]
+        if !hasData, let message = (try? decoder.decode(GraphQLErrors.self, from: data))?.errors?.first?.message {
             throw GitHubError.graphQL(message)
         }
         return data
