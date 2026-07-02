@@ -1,9 +1,9 @@
 import Foundation
 
 /// Produces a `Verdict` for a PR. This is the seam behind all three AI modes:
-/// Step 5 adds a `FoundationModelsEngine` (on-device) and a `RemoteModelEngine`
-/// (bring-your-own key / Ollama) that both conform here. "AI off" isn't an
-/// engine at all — AppModel simply holds none and marks verdicts `.off`.
+/// `FoundationModelsEngine` (on-device) and `RemoteVerdictEngine` (bring-your-own
+/// key / Ollama) both conform here. "AI off" isn't an engine at all — AppModel
+/// simply holds none and marks verdicts `.off`.
 protocol VerdictEngine: Sendable {
     func verdict(for pr: PullRequest) async throws -> Verdict
 
@@ -23,8 +23,8 @@ extension VerdictEngine {
     var maxConcurrency: Int { 3 }
 }
 
-/// Canned verdicts with a small delay, so the loading → ready transition is
-/// real during development. Replaced by the actual model engines at Step 5.
+/// Canned verdicts with a small delay, so the loading → ready transition looks
+/// real in SwiftUI previews and sample runs.
 struct SampleVerdictEngine: VerdictEngine {
     var latency: Duration = .milliseconds(700)
 

@@ -2,16 +2,14 @@ import Foundation
 import CryptoKit
 
 /// The exact, engine-agnostic context a verdict is computed from — and nothing
-/// else. This is the single source of truth that keeps two things in lockstep
-/// which used to be maintained by hand in three separate places:
+/// else. One source of truth that keeps two things in lockstep:
 ///
 ///   • what each engine puts in its prompt   → `promptText`
 ///   • what the cache treats as "changed"     → `signature`
 ///
 /// Because both derive from this one value, the cache can never serve a verdict
-/// that was computed from different inputs than the ones now true for the PR.
-/// Add a field here and both the prompt and the cache key pick it up — no
-/// chance of the "I updated the prompt but forgot the signature" stale-cache bug.
+/// computed from different inputs than the ones now true for the PR. Add a field
+/// here and both the prompt and the cache key pick it up, so they can't drift apart.
 struct VerdictInput {
     let title: String
     let body: String

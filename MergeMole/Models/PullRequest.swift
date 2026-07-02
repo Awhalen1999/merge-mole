@@ -2,11 +2,10 @@ import Foundation
 
 /// A pull request as MergeMole understands it — provider-agnostic.
 ///
-/// `SamplePRProvider` fills this from fake data today; `GitHubPRProvider` will
-/// fill the *same* shape from the GraphQL API at Step 3, so nothing downstream
-/// (views, AppModel, the AI engine) has to change when real data arrives.
+/// `SamplePRProvider` and `GitHubPRProvider` fill this *same* shape, so nothing
+/// downstream (views, AppModel, the AI engine) depends on where a PR came from.
 struct PullRequest: Identifiable, Hashable, Sendable {
-    let id: String          // GraphQL node id later; a stable string for samples
+    let id: String          // GraphQL node id; a stable string for samples
     var number: Int
     var title: String
     var body: String        // PR description (plain text; may be empty)

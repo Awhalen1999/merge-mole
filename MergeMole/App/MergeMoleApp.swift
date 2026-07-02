@@ -12,7 +12,6 @@ struct MergeMoleApp: App {
 
     var body: some Scene {
         // .window style gives a real SwiftUI panel under the menu-bar icon.
-        // Animated icon states (mono → amber → red) come later via NSStatusItem.
         MenuBarExtra {
             RootView()
                 .environment(model)

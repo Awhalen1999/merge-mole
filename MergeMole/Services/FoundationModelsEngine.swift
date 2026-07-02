@@ -35,9 +35,9 @@ struct FoundationModelsEngine: VerdictEngine {
     var maxConcurrency: Int { 1 }
 
     /// Warm the shared system model into memory before the first real verdict, so
-    /// opening the panel doesn't stall on a cold load — the failure that used to
-    /// leave a batch half-analyzed. Cheap and idempotent; the OS evicts the model
-    /// under memory pressure, so this never pins RAM behind a closed panel.
+    /// opening the panel doesn't stall on a cold load. Cheap and idempotent; the OS
+    /// evicts the model under memory pressure, so this never pins RAM behind a
+    /// closed panel.
     func prewarm() {
         LanguageModelSession { VerdictGuidance.systemPrompt }.prewarm()
     }

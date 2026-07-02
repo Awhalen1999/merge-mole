@@ -389,7 +389,7 @@ final class AppModel {
         }
     }
 
-    // MVP: a single Custom-model connection — one endpoint + one model + one key.
+    // A single Custom-model connection — one endpoint + one model + one key.
     // Switching provider clears all three (see `switchProvider`), so there's never a
     // mismatched key/model to reason about. Endpoint + model live in UserDefaults;
     // the key goes through `secrets` (Keychain).
@@ -565,7 +565,7 @@ final class AppModel {
         startAutoRefresh()   // cancels the scheduler (no-op while disconnected)
     }
 
-    // MARK: BYO API key (non-displayed; lives in Keychain — one slot for the MVP)
+    // MARK: BYO API key (non-displayed; lives in Keychain)
 
     var byoAPIKey: String { secrets.string(for: .remoteModelAPIKey) ?? "" }
 
@@ -594,8 +594,8 @@ final class AppModel {
         modelDiscovery = .idle
     }
 
-    /// Switch provider, clearing the single saved key + model (the MVP keeps exactly
-    /// one connection). The endpoint resets to the new provider's preset — blank for
+    /// Switch provider, clearing the single saved key + model (there's exactly one
+    /// connection). The endpoint resets to the new provider's preset — blank for
     /// the open-ended "compatible" case, which the user fills in.
     func switchProvider(to provider: BYOProvider) {
         setBYOAPIKey("")
@@ -1099,7 +1099,7 @@ final class AppModel {
 
     /// One verdict, retried a couple times with brief backoff. Cold-start and
     /// transient model/network hiccups are the usual miss here; a retry clears them,
-    /// so a single failure no longer strands a card on `.failed` until its content
+    /// so a single failure doesn't strand a card on `.failed` until its content
     /// changes. `nonisolated` so it runs off the main actor, like the task group wants.
     private nonisolated static func verdict(
         for pr: PullRequest, using engine: VerdictEngine, retries: Int = 2

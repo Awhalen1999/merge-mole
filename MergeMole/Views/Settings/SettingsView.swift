@@ -521,7 +521,7 @@ struct CustomModelForm: View {
             .gridColumnAlignment(.leading)
     }
 
-    /// Step 2: save the typed key (if any), then fetch the endpoint's model list.
+    /// Save the typed key (if any), then fetch the endpoint's model list.
     private func connect() {
         Task {
             if !apiKey.isEmpty { model.setBYOAPIKey(apiKey) }
@@ -529,7 +529,7 @@ struct CustomModelForm: View {
         }
     }
 
-    /// Step 3: confirm the chosen model actually answers, and re-triage on success.
+    /// Confirm the chosen model actually answers, and re-triage on success.
     private func test() {
         Task { await model.verifyBYO() }
     }

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Where secrets live. Per docs/plan.md, the GitHub token and any BYO API keys go in
-/// the Keychain — never UserDefaults. Everything else only ever sees this protocol;
-/// `KeychainSecretStore` is the real impl, `InMemorySecretStore` backs previews/tests.
+/// Where secrets live: the GitHub token and any BYO API keys go in the Keychain,
+/// never UserDefaults. Everything else only sees this protocol; `KeychainSecretStore`
+/// is the real implementation, `InMemorySecretStore` backs previews and tests.
 protocol SecretStore: AnyObject {
     func string(for key: SecretKey) -> String?
     /// Returns whether the write succeeded. Callers that must confirm a secret is
@@ -19,9 +19,9 @@ enum SecretKey: String, CaseIterable, Sendable {
     case remoteModelAPIKey    // Custom-model (BYO) API key
 }
 
-/// In-memory stand-in so the seam compiles and runs today. Values do NOT persist
-/// across launches — that's deliberate; the real Keychain implementation is what
-/// makes them durable. Never extend this to write to disk/UserDefaults.
+/// In-memory stand-in for previews and tests. Values do not persist across launches
+/// by design — durability is the Keychain implementation's job, so this must never
+/// write to disk or UserDefaults.
 final class InMemorySecretStore: SecretStore {
     private var storage: [SecretKey: String] = [:]
 

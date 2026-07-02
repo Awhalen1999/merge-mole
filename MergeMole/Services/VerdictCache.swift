@@ -1,9 +1,8 @@
 import Foundation
 
 /// Caches AI verdicts so the model only re-runs when a PR's reviewable content
-/// actually changes — not on every refresh (PLAN: "re-summarize only when its
-/// diff changes"). Keyed by PR id; a content signature detects change. Persisted
-/// as JSON so it survives relaunches.
+/// actually changes, not on every refresh. Keyed by PR id; a content signature
+/// detects change. Persisted as JSON so it survives relaunches.
 final class VerdictCache {
     private struct Entry: Codable {
         let signature: String
@@ -38,8 +37,8 @@ final class VerdictCache {
     /// Drop entries that are no longer valid: their PR is gone (closed/merged/filtered
     /// out), OR they were written under a superseded prompt `version`. Entries for live
     /// PRs *on the current version* are kept across every engine tag, so switching
-    /// engines back stays instant — but a version bump no longer leaves dead entries
-    /// behind for still-open PRs. Returns whether anything changed, so callers can skip
+    /// engines back stays instant, while a version bump clears entries left by an
+    /// older prompt. Returns whether anything changed, so callers can skip
     /// a needless write. The key is `engineTag␟prID`, and `engineTag` ends in `@<version>`.
     @discardableResult
     func prune(toCurrent prs: [PullRequest], version: String) -> Bool {

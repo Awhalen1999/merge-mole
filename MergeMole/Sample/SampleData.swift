@@ -1,14 +1,12 @@
 import Foundation
 
-/// Fake but realistic data for Steps 1–2: it lets the whole UI + state pipeline
-/// run before any GitHub or AI code exists. `SamplePRProvider` and
-/// `SampleVerdictEngine` are the only things that read from here, so deleting
-/// this file later removes the fakes in one move.
+/// Fake but realistic data for SwiftUI previews and offline development.
+/// `SamplePRProvider` and `SampleVerdictEngine` are the only readers, so every
+/// sample fixture lives here in one place.
 enum SampleData {
 
-    /// Stand-in for the signed-in user. Real value comes from the GitHub viewer
-    /// at Step 3; for now it lets the tab filters (mine / needs-review) mean
-    /// something against fake data.
+    /// Stand-in for the signed-in user, so the tab filters (mine / needs-review)
+    /// mean something against the sample data. Real runs use the GitHub viewer.
     static let currentUser = "you"
 
     static let pullRequests: [PullRequest] = [
@@ -137,9 +135,8 @@ enum SampleData {
         ),
     ]
 
-    /// A deterministic stand-in for a real AI verdict. Derives priority from
-    /// review/CI signals — close enough to make the card look alive before the
-    /// Foundation Models engine lands at Step 5.
+    /// A deterministic stand-in for an AI verdict, used in previews. Derives
+    /// priority from review/CI signals — enough to make a card look alive.
     static func verdict(for pr: PullRequest) -> Verdict {
         let priority: Priority
         let rationale: String
