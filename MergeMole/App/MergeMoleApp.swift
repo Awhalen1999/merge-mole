@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 @main
 struct MergeMoleApp: App {
@@ -10,15 +9,6 @@ struct MergeMoleApp: App {
     /// Sparkle's updater, created once and shared into Settings so the About tab drives
     /// the same instance as the background checker.
     @State private var updater = Updater()
-
-    init() {
-        // A menu-bar (LSUIElement) app has no reliable system app icon, so set it
-        // explicitly at launch — this is the icon Sparkle's update dialogs and any
-        // system alert display.
-        if let icon = NSImage(named: "AppLogo") {
-            NSApplication.shared.applicationIconImage = icon
-        }
-    }
 
     var body: some Scene {
         // .window style gives a real SwiftUI panel under the menu-bar icon.
