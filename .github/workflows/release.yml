@@ -145,6 +145,9 @@ jobs:
           # downloaded. Must happen BEFORE the Sparkle signature, since stapling
           # rewrites the DMG (which would otherwise invalidate the signature).
           DMG="${{ steps.dmg.outputs.dmg }}"
+          # Code-sign the DMG (Developer ID) so it carries a signature in addition to
+          # the notarization ticket — leaves zero Gatekeeper ambiguity on download.
+          codesign --force --sign "$SIGN_IDENTITY" --timestamp "$DMG"
           xcrun notarytool submit "$DMG" \
             --key "$RUNNER_TEMP/api_key.p8" \
             --key-id "$APPLE_API_KEY_ID" \
