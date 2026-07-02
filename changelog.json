@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.0.1",
+    "build": "8",
+    "date": "2026-07-02",
+    "notes": "MergeMole 1.0.1\n\n- Now runs on every Mac with macOS 26 (Tahoe), not just the newest release\n- A cleaner, smaller installer window"
+  },
+  {
     "version": "1.0.0",
     "build": "6",
     "date": "2026-07-02",

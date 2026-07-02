@@ -7,6 +7,22 @@
         <link>https://downloads.mergemole.app/appcast.xml</link>
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
+        <item>
+            <title>1.0.1</title>
+            <pubDate>Thu, 02 Jul 2026 20:34:44 +0000</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.0.1</p>
+<ul>
+<li>Now runs on every Mac with macOS 26 (Tahoe), not just the newest release</li>
+<li>A cleaner, smaller installer window</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.0.1/MergeMole.dmg" sparkle:edSignature="kyHf+5p/TpIdOghMSucG9I38R4uvdjQZtrKsz2NWCxGrPKdjdzgqa+NreTd6Nf2dp0QgcKni4h9M5oSgF3GFBA==" length="1983247" type="application/octet-stream"/>
+        </item>
+
 
         <item>
             <title>1.0.0</title>
