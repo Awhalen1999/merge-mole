@@ -30,6 +30,12 @@ jobs:
         with:
           fetch-depth: 0 # need the annotated tag object for its notes
 
+      - name: Restore the annotated tag
+        # actions/checkout downgrades annotated tags to lightweight, which makes
+        # `git tag --format='%(contents)'` return the commit message instead of the
+        # release notes. Force-fetch the real tag object so the notes come through.
+        run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
       - name: Select latest Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
