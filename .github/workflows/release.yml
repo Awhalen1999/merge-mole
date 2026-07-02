@@ -19,7 +19,7 @@ env:
   APP_NAME: MergeMole
   TEAM_ID: TA2LQ3B5QN
   SIGN_IDENTITY: "Developer ID Application: Alexander Whalen (TA2LQ3B5QN)"
-  MIN_SYSTEM_FALLBACK: "26.5"
+  MIN_SYSTEM_FALLBACK: "26.0"
 
 jobs:
   release:
@@ -123,20 +123,38 @@ jobs:
           xcrun stapler staple "$APP"
           # Keep api_key.p8 for the DMG notarization step.
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Build DMG
         id: dmg
         run: |
           set -euo pipefail
           APP="$RUNNER_TEMP/export/$APP_NAME.app"
-          VERSION="${{ steps.ver.outputs.version }}"
-          STAGING="$RUNNER_TEMP/dmg"
+          # create-dmg adds the Applications drop-link itself, so the source folder
+          # holds only the app.
+          STAGING="$RUNNER_TEMP/dmg-src"
           rm -rf "$STAGING"; mkdir -p "$STAGING"
           cp -R "$APP" "$STAGING/"
-          ln -s /Applications "$STAGING/Applications"
           # Stable, version-less filename so the website can link to a single URL that
           # always resolves to the latest: /releases/latest/download/MergeMole.dmg
           DMG="$RUNNER_TEMP/$APP_NAME.dmg"
-          hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+          rm -f "$DMG"
+          # A small, tidy install window: light background, app on the left, an
+          # Applications drop-link on the right. create-dmg occasionally exits non-zero
+          # on CI even after writing the image, so verify the file instead of the code.
+          create-dmg \
+            --volname "$APP_NAME" \
+            --background "Design/dmg/background.png" \
+            --window-pos 200 120 \
+            --window-size 540 380 \
+            --icon-size 110 \
+            --icon "$APP_NAME.app" 150 185 \
+            --app-drop-link 390 185 \
+            --hide-extension "$APP_NAME.app" \
+            --no-internet-enable \
+            "$DMG" "$STAGING" || true
+          if [ ! -f "$DMG" ]; then echo "create-dmg did not produce a DMG"; exit 1; fi
           echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
           PLIST="$APP/Contents/Info.plist"
           echo "build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$PLIST")" >> "$GITHUB_OUTPUT"
