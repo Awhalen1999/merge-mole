@@ -115,7 +115,7 @@ jobs:
             --issuer "$APPLE_API_ISSUER_ID" \
             --wait
           xcrun stapler staple "$APP"
-          rm -f "$RUNNER_TEMP/api_key.p8"
+          # Keep api_key.p8 for the DMG notarization step.
 
       - name: Build DMG
         id: dmg
@@ -134,6 +134,24 @@ jobs:
           echo "build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$PLIST")" >> "$GITHUB_OUTPUT"
           MIN=$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' "$PLIST" 2>/dev/null || echo "$MIN_SYSTEM_FALLBACK")
           echo "min=$MIN" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize & staple the DMG
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          # Notarize the DMG itself so it opens without a Gatekeeper warning when
+          # downloaded. Must happen BEFORE the Sparkle signature, since stapling
+          # rewrites the DMG (which would otherwise invalidate the signature).
+          DMG="${{ steps.dmg.outputs.dmg }}"
+          xcrun notarytool submit "$DMG" \
+            --key "$RUNNER_TEMP/api_key.p8" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$DMG"
+          rm -f "$RUNNER_TEMP/api_key.p8"
 
       - name: Sign the DMG with Sparkle
         id: sparkle
