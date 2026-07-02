@@ -4,64 +4,40 @@
 
 **Your pull requests, triaged by AI, in your menu bar.**
 
-MergeMole reads the PRs that need your attention and ranks them by **priority and effort**.
-Each one gets a one-line AI summary of what the PR does and a quick look at its review
-status — all **completely free**, and by default **your code never leaves your Mac**.
+MergeMole reads the PRs that need your attention and ranks them by priority and effort. Each one gets a one-line AI summary of what it does and a quick look at its review status. It's free, and by default your code never leaves your Mac.
 
-[**Download for macOS**](https://github.com/Awhalen1999/merge-mole/releases/latest) · [Website](https://mergemole.app)
+[Download for macOS](https://github.com/Awhalen1999/merge-mole/releases/latest) · [mergemole.app](https://mergemole.app)
 
 </div>
 
 ---
 
-## Why
+## Features
 
-If you review a lot of PRs, you're drowning in them. Other menu-bar PR apps just dump a
-list — you still open each one to figure out what matters. MergeMole's bet is that a short
-AI verdict (a one-line summary, a priority, and one clause of *why*) turns that list into
-a ranked work queue you can act on without switching to the browser. It's free, and the
-default triage runs entirely on-device.
-
-## How it works
-
-1. **Connect GitHub.** Paste a personal access token (`repo`, `read:org`). It's verified
-   before it's saved, then stored in the macOS **Keychain** — never in plain preferences.
-2. **Fetch.** One GraphQL query pulls everything waiting on you — review-requested,
-   assigned, authored, mentioned, reviewed — deduped into a single list.
-3. **Triage.** For each PR the chosen AI engine returns a verdict: summary, priority, and
-   a short reason. Results are cached, so a PR is only re-evaluated when it actually changes.
-4. **Surface.** The panel sorts by priority; the menu-bar icon carries a live count so you
-   know how much is waiting without opening anything.
+- Pulls every PR waiting on you into one list: review-requested, assigned, authored, mentioned, and reviewed.
+- Ranks them by priority and effort, each with a one-line AI summary.
+- Shows review state, checks, and merge status at a glance.
+- Lives in the menu bar with a live count. No dock icon, no window.
 
 ## AI options
 
-- **On-device (default)** — priority, effort, and the AI summary are inferred locally with
-  Apple's Foundation Models. Free, no limits, and **nothing leaves your Mac**.
-- **Bring your own** — connect your own OpenAI-compatible, Anthropic, or local (Ollama)
-  endpoint with your own key.
-- **Off** — use MergeMole as a plain, fast PR organizer with no AI.
+- **On-device (default):** runs locally with Apple's Foundation Models. Free, and nothing leaves your Mac.
+- **Bring your own:** connect an OpenAI-compatible, Anthropic, or local (Ollama) endpoint with your own key.
+- **Off:** use it as a fast, plain PR organizer.
 
-> Your PR **diffs are never sent** to any AI — triage runs on metadata only, so PR size
-> and code privacy are never a concern.
+PR diffs are never sent to any AI. Triage runs on metadata only.
 
 ## Privacy
 
-Your GitHub token and any AI keys live in the macOS Keychain. There's no MergeMole
-account, no telemetry server, and no backend — the app talks only to GitHub and to the AI
-endpoint you choose.
+Your GitHub token and any AI keys stay in the macOS Keychain. No account, no telemetry, no backend. The app talks only to GitHub and the AI endpoint you choose.
 
 ## Requirements
 
-- macOS 26.5 or later
-- On-device AI uses Apple's Foundation Models (Apple Silicon). No Apple Intelligence?
-  MergeMole still works — use *Bring your own* AI or turn triage off.
+- macOS 26 (Tahoe) or later
+- A GitHub personal access token (`repo`, `read:org`)
+- On-device AI needs an Apple Silicon Mac with Apple Intelligence. Without it, bring your own provider or turn triage off.
 
-## Updates
-
-MergeMole updates itself via [Sparkle](https://sparkle-project.org). It checks once a day
-(toggle in **Settings → About**), or check manually any time from the same place.
-
-## Building from source
+## Building
 
 ```sh
 git clone https://github.com/Awhalen1999/merge-mole.git
@@ -69,14 +45,11 @@ cd merge-mole
 open MergeMole.xcodeproj
 ```
 
-Build and run in Xcode. The only dependency is Sparkle, resolved automatically via Swift
-Package Manager.
+The only dependency is Sparkle, resolved via Swift Package Manager.
 
 ## Contributing
 
-MergeMole is a solo project shared in the open. Issues and PRs are welcome, but this is
-maintained in spare time — please open an issue to discuss before sending a large PR, as
-not every change will be merged.
+Issues and PRs are welcome. It's a solo side project, so please open an issue before a large PR.
 
 ## License
 
