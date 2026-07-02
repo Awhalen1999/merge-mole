@@ -7,6 +7,18 @@
         <link>https://downloads.mergemole.app/appcast.xml</link>
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
+        <item>
+            <title>0.0.1</title>
+            <pubDate>Thu, 02 Jul 2026 00:49:06 +0000</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.0.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.5</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>Release 0.0.1 (build 2)</p>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v0.0.1/MergeMole-0.0.1.dmg" sparkle:edSignature="JX7NZZsvHtNNGkI2WR/MgHUymYrr15dJ3ftCPteMBitrQ0Ed2UY1wOx8FGF2Nov3/7VjcLpR7S9eue6/eT/aDw==" length="2469185" type="application/octet-stream"/>
+        </item>
+
         <!-- No <item> yet: an empty channel means "you're up to date".
              The release GitHub Action regenerates this file on every tagged release. -->
     </channel>
