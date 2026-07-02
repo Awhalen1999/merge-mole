@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.0.2",
+    "build": "3",
+    "date": "2026-07-02",
+    "notes": "Release 0.0.2 (build 3)"
+  },
+  {
     "version": "0.0.1",
     "build": "2",
     "date": "2026-07-02",
