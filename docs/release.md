@@ -196,15 +196,14 @@ code. Push as much as you want.
 **Then the Action does all of this automatically:**
 ```
 1. Checks out the tagged code
-2. Builds the .app
-3. Signs it (Developer ID)
-4. Notarizes it with Apple + waits for the ticket
-5. Staples the ticket onto it
-6. Packages it into a .dmg
-7. Signs the .dmg with the Sparkle key
-8. Creates the GitHub Release and uploads the .dmg
-9. Regenerates appcast.xml on GitHub Pages
-10. Writes changelog.json on GitHub Pages
+2. Builds & archives the .app, signed with Developer ID (hardened runtime)
+3. Notarizes the app with Apple, waits for the ticket, staples it (offline-launchable)
+4. Packages the app into a .dmg
+5. Code-signs the .dmg, notarizes it too, and staples it
+      (so the download itself clears Gatekeeper — not just the app inside)
+6. Signs the .dmg with the Sparkle key
+7. Creates the GitHub Release and uploads the .dmg
+8. Regenerates appcast.xml + changelog.json on the gh-pages branch
 ```
 ~5–10 minutes later the version is live. **Users' apps** notice via the appcast and update
 themselves; **the website** changelog updates itself. You do nothing further.
@@ -223,14 +222,16 @@ website changelog — is automatic.
 1. **Apple Developer Program** — enrolled ✅ (team `TA2LQ3B5QN`).
 2. **Sparkle integration** — updater + Settings UI ✅.
 3. **Feed URL + public key + sandbox entitlements** — in Info.plist + entitlements ✅.
-4. **Go public + GitHub Pages + domain** — flip visibility, enable Pages, custom domain
-   `downloads.mergemole.app`, CNAME on Porkbun, branch protection on `main`.
-5. **Secrets into GitHub Actions** — Developer ID cert, notarization creds, Sparkle private
-   key.
-6. **The release Action** — build → notarize → dmg → sign → Release + upload → appcast →
-   changelog.
-7. **`release.sh`** — the one-command version bump + tag.
-8. **Tag `v1.0.0`** — watch the first release flow end to end.
+4. **Go public + GitHub Pages + domain** — public repo, Pages serving
+   `downloads.mergemole.app` over HTTPS ✅.
+5. **Secrets into GitHub Actions** — Developer ID cert, notarization API key, Sparkle
+   private key (6 secrets) ✅.
+6. **The release Action** — `.github/workflows/release.yml` ✅, verified end-to-end with
+   throwaway `v0.0.1`–`v0.0.3` test tags (build → sign → notarize → staple → dmg →
+   codesign → notarize → staple → Sparkle-sign → Release → appcast/changelog), all test
+   artifacts since cleaned up.
+7. **`release.sh`** — the one-command version bump + tag ✅.
+8. **Tag `v1.0.0`** — the first real release ← next (run `./release.sh 1.0.0`).
 
 ---
 
