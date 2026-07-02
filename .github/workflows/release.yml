@@ -1,0 +1,194 @@
+name: Release
+
+# Fires only when a version tag is pushed (release.sh does that). Plain pushes to
+# main never trigger a build or release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the GitHub Release + push to the gh-pages branch
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SCHEME: MergeMole
+  APP_NAME: MergeMole
+  TEAM_ID: TA2LQ3B5QN
+  SIGN_IDENTITY: "Developer ID Application: Alexander Whalen (TA2LQ3B5QN)"
+  MIN_SYSTEM_FALLBACK: "26.5"
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout (with tags for release notes)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the annotated tag object for its notes
+
+      - name: Select latest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Derive version from tag
+        id: ver
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Import Developer ID certificate
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          KPWD="$(openssl rand -base64 24)"
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$CERT"
+          security create-keychain -p "$KPWD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPWD" "$KEYCHAIN"
+          security import "$CERT" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$KPWD" "$KEYCHAIN"
+          # Make our keychain the one codesign/xcodebuild search first.
+          security list-keychain -d user -s "$KEYCHAIN" "login.keychain-db"
+          rm -f "$CERT"
+
+      - name: Archive (Developer ID, hardened runtime)
+        run: |
+          set -euo pipefail
+          xcodebuild clean archive \
+            -project MergeMole.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination "generic/platform=macOS" \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp"
+
+      - name: Export signed .app
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key><string>developer-id</string>
+              <key>teamID</key><string>TA2LQ3B5QN</string>
+              <key>signingStyle</key><string>manual</string>
+              <key>signingCertificate</key><string>Developer ID Application</string>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Notarize & staple the app
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+          echo "$APPLE_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/api_key.p8"
+          # notarytool needs an archive; zip the .app, submit, then staple the app
+          # itself so it launches offline once copied out of the DMG.
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/$APP_NAME.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/$APP_NAME.zip" \
+            --key "$RUNNER_TEMP/api_key.p8" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+          rm -f "$RUNNER_TEMP/api_key.p8"
+
+      - name: Build DMG
+        id: dmg
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+          VERSION="${{ steps.ver.outputs.version }}"
+          STAGING="$RUNNER_TEMP/dmg"
+          rm -rf "$STAGING"; mkdir -p "$STAGING"
+          cp -R "$APP" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          DMG="$RUNNER_TEMP/$APP_NAME-$VERSION.dmg"
+          hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+          PLIST="$APP/Contents/Info.plist"
+          echo "build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$PLIST")" >> "$GITHUB_OUTPUT"
+          MIN=$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' "$PLIST" 2>/dev/null || echo "$MIN_SYSTEM_FALLBACK")
+          echo "min=$MIN" >> "$GITHUB_OUTPUT"
+
+      - name: Sign the DMG with Sparkle
+        id: sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          SIGN_UPDATE=$(find ~/Library/Developer/Xcode/DerivedData -name sign_update -path '*artifacts/sparkle*' 2>/dev/null | head -1)
+          if [ -z "$SIGN_UPDATE" ]; then echo "sign_update tool not found"; exit 1; fi
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle_key"
+          ATTRS=$("$SIGN_UPDATE" "${{ steps.dmg.outputs.dmg }}" --ed-key-file "$RUNNER_TEMP/sparkle_key")
+          rm -f "$RUNNER_TEMP/sparkle_key"
+          # ATTRS is e.g.  sparkle:edSignature="…" length="123"
+          echo "attrs=$ATTRS" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.ver.outputs.tag }}"
+          NOTES="$(git tag -l --format='%(contents)' "$TAG")"
+          [ -z "$NOTES" ] && NOTES="Release $TAG"
+          printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" "${{ steps.dmg.outputs.dmg }}" \
+            --title "MergeMole ${{ steps.ver.outputs.version }}" \
+            --notes-file "$RUNNER_TEMP/notes.md"
+
+      - name: Publish appcast & changelog to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.ver.outputs.tag }}"
+          VERSION="${{ steps.ver.outputs.version }}"
+          git clone --branch gh-pages --depth 1 \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ghpages
+          NOTES="$(git tag -l --format='%(contents)' "$TAG")"
+          [ -z "$NOTES" ] && NOTES="Release $TAG"
+          printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
+          PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APP_NAME}-${VERSION}.dmg"
+          python3 scripts/update_appcast.py \
+            --appcast ghpages/appcast.xml \
+            --changelog ghpages/changelog.json \
+            --version "$VERSION" \
+            --build "${{ steps.dmg.outputs.build }}" \
+            --min-system "${{ steps.dmg.outputs.min }}" \
+            --url "$URL" \
+            --sparkle-attrs '${{ steps.sparkle.outputs.attrs }}' \
+            --pubdate "$PUBDATE" \
+            --notes-file "$RUNNER_TEMP/notes.md"
+          cd ghpages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml changelog.json
+          git commit -m "Release $VERSION"
+          git push
