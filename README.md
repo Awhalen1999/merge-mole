@@ -49,7 +49,7 @@ The only dependency is Sparkle, resolved via Swift Package Manager.
 
 ## Contributing
 
-Issues and PRs are welcome. It's a solo side project, so please open an issue before a large PR.
+Issues are welcome. ❤️
 
 ## License
 
