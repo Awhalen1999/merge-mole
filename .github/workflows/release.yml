@@ -149,8 +149,8 @@ jobs:
             --window-pos 200 120 \
             --window-size 540 380 \
             --icon-size 110 \
-            --icon "$APP_NAME.app" 150 185 \
-            --app-drop-link 390 185 \
+            --icon "$APP_NAME.app" 150 155 \
+            --app-drop-link 390 155 \
             --hide-extension "$APP_NAME.app" \
             --no-internet-enable \
             "$DMG" "$STAGING" || true
