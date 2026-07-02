@@ -7,19 +7,6 @@
         <link>https://downloads.mergemole.app/appcast.xml</link>
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
-        <item>
-            <title>0.0.4</title>
-            <pubDate>Thu, 02 Jul 2026 20:17:39 +0000</pubDate>
-            <sparkle:version>7</sparkle:version>
-            <sparkle:shortVersionString>0.0.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-<ul>
-<li>Test: custom DMG + macOS 26.0 target</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v0.0.4/MergeMole.dmg" sparkle:edSignature="ekO5mq10YmcgmPST7bCX885U2SUci+ys4kpTjZYZUQzYRQvTgJaHXES/l6M9vEb83RKZXLZrcUgTwNvqyBEXBQ==" length="1963007" type="application/octet-stream"/>
-        </item>
 
         <item>
             <title>1.0.0</title>
