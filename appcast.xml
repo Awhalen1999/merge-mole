@@ -7,5 +7,25 @@
         <link>https://downloads.mergemole.app/appcast.xml</link>
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
+        <item>
+            <title>1.0.0</title>
+            <pubDate>Thu, 02 Jul 2026 14:12:22 +0000</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.5</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.0 is here.</p>
+<p>MergeMole lives in your menu bar and shows the GitHub pull requests that actually need you, with AI doing the triage so you always know what to look at first.</p>
+<p>In this first release:</p>
+<ul>
+<li>On-device AI reads each open PR and ranks it by priority and effort, so the ones that matter rise to the top</li>
+<li>Every PR gets a plain one line summary of what it does, alongside its review state, checks, and merge status</li>
+<li>Everything runs locally on your Mac. It&#x27;s completely free, and your code never leaves your device</li>
+<li>Want a different model? Connect your own OpenAI-compatible, Anthropic, or local Ollama endpoint. Prefer no AI? Turn it off and use MergeMole as a fast, clean pull request list</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.0.0/MergeMole.dmg" sparkle:edSignature="XtAicGvCiJY8XICKoQ4hHxE91DXvPyy6+sHgwnmnyL1ArN4hZD2Ek2Ox63Uz7iMEtSYL/+uJ5DizSO+3DeW4Bg==" length="2490858" type="application/octet-stream"/>
+        </item>
+
     </channel>
 </rss>

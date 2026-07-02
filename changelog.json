@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "1.0.0",
+    "build": "6",
+    "date": "2026-07-02",
+    "notes": "MergeMole 1.0 is here.\n\nMergeMole lives in your menu bar and shows the GitHub pull requests that actually need you, with AI doing the triage so you always know what to look at first.\n\nIn this first release:\n\n- On-device AI reads each open PR and ranks it by priority and effort, so the ones that matter rise to the top\n- Every PR gets a plain one line summary of what it does, alongside its review state, checks, and merge status\n- Everything runs locally on your Mac. It's completely free, and your code never leaves your device\n- Want a different model? Connect your own OpenAI-compatible, Anthropic, or local Ollama endpoint. Prefer no AI? Turn it off and use MergeMole as a fast, clean pull request list"
+  }
+]
