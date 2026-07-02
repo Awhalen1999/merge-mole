@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.0.4",
+    "build": "7",
+    "date": "2026-07-02",
+    "notes": "- Test: custom DMG + macOS 26.0 target"
+  },
+  {
     "version": "1.0.0",
     "build": "6",
     "date": "2026-07-02",
