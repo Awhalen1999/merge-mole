@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.0.2",
+    "build": "9",
+    "date": "2026-07-08",
+    "notes": "MergeMole 1.0.2\n\n- Now runs on macOS 15 (Sequoia) and later. On-device AI still needs macOS 26 (Tahoe); on older versions you can bring your own AI provider or run without AI.\n- Clearer status in Settings when on-device AI isn't available, and the setup buttons now open the right settings tab."
+  },
+  {
     "version": "1.0.1",
     "build": "8",
     "date": "2026-07-02",

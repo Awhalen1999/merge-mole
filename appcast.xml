@@ -8,6 +8,22 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.0.2</title>
+            <pubDate>Wed, 08 Jul 2026 01:08:15 +0000</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.0.2</p>
+<ul>
+<li>Now runs on macOS 15 (Sequoia) and later. On-device AI still needs macOS 26 (Tahoe); on older versions you can bring your own AI provider or run without AI.</li>
+<li>Clearer status in Settings when on-device AI isn&#x27;t available, and the setup buttons now open the right settings tab.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.0.2/MergeMole.dmg" sparkle:edSignature="Iesn7H5ePJbeqtnyvdQxfzY8JaEe7k/Ku4KSNIrJJi22zh2fk9cKCXrlNasXPU/tek8ad9rGRXp8Qxy0c6h8Cw==" length="1972889" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.0.1</title>
             <pubDate>Thu, 02 Jul 2026 20:34:44 +0000</pubDate>
             <sparkle:version>8</sparkle:version>
