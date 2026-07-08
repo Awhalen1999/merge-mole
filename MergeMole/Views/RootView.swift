@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The menu-bar panel. Always three stacked layers, in this order:
 ///
@@ -10,6 +11,7 @@ import SwiftUI
 /// so the panel reads as one clean sheet rather than stacked components.
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         @Bindable var model = model
@@ -98,6 +100,14 @@ struct RootView: View {
         }
     }
 
+    /// Open Settings straight to the Providers tab, where the GitHub connection lives,
+    /// instead of dropping the user on the default tab. Mirrors the About menu item.
+    private func openProviders() {
+        model.settingsTab = .providers
+        NSApp.activate(ignoringOtherApps: true)
+        openSettings()
+    }
+
     private var connectScreen: some View {
         StatusScreen(
             title: model.tokenRejected ? "Reconnect to GitHub" : "Connect to GitHub",
@@ -108,13 +118,13 @@ struct RootView: View {
             BrandMark(size: 46)
         } actions: {
             VStack(spacing: Layout.base) {
-                SettingsLink {
+                Button { openProviders() } label: {
                     Text("Connect GitHub")
                 }
                 .buttonStyle(ProminentButtonStyle())
                 .frame(width: 230)
 
-                SettingsLink {
+                Button { openProviders() } label: {
                     Text("Use a personal access token")
                 }
                 .buttonStyle(.plain)
