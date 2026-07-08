@@ -287,7 +287,7 @@ final class AppModel {
     /// Cached so the hot render path (`verdictState`) and `activeEngine` don't
     /// re-probe Foundation Models on every access. Refreshed at the start of each
     /// recompute, so it tracks Apple Intelligence being toggled between refreshes.
-    private(set) var onDeviceAvailable = FoundationModelsEngine.isAvailable
+    private(set) var onDeviceAvailability = OnDeviceModel.availability
 
     /// True while the menu-bar panel is open. Verdicts run the model only when the
     /// user is actually looking: background fetches still refresh the list and the
@@ -780,7 +780,7 @@ final class AppModel {
     private var aiEnabled: Bool {
         switch aiMode {
         case .off:          return false
-        case .onDevice:     return injectedEngine != nil || onDeviceAvailable
+        case .onDevice:     return injectedEngine != nil || onDeviceAvailability.isAvailable
         case .bringYourOwn: return injectedEngine != nil || byoConfigured
         }
     }
@@ -794,7 +794,7 @@ final class AppModel {
             return nil
         case .onDevice:
             if let injectedEngine { return injectedEngine }
-            return onDeviceAvailable ? FoundationModelsEngine() : nil
+            return OnDeviceModel.makeEngine()
         case .bringYourOwn:
             if let injectedEngine { return injectedEngine }
             guard byoConfigured else { return nil }
@@ -823,10 +823,11 @@ final class AppModel {
         }
     }
 
-    /// On-device AI was chosen but this Mac can't run it (Intel, or Apple
-    /// Intelligence off). Surfaced in Settings; cards fall back to data-only.
-    var onDeviceUnavailable: Bool {
-        aiMode == .onDevice && injectedEngine == nil && !onDeviceAvailable
+    /// Why on-device AI can't run, for the Settings note — nil when it's available
+    /// (or a preview/test engine is injected). Cards fall back to data-only meanwhile.
+    var onDeviceUnavailableReason: String? {
+        guard aiMode == .onDevice, injectedEngine == nil else { return nil }
+        return onDeviceAvailability.reason
     }
 
     /// BYO has both an endpoint and a model name (the minimum to run).
@@ -966,7 +967,7 @@ final class AppModel {
     /// snappy, not cold) while the refresh fetches in parallel, then let
     /// `recomputeVerdicts` run the model now that someone's watching.
     func panelOpened() {
-        onDeviceAvailable = FoundationModelsEngine.isAvailable
+        onDeviceAvailability = OnDeviceModel.availability
         isPanelOpen = true
         activeEngine?.prewarm()              // no-op for remote/off; loads assets for on-device
         Task { await loadIfStale() }
@@ -1034,7 +1035,7 @@ final class AppModel {
     // MARK: Verdicts
 
     private func recomputeVerdicts() async {
-        onDeviceAvailable = FoundationModelsEngine.isAvailable   // refresh before we resolve
+        onDeviceAvailability = OnDeviceModel.availability   // refresh before we resolve
         recomputeGeneration += 1
         let generation = recomputeGeneration
 

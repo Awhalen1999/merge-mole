@@ -312,10 +312,15 @@ private struct AITriageSection: View {
                               selected: model.aiMode == mode) {
                         model.aiMode = mode
                     }
-                    // On-device flags when it can't run here; "bring your own"
-                    // reveals its endpoint form in a card just below.
-                    if mode == .onDevice && model.onDeviceUnavailable {
-                        InlineStatus(kind: .error("On-device AI isn't available on this Mac. Cards show data only."))
+                    // On-device flags when it can't run, with the specific reason
+                    // beneath; "bring your own" reveals its endpoint form just below.
+                    if mode == .onDevice, let reason = model.onDeviceUnavailableReason {
+                        VStack(alignment: .leading, spacing: Layout.tight) {
+                            InlineStatus(kind: .error("On-device AI isn't available"))
+                            Text(reason)
+                                .font(.caption)
+                                .foregroundStyle(.appTextTertiary)
+                        }
                     }
                     if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
                         CustomModelForm().cardSurface()

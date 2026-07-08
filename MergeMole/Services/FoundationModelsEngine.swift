@@ -8,13 +8,24 @@ import FoundationModels
 ///
 /// Uses guided generation: the model returns a `@Generable` value directly, so
 /// there's no JSON to parse and no "respond in this format" fragility.
+@available(macOS 26, *)
 struct FoundationModelsEngine: VerdictEngine {
 
-    static var isAvailable: Bool {
+    /// Maps the framework's availability to the app's OS-agnostic enum. A lightweight
+    /// status read — it never loads the model. `Availability` is frozen (available /
+    /// unavailable), but `UnavailableReason` is not, so the inner switch keeps an
+    /// `@unknown default` for reasons a future OS might add.
+    static var availability: OnDeviceAvailability {
         switch SystemLanguageModel.default.availability {
-        case .available:   return true
-        case .unavailable: return false
-        @unknown default:  return false
+        case .available:
+            return .available
+        case .unavailable(let reason):
+            switch reason {
+            case .appleIntelligenceNotEnabled: return .appleIntelligenceOff
+            case .modelNotReady:               return .downloading
+            case .deviceNotEligible:           return .deviceNotEligible
+            @unknown default:                  return .unavailable
+            }
         }
     }
 
@@ -45,6 +56,7 @@ struct FoundationModelsEngine: VerdictEngine {
 
 // MARK: - Guided-generation type (maps to the domain Verdict)
 
+@available(macOS 26, *)
 @Generable
 private struct GeneratedVerdict {
     @Guide(description: "How urgently the reviewer should look. Most PRs are normal; reserve high/urgent for clear signals. Never go below any stated priority floor.")
@@ -59,6 +71,7 @@ private struct GeneratedVerdict {
     }
 }
 
+@available(macOS 26, *)
 @Generable
 private enum GeneratedPriority {
     case low, normal, high, urgent

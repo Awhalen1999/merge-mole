@@ -19,7 +19,7 @@ env:
   APP_NAME: MergeMole
   TEAM_ID: TA2LQ3B5QN
   SIGN_IDENTITY: "Developer ID Application: Alexander Whalen (TA2LQ3B5QN)"
-  MIN_SYSTEM_FALLBACK: "26.0"
+  MIN_SYSTEM_FALLBACK: "15.0"
 
 jobs:
   release:
