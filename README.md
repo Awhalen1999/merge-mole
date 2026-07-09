@@ -33,9 +33,9 @@ Your GitHub token and any AI keys stay in the macOS Keychain. No account, no tel
 
 ## Requirements
 
-- macOS 26 (Tahoe) or later (older OS support coming soon)
+- macOS 15 (Sequoia) or later
 - A GitHub personal access token (`repo`, `read:org`)
-- On-device AI needs an Apple Silicon Mac with Apple Intelligence. Without it, bring your own provider or turn triage off.
+- On-device AI needs macOS 26 (Tahoe) on an Apple Silicon Mac with Apple Intelligence. On older versions, bring your own provider or turn triage off.
 
 ## Building
 
