@@ -13,7 +13,9 @@ struct PRFetchResult: Sendable {
 /// concrete backend — so the sample provider and `GitHubPRProvider` are
 /// interchangeable and AppModel/the views don't care which is wired in.
 protocol PRProvider: Sendable {
-    func fetchPullRequests() async throws -> PRFetchResult
+    /// Fetch everything the panel shows: the built-in relationship buckets plus
+    /// one search per custom tab, all merged into one deduped list.
+    func fetchPullRequests(customTabs: [CustomTab]) async throws -> PRFetchResult
 }
 
 /// Returns the fixed fake set. Used by previews/tests; production uses GitHub.
@@ -21,8 +23,16 @@ struct SamplePRProvider: PRProvider {
     /// Simulated network latency so the loading state is visible during dev.
     var latency: Duration = .milliseconds(300)
 
-    func fetchPullRequests() async throws -> PRFetchResult {
+    func fetchPullRequests(customTabs: [CustomTab]) async throws -> PRFetchResult {
         try await Task.sleep(for: latency)
-        return PRFetchResult(viewer: SampleData.currentUser, pullRequests: SampleData.pullRequests)
+        // No real search runs against samples; tag a couple of PRs per custom tab
+        // so previews show custom tabs populated rather than always empty.
+        var pullRequests = SampleData.pullRequests
+        for tab in customTabs {
+            for index in pullRequests.indices.prefix(2) {
+                pullRequests[index].customTabIDs.insert(tab.id)
+            }
+        }
+        return PRFetchResult(viewer: SampleData.currentUser, pullRequests: pullRequests)
     }
 }

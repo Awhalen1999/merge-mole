@@ -38,11 +38,11 @@ enum GitHubToken {
 struct GitHubPRProvider: PRProvider {
     let secrets: SecretStore
 
-    func fetchPullRequests() async throws -> PRFetchResult {
+    func fetchPullRequests(customTabs: [CustomTab]) async throws -> PRFetchResult {
         guard let token = secrets.string(for: .githubToken), !token.isEmpty else {
             throw GitHubError.notConnected
         }
-        return try await GitHubAPI.pullRequests(token: token)
+        return try await GitHubAPI.pullRequests(token: token, customTabs: customTabs)
     }
 }
 
@@ -76,38 +76,66 @@ enum GitHubAPI {
     }()
 
     /// The PRs that involve you, plus your login — one round-trip. Five aliased
-    /// searches (one per relationship) run in the single query; a PR that shows up
-    /// in more than one bucket is merged once, accumulating every relationship.
-    static func pullRequests(token: String) async throws -> PRFetchResult {
-        let data = try await send(query: prQuery, token: token)
+    /// searches (one per relationship) run in the single query, joined by one more
+    /// per custom tab; a PR that shows up in several buckets is merged once,
+    /// accumulating every relationship and custom-tab membership.
+    static func pullRequests(token: String, customTabs: [CustomTab] = []) async throws -> PRFetchResult {
+        // Custom queries travel as GraphQL variables, never spliced into the query
+        // string — user input can't break (or become) syntax.
+        let variables = Dictionary(uniqueKeysWithValues: customTabs.enumerated().map {
+            ("q\($0.offset)", wireQuery($0.element.query))
+        })
+        let data = try await send(query: prQuery(customCount: customTabs.count),
+                                  variables: variables,
+                                  token: token)
         let payload = try decode(PRPayload.self, from: data)
 
         var byID: [String: PullRequest] = [:]
+        /// Fetch-or-create the PR for this node, then let the caller tag why it's
+        /// here (a relationship, a custom-tab id). One PR accumulates every tag.
+        func upsert(_ node: PRNode, tag: (inout PullRequest) -> Void) {
+            guard let id = node.id else { return }
+            if byID[id] == nil {
+                guard let pr = pullRequest(from: node) else { return }
+                byID[id] = pr
+            }
+            tag(&byID[id]!)
+        }
         func merge(_ search: PRPayload.Search?, _ relationship: PRRelationship) {
             for node in search?.nodes ?? [] {
                 // GitHub's `reviewed-by:@me` also returns your *own* PRs (you show up
                 // in their review threads). Those belong under "Created", not
                 // "Reviewed" — so drop the reviewed tag for anything you authored.
                 if relationship == .reviewed, node.viewerDidAuthor == true { continue }
-                guard let pr = pullRequest(from: node, relationship: relationship) else { continue }
-                if byID[pr.id] != nil {
-                    byID[pr.id]?.relationships.insert(relationship)
-                } else {
-                    byID[pr.id] = pr
-                }
+                upsert(node) { $0.relationships.insert(relationship) }
             }
         }
-        merge(payload.reviewRequested, .reviewRequested)
-        merge(payload.assigned,        .assigned)
-        merge(payload.created,         .created)
-        merge(payload.mentioned,       .mentioned)
-        merge(payload.reviewed,        .reviewed)
+        merge(payload.searches["reviewRequested"], .reviewRequested)
+        merge(payload.searches["assigned"],        .assigned)
+        merge(payload.searches["created"],         .created)
+        merge(payload.searches["mentioned"],       .mentioned)
+        merge(payload.searches["reviewed"],        .reviewed)
+        for (index, tab) in customTabs.enumerated() {
+            for node in payload.searches["custom\(index)"]?.nodes ?? [] {
+                upsert(node) { $0.customTabIDs.insert(tab.id) }
+            }
+        }
 
         return PRFetchResult(
             viewer: payload.viewer.login,
             viewerAvatarURL: payload.viewer.avatarUrl.flatMap(URL.init(string:)),
             pullRequests: Array(byID.values)
         )
+    }
+
+    /// The search actually sent for a custom tab. Always scoped to pull requests —
+    /// the whole app is PRs, and without `is:pr` issues would eat the result budget
+    /// and then silently vanish (the PR fragment skips them). Adds the dashboard's
+    /// freshness sort unless the user chose their own.
+    private static func wireQuery(_ raw: String) -> String {
+        var query = "is:pr \(raw)"
+        if !raw.localizedCaseInsensitiveContains("sort:") { query += " sort:updated-desc" }
+        return query
     }
 
     /// Verifies a token and returns the login it belongs to. Used to validate
@@ -119,13 +147,15 @@ enum GitHubAPI {
 
     // MARK: Transport
 
-    private static func send(query: String, token: String) async throws -> Data {
+    private static func send(query: String, variables: [String: String] = [:], token: String) async throws -> Data {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("MergeMole", forHTTPHeaderField: "User-Agent")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query])
+        var body: [String: Any] = ["query": query]
+        if !variables.isEmpty { body["variables"] = variables }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let data: Data, response: URLResponse
         do {
@@ -176,8 +206,10 @@ enum GitHubAPI {
 
     // MARK: Mapping
 
-    private static func pullRequest(from node: PRNode, relationship: PRRelationship) -> PullRequest? {
-        // Search can return empty nodes; skip anything missing the essentials.
+    private static func pullRequest(from node: PRNode) -> PullRequest? {
+        // Search can return empty nodes (e.g. issues a custom query matched, which
+        // the PR fragment skips); drop anything missing the essentials. The caller
+        // tags relationships / custom-tab membership after creation.
         guard let id = node.id,
               let number = node.number,
               let title = node.title,
@@ -211,7 +243,7 @@ enum GitHubAPI {
             url: url,
             createdAt: node.createdAt ?? .now,
             updatedAt: node.updatedAt ?? .now,
-            relationships: [relationship]
+            relationships: []
         )
 
         // Extra triage signals (defaulted on the model, set here from the API).
@@ -253,19 +285,25 @@ enum GitHubAPI {
         }
     }
 
-    /// One query, five aliased searches — each is the same qualifier GitHub's own
-    /// "Pull requests" dashboard uses for that bucket. `reviewed-by` and `mentions`
-    /// can't be derived from a PR's own fields, which is why we ask the search API
-    /// per relationship rather than filtering one `involves:@me` list client-side.
-    private static let prQuery = """
-    query {
+    /// One query: five aliased searches — each the same qualifier GitHub's own
+    /// "Pull requests" dashboard uses for that bucket — plus one per custom tab,
+    /// bound to a `$q<n>` variable. `reviewed-by` and `mentions` can't be derived
+    /// from a PR's own fields, which is why we ask the search API per relationship
+    /// rather than filtering one `involves:@me` list client-side.
+    private static func prQuery(customCount: Int) -> String {
+        let params = (0..<customCount).map { "$q\($0): String!" }.joined(separator: ", ")
+        let customSearches = (0..<customCount).map {
+            "  custom\($0): search(query: $q\($0), type: ISSUE, first: 40) { nodes { ...PRFields } }\n"
+        }.joined()
+        return """
+    query\(customCount == 0 ? "" : "(\(params))") {
       viewer { login avatarUrl(size: 128) }
       reviewRequested: search(query: "is:open is:pr review-requested:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
       assigned:        search(query: "is:open is:pr assignee:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
       created:         search(query: "is:open is:pr author:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
       mentioned:       search(query: "is:open is:pr mentions:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
       reviewed:        search(query: "is:open is:pr reviewed-by:@me sort:updated-desc", type: ISSUE, first: 40) { nodes { ...PRFields } }
-    }
+    \(customSearches)}
 
     fragment PRFields on PullRequest {
       id
@@ -303,6 +341,7 @@ enum GitHubAPI {
       }
     }
     """
+    }
 }
 
 // MARK: - GraphQL response shapes
@@ -320,12 +359,32 @@ private struct ViewerPayload: Decodable { let viewer: Viewer }
 
 private struct PRPayload: Decodable {
     let viewer: Viewer
-    let reviewRequested: Search?
-    let assigned: Search?
-    let created: Search?
-    let mentioned: Search?
-    let reviewed: Search?
+    /// Every search in the query, keyed by its alias — the five fixed relationship
+    /// buckets plus one `custom<n>` per saved tab. Aliases are dynamic, so they
+    /// decode as a dictionary rather than fixed properties. A search GitHub
+    /// rejected comes back null and simply isn't here; its tab shows empty
+    /// rather than erroring.
+    let searches: [String: Search]
+
     struct Search: Decodable { let nodes: [PRNode] }
+
+    private struct Key: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init(_ name: String) { stringValue = name }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Key.self)
+        viewer = try container.decode(Viewer.self, forKey: Key("viewer"))
+        var searches: [String: Search] = [:]
+        for key in container.allKeys where key.stringValue != "viewer" {
+            searches[key.stringValue] = try container.decodeIfPresent(Search.self, forKey: key)
+        }
+        self.searches = searches
+    }
 }
 
 private struct PRNode: Decodable {

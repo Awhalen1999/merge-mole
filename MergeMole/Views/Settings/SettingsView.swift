@@ -48,8 +48,9 @@ private struct SettingsScaffold<Content: View>: View {
 }
 
 /// An uppercase section label with an optional one-line description beneath — the
-/// lead-in above a card (or a group of cards).
-private struct SectionHeader: View {
+/// lead-in above a card (or a group of cards). Shared with the sheets that grow
+/// out of this window (the custom-tab editor), so their sections match.
+struct SectionHeader: View {
     let title: String
     var subtitle: String?
     var body: some View {
@@ -110,9 +111,34 @@ private struct SettingsRow<Trailing: View>: View {
     }
 }
 
-private extension View {
-    /// Native rounded field chrome for the settings forms.
+extension View {
+    /// Native rounded field chrome for the settings forms (and their sheets).
     func settingsField() -> some View { textFieldStyle(.roundedBorder) }
+}
+
+/// A form field's leading label — one look for every settings form. The optional
+/// hint renders in brackets beside it: what to type, in the plainest possible terms.
+struct FieldLabel: View {
+    let text: String
+    var hint: String?
+
+    init(_ text: String, hint: String? = nil) {
+        self.text = text
+        self.hint = hint
+    }
+
+    var body: some View {
+        HStack(spacing: Layout.snug) {
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.appTextSecondary)
+            if let hint {
+                Text("(\(hint))")
+                    .font(.caption)
+                    .foregroundStyle(.appTextTertiary)
+            }
+        }
+    }
 }
 
 // MARK: - General
@@ -174,25 +200,34 @@ private struct GeneralSettings: View {
 // MARK: - Tabs
 
 /// Everything about the panel's tabs in one place: which tabs show and in what order,
-/// and which of those groups feed the menu-bar badge count. Both lists are built from
-/// `TabSettingRow`, so they read as one consistent surface.
+/// which of those groups feed the menu-bar badge count, and the user's own custom
+/// tabs — created and edited in a sheet, then living in the same list as the
+/// built-ins. Both lists are built from `TabSettingRow`, so they read as one
+/// consistent surface.
 private struct TabsSettings: View {
     @Environment(AppModel.self) private var model
+    /// The custom-tab sheet, when open — creating a new tab or editing an existing one.
+    @State private var editing: CustomTabEditor.Mode?
 
     var body: some View {
         SettingsScaffold {
             SettingsSection("Show these tabs",
-                            subtitle: "Drag to reorder. Uncheck to hide a tab from the panel.",
+                            subtitle: "Drag to reorder. Uncheck to hide a tab from the panel. New Tab turns any GitHub search into a tab of your own.",
                             padded: false) {
-                TabReorderList()
+                TabReorderList { editing = .edit($0) }
+                Hairline()
+                NewTabRow { editing = .create }
             }
 
             SettingsSection("Menu-bar count",
                             subtitle: "Which groups the number beside the menu-bar icon totals. Counts each PR once across the groups you pick.",
                             padded: false) {
+                let counts = model.tabCounts   // one pass, not one per row
                 ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
                     if index > 0 { Hairline() }
-                    TabSettingRow(tab: tab, subtitle: tab.countSubtitle(model.tabCounts[tab] ?? 0)) {
+                    TabSettingRow(title: model.title(for: tab),
+                                  dotColor: tab.dotColor,
+                                  subtitle: tab.countSubtitle(counts[tab] ?? 0)) {
                         Toggle("", isOn: badgeBinding(for: tab))
                             .labelsHidden()
                             .toggleStyle(.checkbox)
@@ -200,11 +235,35 @@ private struct TabsSettings: View {
                 }
             }
         }
+        .sheet(item: $editing) { mode in
+            CustomTabEditor(mode: mode)
+        }
     }
 
     private func badgeBinding(for tab: PRTab) -> Binding<Bool> {
         Binding(get: { model.badgeTabs.contains(tab) },
                 set: { model.setBadge(tab, on: $0) })
+    }
+}
+
+/// The "add a custom tab" affordance — a full-width row at the foot of the tabs
+/// list, where macOS puts list-editing "+" controls. Quiet on purpose: no fill,
+/// the label just brightens on hover like the other inline affordances.
+private struct NewTabRow: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Layout.roomy) {
+                Image(systemName: "plus.circle.fill")
+                Text("New Tab…").font(.callout.weight(.medium))
+                Spacer(minLength: 0)
+            }
+            .tabSettingRowPadding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(QuietButtonStyle())
+        .help("Create a tab from a GitHub search")
     }
 }
 
@@ -520,10 +579,7 @@ struct CustomModelForm: View {
     }
 
     private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.callout)
-            .foregroundStyle(.appTextSecondary)
-            .gridColumnAlignment(.leading)
+        FieldLabel(text).gridColumnAlignment(.leading)
     }
 
     /// Save the typed key (if any), then fetch the endpoint's model list.

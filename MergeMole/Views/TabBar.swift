@@ -7,6 +7,9 @@ import SwiftUI
 struct TabBar: View {
     @Binding var selection: PRTab
     var tabs: [PRTab]
+    /// Resolves a tab's label — custom tabs carry user-defined names only the
+    /// model knows, so the caller passes `AppModel.title(for:)`.
+    var title: (PRTab) -> String
     var counts: [PRTab: Int]
     /// Tabs holding unread PRs — each gets a small accent dot. The count stays the
     /// tab's total (read + unread); the dot is the only unread signal.
@@ -33,7 +36,7 @@ struct TabBar: View {
                 if unreadTabs.contains(tab) {
                     Circle().fill(Color.appAccent).frame(width: 6, height: 6)
                 }
-                Text(tab.title)
+                Text(title(tab))
                 if let count = counts[tab], count > 0 {
                     Text("\(count)")
                         .font(.caption2.monospacedDigit())

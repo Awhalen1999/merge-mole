@@ -23,6 +23,7 @@ enum Flexoki {
     // Tab identity hues — which tab, not urgency. Distinct from the brand accent.
     static let blue600:   UInt32 = 0x205EA6, blue400:   UInt32 = 0x4385BE
     static let purple600: UInt32 = 0x5E409D, purple400: UInt32 = 0x8B7EC8
+    static let cyan600:   UInt32 = 0x24837B, cyan400:   UInt32 = 0x3AA99F
 }
 
 private nonisolated func makeNSColor(_ hex: UInt32) -> NSColor {
@@ -66,12 +67,13 @@ private enum Token {
     static let textSecondary = Color(nsColor: .secondaryLabelColor)
     static let textTertiary  = Color(nsColor: .tertiaryLabelColor)
 
-    // Status (red/amber/green) + tab-identity (blue/purple) hues — Flexoki.
+    // Status (red/amber/green) + tab-identity (blue/purple/cyan) hues — Flexoki.
     static let red    = adaptive(Flexoki.red600,    Flexoki.red400)
     static let amber  = adaptive(Flexoki.orange600, Flexoki.orange400)
     static let green  = adaptive(Flexoki.green600,  Flexoki.green400)
     static let blue   = adaptive(Flexoki.blue600,   Flexoki.blue400)
     static let purple = adaptive(Flexoki.purple600, Flexoki.purple400)
+    static let cyan   = adaptive(Flexoki.cyan600,   Flexoki.cyan400)
 }
 
 /// Declared on `ShapeStyle where Self == Color` (not plain `Color`) so the
@@ -107,4 +109,5 @@ extension ShapeStyle where Self == Color {
     // Tab identity hues — the per-tab dots. Not status; they label a tab.
     static var appBlue: Color   { Token.blue }
     static var appPurple: Color { Token.purple }
+    static var appCyan: Color   { Token.cyan }   // every custom tab's dot
 }

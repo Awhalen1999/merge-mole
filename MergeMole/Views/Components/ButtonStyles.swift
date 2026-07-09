@@ -1,10 +1,10 @@
 import SwiftUI
 
-// The panel's button looks, all on the shared `controlRadius` corner with the same
-// hover/press timing so they read as one family:
+// The app's button looks, sharing one hover/press timing so they read as one family:
 //   • HeaderButtonStyle    — ghosted, for header controls
 //   • ProminentButtonStyle — accent-filled, the primary call to action
 //   • SecondaryButtonStyle — outlined neutral, a quieter action ("Try again")
+//   • QuietButtonStyle     — chrome-less; the label itself brightens on hover
 
 /// The panel header's controls (Refresh + the settings menu) share this look: a
 /// quiet rounded highlight that fills in on hover and presses a touch darker, in
@@ -131,6 +131,35 @@ struct SecondaryButtonStyle: ButtonStyle {
             if configuration.isPressed { return Color.appFillPressed }
             if hovering { return Color.appFillHover }
             return .clear
+        }
+    }
+}
+
+/// A chrome-less button whose label simply brightens on hover — for quiet inline
+/// affordances (the tab list's edit pencil, its New Tab row) where any fill would
+/// be heavier than the surface deserves. Secondary ink at rest, primary on hover,
+/// dipping back while pressed; a custom style also keeps the system from adding
+/// its own rounded hover highlight. The label *is* the control.
+struct QuietButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Chrome(configuration: configuration)
+    }
+
+    private struct Chrome: View {
+        let configuration: ButtonStyleConfiguration
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(ink)
+                .contentShape(Rectangle())
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+        }
+
+        private var ink: Color {
+            if configuration.isPressed { return .appTextSecondary }
+            return hovering ? .appText : .appTextSecondary
         }
     }
 }

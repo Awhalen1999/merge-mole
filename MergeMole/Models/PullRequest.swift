@@ -46,6 +46,11 @@ struct PullRequest: Identifiable, Hashable, Sendable {
     /// an intrinsic fact about the PR.
     var relationships: Set<PRRelationship>
 
+    /// The custom tabs whose saved search matched this PR — `relationships`'
+    /// counterpart for user-defined tabs, set by the provider from the same fetch.
+    /// Empty for PRs that only came back in the built-in buckets.
+    var customTabIDs: Set<UUID> = []
+
     var changedLines: Int { additions + deletions }
 
     /// Native, AI-free size classification (see `SizeBucket`).

@@ -21,6 +21,7 @@ struct RootView: View {
             if state.showsTabs {
                 TabBar(selection: $model.selectedTab,
                        tabs: model.visibleTabs,
+                       title: { model.title(for: $0) },
                        counts: model.tabCounts,
                        unreadTabs: model.tabsWithUnread)
             }

@@ -147,34 +147,45 @@ enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 }
 
-/// The top-level filters in the panel's tab bar. Most map one-to-one onto a
-/// `PRRelationship` — the tab is the presentation layer (title, order, visibility);
-/// the relationship is the data. `all` is the exception: it has no single
-/// relationship and surfaces every PR that involves you. Order here is the order
-/// they appear in the bar.
-enum PRTab: String, CaseIterable, Identifiable, Sendable {
+/// The top-level filters in the panel's tab bar. The six built-ins are a thin
+/// presentation layer over the relationships each PR carries; `custom` is a
+/// user-defined tab — a saved GitHub search — referenced by id, with its
+/// definition (name + query) living in `AppModel.customTabs`. Membership is the
+/// data either way: see `matches(_:)`. Copy that depends on the saved definition
+/// (title, subtitle) resolves through the model; everything below is fixed per case.
+enum PRTab: Hashable, Identifiable, Sendable {
     case all
     case reviewRequested
     case assigned
     case created
     case mentioned
     case reviewed
+    case custom(UUID)
+
+    /// The built-in tabs, in their default bar order. (`CaseIterable` can't cover
+    /// the associated-value case; the full list including custom tabs is the
+    /// model's `orderedTabs`.)
+    static let builtin: [PRTab] = [.all, .reviewRequested, .assigned, .created, .mentioned, .reviewed]
 
     var id: String { rawValue }
 
-    var title: String {
+    /// Whether this tab shows the PR. Built-ins read the relationship buckets
+    /// GitHub returned it under; a custom tab reads the saved searches that
+    /// matched it. `all` is the superset — every PR in any of your tabs.
+    func matches(_ pr: PullRequest) -> Bool {
         switch self {
-        case .all:             return "All"
-        case .reviewRequested: return "Review Requested"
-        case .assigned:        return "Assigned"
-        case .created:         return "Created"
-        case .mentioned:       return "Mentioned"
-        case .reviewed:        return "Reviewed"
+        case .all:             return true
+        case .reviewRequested: return pr.relationships.contains(.reviewRequested)
+        case .assigned:        return pr.relationships.contains(.assigned)
+        case .created:         return pr.relationships.contains(.created)
+        case .mentioned:       return pr.relationships.contains(.mentioned)
+        case .reviewed:        return pr.relationships.contains(.reviewed)
+        case .custom(let id):  return pr.customTabIDs.contains(id)
         }
     }
 
     /// The empty-state line for this tab — why it's clear, plus the auto-refresh
-    /// reassurance. Lives next to `title` so a tab's copy stays in one place.
+    /// reassurance. Custom tabs share one line; their specifics live in the query.
     var emptyMessage: String {
         let lead: String
         switch self {
@@ -184,26 +195,15 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         case .created:         lead = "You don't have any open pull requests right now."
         case .mentioned:       lead = "No pull requests mention you right now."
         case .reviewed:        lead = "You're all caught up on reviews right now."
+        case .custom:          lead = "No pull requests match this search right now."
         }
         return "\(lead) New ones will appear here automatically."
     }
 
-    /// The PR relationship this tab surfaces, or `nil` for `all` — which has no
-    /// single relationship and matches every PR.
-    var relationship: PRRelationship? {
-        switch self {
-        case .all:             return nil
-        case .reviewRequested: return .reviewRequested
-        case .assigned:        return .assigned
-        case .created:         return .created
-        case .mentioned:       return .mentioned
-        case .reviewed:        return .reviewed
-        }
-    }
-
     /// The identity dot beside the tab in Settings. A fixed hue per tab, distinct
     /// from the brand accent (which means selection, never identity). `all` is the
-    /// superset rather than a category, so it takes the neutral primary dot.
+    /// superset rather than a category, so it takes the neutral primary dot;
+    /// custom tabs share cyan — "yours" is itself a category.
     var dotColor: Color {
         switch self {
         case .all:             return .appText
@@ -212,20 +212,7 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         case .created:         return .appGreen
         case .mentioned:       return .appAmber
         case .reviewed:        return .appTextTertiary
-        }
-    }
-
-    /// The Tabs-list secondary line — describes what the tab collects, so that list
-    /// reads as "here's what each tab is for." (The Menu-bar count list uses the
-    /// count-led `countSubtitle` instead.)
-    var subtitle: String {
-        switch self {
-        case .all:             return "All PRs involving you"
-        case .reviewRequested: return "All PRs awaiting your review"
-        case .assigned:        return "All PRs assigned to you"
-        case .created:         return "All PRs you opened"
-        case .mentioned:       return "All PRs that mention you"
-        case .reviewed:        return "All PRs you've reviewed"
+        case .custom:          return .appCyan
         }
     }
 
@@ -241,6 +228,7 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
         case .created:         return "\(count) \(pr) you opened"
         case .mentioned:       return "\(count) \(pr) mentioning you"
         case .reviewed:        return "\(count) \(pr) you've reviewed"
+        case .custom:          return "\(count) \(pr) matching this search"
         }
     }
 
@@ -248,6 +236,35 @@ enum PRTab: String, CaseIterable, Identifiable, Sendable {
     /// other two (mentioned, reviewed) are noisier and opt-in via Settings.
     static let defaultVisible: [PRTab] = [.all, .reviewRequested, .assigned, .created]
 }
+
+/// String raw values for persistence (tab order, hidden set, badge set). The
+/// built-ins keep their original raw strings so saved preferences from earlier
+/// builds load unchanged; a custom tab encodes as `custom:<uuid>`.
+extension PRTab: RawRepresentable {
+    init?(rawValue: String) {
+        if let builtin = Self.builtin.first(where: { $0.rawValue == rawValue }) {
+            self = builtin
+        } else if rawValue.hasPrefix("custom:"),
+                  let id = UUID(uuidString: String(rawValue.dropFirst("custom:".count))) {
+            self = .custom(id)
+        } else {
+            return nil
+        }
+    }
+
+    var rawValue: String {
+        switch self {
+        case .all:             return "all"
+        case .reviewRequested: return "reviewRequested"
+        case .assigned:        return "assigned"
+        case .created:         return "created"
+        case .mentioned:       return "mentioned"
+        case .reviewed:        return "reviewed"
+        case .custom(let id):  return "custom:\(id.uuidString)"
+        }
+    }
+}
+
 
 /// Outcome of a connect attempt, for inline UI feedback.
 enum GitHubConnection: Sendable {
@@ -344,6 +361,7 @@ final class AppModel {
     var visibleTabs: [PRTab] { tabOrder.filter { !hiddenTabs.contains($0) } }
 
     /// Every tab in the user's order — the Settings list (shown *and* hidden).
+    /// The invariant: always exactly the built-ins plus every custom tab.
     var orderedTabs: [PRTab] { tabOrder }
 
     /// Show/hide a tab. Refuses to hide the last visible one — the bar always has
@@ -351,7 +369,7 @@ final class AppModel {
     func setTab(_ tab: PRTab, visible: Bool) {
         if visible {
             hiddenTabs.remove(tab)
-        } else if hiddenTabs.count < PRTab.allCases.count - 1 {
+        } else if hiddenTabs.count < tabOrder.count - 1 {
             hiddenTabs.insert(tab)
         }
     }
@@ -377,6 +395,94 @@ final class AppModel {
     /// selecting none simply shows no number (just the empty-burrow icon).
     func setBadge(_ tab: PRTab, on: Bool) {
         if on { badgeTabs.insert(tab) } else { badgeTabs.remove(tab) }
+    }
+
+    // MARK: Custom tabs
+
+    /// The user's saved custom tabs (Settings → Tabs → New Tab), each a named
+    /// GitHub search. Persisted as JSON next to the other preferences; the panel
+    /// treats them exactly like the built-ins via `PRTab.custom(id)`.
+    private(set) var customTabs: [CustomTab] {
+        didSet {
+            if let data = try? JSONEncoder().encode(customTabs) {
+                UserDefaults.standard.set(data, forKey: Key.customTabs)
+            }
+        }
+    }
+
+    /// A custom tab's saved definition — nil once it's been deleted.
+    func customTab(_ id: UUID) -> CustomTab? {
+        customTabs.first { $0.id == id }
+    }
+
+    /// Create a tab from a name + search, show it at the end of the bar, and jump
+    /// the panel to it — then fetch so it fills in right away.
+    func addCustomTab(name: String, query: String) {
+        let tab = CustomTab(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            query: query.trimmingCharacters(in: .whitespacesAndNewlines))
+        customTabs.append(tab)
+        tabOrder.append(.custom(tab.id))
+        selectedTab = .custom(tab.id)
+        Task { await load() }
+    }
+
+    /// Rewrite a tab's name and/or search. A changed search refetches (the old
+    /// matches are stale); a pure rename touches nothing but the label.
+    func updateCustomTab(_ id: UUID, name: String, query: String) {
+        guard let index = customTabs.firstIndex(where: { $0.id == id }) else { return }
+        var tab = customTabs[index]
+        let queryChanged = tab.query != query.trimmingCharacters(in: .whitespacesAndNewlines)
+        tab.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        tab.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        customTabs[index] = tab   // one mutation → one persist
+        if queryChanged { Task { await load() } }
+    }
+
+    /// Delete a tab: drop its definition and every reference to it (order, hidden,
+    /// badge, selection), then shed its matches so PRs only that search pulled in
+    /// don't linger under All until the next fetch.
+    func removeCustomTab(_ id: UUID) {
+        customTabs.removeAll { $0.id == id }
+        let tab = PRTab.custom(id)
+        tabOrder.removeAll { $0 == tab }
+        hiddenTabs.remove(tab)
+        badgeTabs.remove(tab)
+        if selectedTab == tab { selectedTab = visibleTabs.first ?? .all }
+        for index in pullRequests.indices { pullRequests[index].customTabIDs.remove(id) }
+        pullRequests.removeAll { $0.relationships.isEmpty && $0.customTabIDs.isEmpty }
+    }
+
+    // MARK: Tab display
+
+    // A tab's title and subtitle are the only copy that reads the user's saved
+    // definition, so they resolve here; everything fixed per case (dot, counts,
+    // empty state) lives on `PRTab` itself.
+
+    func title(for tab: PRTab) -> String {
+        switch tab {
+        case .all:             return "All"
+        case .reviewRequested: return "Review Requested"
+        case .assigned:        return "Assigned"
+        case .created:         return "Created"
+        case .mentioned:       return "Mentioned"
+        case .reviewed:        return "Reviewed"
+        case .custom(let id):  return customTab(id)?.name ?? "Custom"
+        }
+    }
+
+    /// The Tabs-list secondary line — what the tab collects, so that list reads as
+    /// "here's what each tab is for." A custom tab shows its search verbatim — the
+    /// query *is* the tab's definition, and seeing it makes a typo easy to spot.
+    func subtitle(for tab: PRTab) -> String {
+        switch tab {
+        case .all:             return "All PRs involving you"
+        case .reviewRequested: return "All PRs awaiting your review"
+        case .assigned:        return "All PRs assigned to you"
+        case .created:         return "All PRs you opened"
+        case .mentioned:       return "All PRs that mention you"
+        case .reviewed:        return "All PRs you've reviewed"
+        case .custom(let id):  return customTab(id)?.query ?? ""
+        }
     }
 
     // MARK: Persisted preferences
@@ -466,6 +572,7 @@ final class AppModel {
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
+        static let customTabs = "customTabs"
         static let readStateInitialized = "readStateInitialized"
     }
 
@@ -493,30 +600,40 @@ final class AppModel {
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
         self.readSignatures = readStore.load()
 
+        // Custom tabs load first: they define which `custom:` raws in the saved
+        // order / hidden / badge lists still point at a live definition.
+        let customTabs = Self.loadCustomTabs(defaults)
+        self.customTabs = customTabs
+        let knownTabs = PRTab.builtin + customTabs.map { PRTab.custom($0.id) }
+
         // Restore the saved tab order, appending any tabs added since (so a newer
-        // build's tabs still appear) and dropping any we no longer ship.
+        // build's tabs and freshly-defined customs still appear) and dropping any
+        // we no longer ship — including custom tabs whose definition is gone.
+        // Deduped defensively: `tabCounts` and friends key dictionaries by these.
         if let savedOrder = defaults.array(forKey: Key.tabOrder) as? [String] {
+            var seen = Set<PRTab>()
             let restored = savedOrder.compactMap(PRTab.init(rawValue:))
-            let added = PRTab.allCases.filter { !restored.contains($0) }
+                .filter { knownTabs.contains($0) && seen.insert($0).inserted }
+            let added = knownTabs.filter { !seen.contains($0) }
             // New tabs normally append; All is the top-level "everything" view, so
             // it leads even for users upgrading from a build that predates it.
             self.tabOrder = added.filter { $0 == .all } + restored + added.filter { $0 != .all }
         } else {
-            self.tabOrder = PRTab.allCases
+            self.tabOrder = knownTabs
         }
 
         // No saved list (first launch / fresh install) → hide the opt-in tabs;
         // otherwise honor exactly what the user chose.
         if let saved = defaults.array(forKey: Key.hiddenTabs) as? [String] {
-            self.hiddenTabs = Set(saved.compactMap(PRTab.init(rawValue:)))
+            self.hiddenTabs = Set(saved.compactMap(PRTab.init(rawValue:))).intersection(knownTabs)
         } else {
-            self.hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
+            self.hiddenTabs = Set(PRTab.builtin).subtracting(PRTab.defaultVisible)
         }
 
         // Which groups feed the menu-bar count; default to Review Requested.
         // (Set before the guard below, which reads computed props needing full init.)
         if let savedBadge = defaults.array(forKey: Key.badgeTabs) as? [String] {
-            self.badgeTabs = Set(savedBadge.compactMap(PRTab.init(rawValue:)))
+            self.badgeTabs = Set(savedBadge.compactMap(PRTab.init(rawValue:))).intersection(knownTabs)
         } else {
             self.badgeTabs = [.reviewRequested]
         }
@@ -528,6 +645,14 @@ final class AppModel {
         // Background freshness: periodic refetch + refresh on wake / network return.
         observeSystemEvents()
         startAutoRefresh()
+    }
+
+    /// The saved custom-tab definitions, or none — a fresh install, or JSON from
+    /// a future build we can't read (drop rather than crash; the tabs reappear
+    /// when that build runs again).
+    private static func loadCustomTabs(_ defaults: UserDefaults) -> [CustomTab] {
+        guard let data = defaults.data(forKey: Key.customTabs) else { return [] }
+        return (try? JSONDecoder().decode([CustomTab].self, from: data)) ?? []
     }
 
     // MARK: GitHub connection
@@ -559,6 +684,7 @@ final class AppModel {
         isGitHubConnected = false
         tokenRejected = false   // a deliberate disconnect isn't a rejection
         pullRequests = []
+        signatureByID = [:]
         verdicts = [:]
         currentUserAvatarURL = nil
         loadError = nil
@@ -616,7 +742,7 @@ final class AppModel {
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
     ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground,
-    ///     tabOrder/hiddenTabs/badgeTabs, checkForUpdates (@AppStorage).
+    ///     tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
     ///     the AI verdict cache.
     ///   • Login item (SMAppService) — launch-at-login registration.
@@ -632,8 +758,9 @@ final class AppModel {
         modelDiscovery = .idle
         refreshInterval = .every15
         panelBackground = .solid
-        tabOrder = PRTab.allCases
-        hiddenTabs = Set(PRTab.allCases).subtracting(PRTab.defaultVisible)
+        customTabs = []
+        tabOrder = PRTab.builtin
+        hiddenTabs = Set(PRTab.builtin).subtracting(PRTab.defaultVisible)
         badgeTabs = [.reviewRequested]
         selectedTab = .reviewRequested
         readSignatures = [:]
@@ -668,12 +795,16 @@ final class AppModel {
     }
 
     func pullRequests(for tab: PRTab) -> [PullRequest] {
-        guard let relationship = tab.relationship else { return pullRequests }
-        return pullRequests.filter { $0.relationships.contains(relationship) }
+        if case .all = tab { return pullRequests }
+        return pullRequests.filter { tab.matches($0) }
     }
 
     var tabCounts: [PRTab: Int] {
-        Dictionary(uniqueKeysWithValues: PRTab.allCases.map { ($0, pullRequests(for: $0).count) })
+        // count(where:) rather than pullRequests(for:).count — no filtered-array
+        // copies for a value the panel recomputes on every render.
+        Dictionary(uniqueKeysWithValues: tabOrder.map { tab in
+            (tab, pullRequests.count(where: tab.matches))
+        })
     }
 
     /// PRs in the groups the user picked for the count (`badgeTabs`, default Review
@@ -681,10 +812,7 @@ final class AppModel {
     /// shows. The pool the unread count draws from.
     private var badgePullRequests: [PullRequest] {
         pullRequests.filter { pr in
-            badgeTabs.contains { tab in
-                guard let relationship = tab.relationship else { return true }
-                return pr.relationships.contains(relationship)
-            }
+            badgeTabs.contains { $0.matches(pr) }
         }
     }
 
@@ -704,22 +832,36 @@ final class AppModel {
 
     // MARK: Read / unread
 
+    /// Content signatures for the current list, memoized. `VerdictInput.signature`
+    /// hashes the PR body (a regex pass + SHA-256) — far too heavy for the
+    /// `isUnread` checks every card, tab dot, and the badge make per render.
+    /// Cleared when a fetch replaces the list; `@ObservationIgnored` because it's
+    /// derived state no view should ever re-render on.
+    @ObservationIgnored private var signatureByID: [String: String] = [:]
+
+    private func signature(of pr: PullRequest) -> String {
+        if let cached = signatureByID[pr.id] { return cached }
+        let signature = VerdictInput(pr).signature
+        signatureByID[pr.id] = signature
+        return signature
+    }
+
     /// Unread when we have no record of this PR, or its content changed since the
     /// user last marked it read. Uses the same `VerdictInput.signature` as the
     /// verdict cache, so a PR re-surfaces as unread on exactly the changes that
     /// re-run the AI (new commit, CI flip, review, labels) — not on mere chatter.
     func isUnread(_ pr: PullRequest) -> Bool {
-        readSignatures[pr.id] != VerdictInput(pr).signature
+        readSignatures[pr.id] != signature(of: pr)
     }
 
     /// Whether a tab holds any unread PRs — drives its dot in the tab bar.
     func hasUnread(in tab: PRTab) -> Bool {
-        pullRequests(for: tab).contains { isUnread($0) }
+        pullRequests.contains { tab.matches($0) && isUnread($0) }
     }
 
     /// The tabs currently holding unread PRs.
     var tabsWithUnread: Set<PRTab> {
-        Set(PRTab.allCases.filter { hasUnread(in: $0) })
+        Set(tabOrder.filter { hasUnread(in: $0) })
     }
 
     /// The unread PRs in a tab — the basis for "Open all unread".
@@ -728,7 +870,7 @@ final class AppModel {
     }
 
     func markRead(_ pr: PullRequest) {
-        let signature = VerdictInput(pr).signature
+        let signature = signature(of: pr)
         guard readSignatures[pr.id] != signature else { return }   // already read in this state
         readSignatures[pr.id] = signature
         readStore.save(readSignatures)
@@ -745,7 +887,7 @@ final class AppModel {
     func markAllRead(in tab: PRTab) {
         var changed = false
         for pr in pullRequests(for: tab) {
-            let signature = VerdictInput(pr).signature
+            let signature = signature(of: pr)
             guard readSignatures[pr.id] != signature else { continue }
             readSignatures[pr.id] = signature
             changed = true
@@ -761,7 +903,7 @@ final class AppModel {
         var changed = false
 
         if !UserDefaults.standard.bool(forKey: Key.readStateInitialized) {
-            for pr in pullRequests { readSignatures[pr.id] = VerdictInput(pr).signature }
+            for pr in pullRequests { readSignatures[pr.id] = signature(of: pr) }
             UserDefaults.standard.set(true, forKey: Key.readStateInitialized)
             changed = true
         }
@@ -1002,16 +1144,23 @@ final class AppModel {
         }
     }
 
+    /// Set when `load()` is asked to fetch while a fetch is already running (e.g.
+    /// a custom tab saved mid-refresh). The in-flight load runs one follow-up when
+    /// it finishes, so the request coalesces instead of being dropped — a
+    /// just-saved tab would otherwise sit falsely empty until the next refresh.
+    private var reloadQueued = false
+
     func load() async {
-        guard !isLoading else { return }           // one fetch at a time, whoever calls
-        guard isGitHubConnected else { return }    // RootView shows the connect state
+        guard !isLoading else { reloadQueued = true; return }   // one fetch at a time; run again after
+        guard isGitHubConnected else { return }                 // RootView shows the connect state
         isLoading = true
         loadError = nil
         do {
-            let result = try await prProvider.fetchPullRequests()
+            let result = try await prProvider.fetchPullRequests(customTabs: customTabs)
             if let viewer = result.viewer { currentUser = viewer }
             if let avatar = result.viewerAvatarURL { currentUserAvatarURL = avatar }
             pullRequests = result.pullRequests
+            signatureByID = [:]   // fresh content → signatures recompute lazily
             lastSyncedAt = .now
             reconcileReadState()
             isLoading = false
@@ -1029,6 +1178,12 @@ final class AppModel {
                 loadError = error.localizedDescription
             }
             isLoading = false
+        }
+
+        // A fetch was requested while this one ran — run it now that we're free.
+        if reloadQueued {
+            reloadQueued = false
+            await load()
         }
     }
 
