@@ -116,28 +116,15 @@ extension View {
     func settingsField() -> some View { textFieldStyle(.roundedBorder) }
 }
 
-/// A form field's leading label — one look for every settings form. The optional
-/// hint renders in brackets beside it: what to type, in the plainest possible terms.
+/// A form field's leading label — one look for every settings form.
 struct FieldLabel: View {
     let text: String
-    var hint: String?
-
-    init(_ text: String, hint: String? = nil) {
-        self.text = text
-        self.hint = hint
-    }
+    init(_ text: String) { self.text = text }
 
     var body: some View {
-        HStack(spacing: Layout.snug) {
-            Text(text)
-                .font(.callout)
-                .foregroundStyle(.appTextSecondary)
-            if let hint {
-                Text("(\(hint))")
-                    .font(.caption)
-                    .foregroundStyle(.appTextTertiary)
-            }
-        }
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(.appTextSecondary)
     }
 }
 

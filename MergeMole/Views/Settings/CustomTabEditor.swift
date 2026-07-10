@@ -38,22 +38,39 @@ struct CustomTabEditor: View {
 
     /// One search qualifier the Add button appends to the query — building blocks,
     /// not complete searches, so they compose. Placeholders (`owner/name`) are for
-    /// the user to edit after adding.
+    /// the user to edit after adding, so "already added" is judged by `match`: the
+    /// qualifier key (`org:`), which an edited placeholder still starts with — not
+    /// the literal snippet. `is:` tips match their exact token instead, because the
+    /// key is shared across unrelated filters (`is:open`, `is:draft`, …).
     private struct QueryTip {
         let label: String
         let snippet: String
+        let match: String
+
+        init(label: String, snippet: String, match: String? = nil) {
+            self.label = label
+            self.snippet = snippet
+            // Default: everything through the colon — "-author:app/x" → "-author:".
+            self.match = match ?? snippet.firstIndex(of: ":").map { String(snippet[...$0]) } ?? snippet
+        }
     }
 
     private static let tips: [QueryTip] = [
-        .init(label: "Open PRs only",     snippet: "is:open"),
+        .init(label: "Open PRs only",     snippet: "is:open", match: "is:open"),
         .init(label: "Needs your review", snippet: "review-requested:@me"),
         .init(label: "Created by you",    snippet: "author:@me"),
         .init(label: "One repository",    snippet: "repo:owner/name"),
         .init(label: "One organization",  snippet: "org:name"),
-        .init(label: "With a label",      snippet: "label:urgent"),
+        .init(label: "With a label",      snippet: "label:name"),
         .init(label: "No drafts",         snippet: "draft:false"),
         .init(label: "No bots",           snippet: "-author:app/dependabot"),
     ]
+
+    /// Whether the query already carries this tip's qualifier — any token starting
+    /// with its `match`, so `org:enaimco` still counts as "One organization" added.
+    private func isApplied(_ tip: QueryTip) -> Bool {
+        QuerySummary.tokenize(query).contains { $0.lowercased().hasPrefix(tip.match) }
+    }
 
     private static let searchDocsURL = URL(string: "https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/filtering-and-searching-issues-and-pull-requests")!
 
@@ -99,7 +116,7 @@ struct CustomTabEditor: View {
 
     private var nameField: some View {
         VStack(alignment: .leading, spacing: Layout.tight) {
-            FieldLabel("Name", hint: "what the tab is called")
+            FieldLabel("Name")
             TextField("", text: $name, prompt: Text("Release blockers"))
                 .settingsField()
         }
@@ -107,7 +124,7 @@ struct CustomTabEditor: View {
 
     private var searchField: some View {
         VStack(alignment: .leading, spacing: Layout.tight) {
-            FieldLabel("Search", hint: "which pull requests it shows")
+            FieldLabel("Search")
             TextField("", text: $query, prompt: Text("is:open label:release-blocker"))
                 .settingsField()
                 .font(.body.monospaced())
@@ -135,10 +152,17 @@ struct CustomTabEditor: View {
     }
 
     /// The composable qualifiers, each appended by its Add button (disabled once
-    /// it's already in the search).
+    /// its qualifier is already in the search), with GitHub's full reference linked
+    /// from the header for everything the tips don't cover.
     private var tipsCard: some View {
         VStack(alignment: .leading, spacing: Layout.base) {
-            SectionHeader(title: "Query tips")
+            HStack(spacing: Layout.base) {
+                SectionHeader(title: "Query tips")
+                Spacer(minLength: Layout.base)
+                Link("Search syntax docs", destination: Self.searchDocsURL)
+                    .font(.caption)
+                    .tint(.appAccent)
+            }
 
             ForEach(Self.tips, id: \.snippet) { tip in
                 HStack(spacing: Layout.base) {
@@ -153,7 +177,7 @@ struct CustomTabEditor: View {
                     Button("Add") { append(tip.snippet) }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .disabled(query.contains(tip.snippet))
+                        .disabled(isApplied(tip))
                 }
             }
         }
@@ -167,9 +191,6 @@ struct CustomTabEditor: View {
                     .buttonStyle(.borderless)
                     .tint(.appRed)
             }
-            Link("Search syntax docs", destination: Self.searchDocsURL)
-                .font(.callout)
-                .tint(.appAccent)
             Spacer(minLength: Layout.base)
             Button("Cancel") { dismiss() }
                 .buttonStyle(.bordered)
@@ -278,8 +299,9 @@ private enum QuerySummary {
         }
     }
 
-    /// Split on whitespace, keeping quoted segments (`label:"release blocker"`) whole.
-    private static func tokenize(_ query: String) -> [String] {
+    /// Split on whitespace, keeping quoted segments (`label:"release blocker"`)
+    /// whole. Also used by the editor's tip buttons to test what's already applied.
+    static func tokenize(_ query: String) -> [String] {
         var tokens: [String] = []
         var current = ""
         var inQuotes = false
