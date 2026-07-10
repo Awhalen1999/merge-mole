@@ -145,6 +145,7 @@ jobs:
           # on CI even after writing the image, so verify the file instead of the code.
           create-dmg \
             --volname "$APP_NAME" \
+            --volicon "Design/dmg/volume-icon.icns" \
             --background "Design/dmg/background.png" \
             --window-pos 200 120 \
             --window-size 540 380 \
