@@ -192,6 +192,7 @@ struct RootView: View {
             verdictEngine: SampleVerdictEngine(),   // canned verdicts (no Foundation Models in previews)
             secrets: secrets
         ))
+        .environment(Updater())
 }
 
 #Preview("Disconnected") {
@@ -201,4 +202,5 @@ struct RootView: View {
             verdictEngine: SampleVerdictEngine(),
             secrets: InMemorySecretStore()   // no token → connect prompt
         ))
+        .environment(Updater())
 }

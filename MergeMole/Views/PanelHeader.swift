@@ -9,6 +9,7 @@ import AppKit
 struct PanelHeader: View {
     var showsRefresh: Bool
     @Environment(AppModel.self) private var model
+    @Environment(Updater.self) private var updater
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openURL) private var openURL
 
@@ -92,6 +93,17 @@ struct PanelHeader: View {
             } label: {
                 Label("About MergeMole", systemImage: "info.circle")
             }
+
+            Button {
+                // Activate first — Sparkle's window can land behind other apps
+                // when a menu-bar agent summons it without focus.
+                NSApp.activate(ignoringOtherApps: true)
+                updater.checkForUpdates()
+            } label: {
+                Label("Check for Updates…", systemImage: "arrow.down.circle")
+            }
+            // Sparkle can't run two checks at once; mirror its readiness.
+            .disabled(!updater.canCheckForUpdates)
 
             Divider()
 

@@ -15,6 +15,7 @@ struct MergeMoleApp: App {
         MenuBarExtra {
             RootView()
                 .environment(model)
+                .environment(updater)   // the panel's ⋮ menu offers Check for Updates
         } label: {
             MenuBarLabel(model: model)
         }
