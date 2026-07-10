@@ -8,6 +8,23 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.1.0</title>
+            <pubDate>Fri, 10 Jul 2026 18:59:21 +0000</pubDate>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.1.0</p>
+<ul>
+<li>Custom tabs: turn any GitHub search into a tab of your own — one repo, a label, a teammate&#x27;s PRs, anything search can express. Click New Tab in Settings → Tabs, build the query with one-click tips, and watch a plain-English preview of exactly what the tab will show. Custom tabs reorder, hide, feed the menu-bar count, and get AI triage just like the built-in ones.</li>
+<li>A new app icon with macOS Tahoe&#x27;s glass look — and it now appears properly rounded on macOS 15, in the installer and in Applications.</li>
+<li>Check for Updates now lives right in the panel&#x27;s ⋮ menu, next to Preferences.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.1.0/MergeMole.dmg" sparkle:edSignature="PNPUcsAJm1uOVGMSzMvKxFhW1S6Gqiy87YxuZx42Pns0Vp0FyZKBdhxH8sRXQtwAJBjMfJbv6uPlG4zNgv6gAA==" length="3523831" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.0.2</title>
             <pubDate>Wed, 08 Jul 2026 01:08:15 +0000</pubDate>
             <sparkle:version>9</sparkle:version>
