@@ -353,20 +353,13 @@ private struct AITriageSection: View {
             )
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
+                    // On-device shows why it can't run inside its own card;
+                    // "bring your own" reveals its endpoint form just below.
                     RadioCard(title: mode.cardTitle,
                               detail: mode.detail,
+                              warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
                               selected: model.aiMode == mode) {
                         model.aiMode = mode
-                    }
-                    // On-device flags when it can't run, with the specific reason
-                    // beneath; "bring your own" reveals its endpoint form just below.
-                    if mode == .onDevice, let reason = model.onDeviceUnavailableReason {
-                        VStack(alignment: .leading, spacing: Layout.tight) {
-                            InlineStatus(kind: .error("On-device AI isn't available"))
-                            Text(reason)
-                                .font(.caption)
-                                .foregroundStyle(.appTextTertiary)
-                        }
                     }
                     if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
                         CustomModelForm().cardSurface()
