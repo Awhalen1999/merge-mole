@@ -35,13 +35,14 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
 /// How often the panel refetches in the background (General → Startup). `.manual`
 /// turns the scheduler off — refresh then happens only on open or via the button.
 enum RefreshInterval: String, CaseIterable, Identifiable, Sendable {
-    case manual, every5, every15, every30, hourly
+    case manual, every1, every5, every15, every30, hourly
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .manual:  return "Manually"
+        case .every1:  return "Every minute"
         case .every5:  return "Every 5 minutes"
         case .every15: return "Every 15 minutes"
         case .every30: return "Every 30 minutes"
@@ -53,6 +54,7 @@ enum RefreshInterval: String, CaseIterable, Identifiable, Sendable {
     var seconds: TimeInterval? {
         switch self {
         case .manual:  return nil
+        case .every1:  return 60
         case .every5:  return 300
         case .every15: return 900
         case .every30: return 1800
