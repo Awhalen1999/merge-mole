@@ -8,6 +8,23 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.1.1</title>
+            <pubDate>Fri, 17 Jul 2026 00:49:01 +0000</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.1.1</p>
+<ul>
+<li>Compact cards: a new density option for the PR list. Compact shows everything the full card does, just tighter: smaller type, trimmed spacing, no avatars. Switch anytime in Settings → General → Cards.</li>
+<li>Refresh every minute: the fastest auto-refresh interval is now 1 minute, down from 5, for the folks who live in their review queue. The default stays every 15 minutes.</li>
+<li>When on-device AI can&#x27;t run, the reason now shows inside the Apple Intelligence provider card itself instead of floating below it.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.1.1/MergeMole.dmg" sparkle:edSignature="vXVlSyCU80jfmqj6yUYZ76WyEdan/npl6uV2g1IqblwiuUpk8c2y95YXKpd8BnYh6LKiFwwps7yoV9ZOxbeeCQ==" length="3527216" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.1.0</title>
             <pubDate>Fri, 10 Jul 2026 18:59:21 +0000</pubDate>
             <sparkle:version>10</sparkle:version>
