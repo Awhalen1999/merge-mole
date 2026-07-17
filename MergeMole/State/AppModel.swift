@@ -142,9 +142,8 @@ enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// How much each PR card shows (General → Appearance). Detailed is the full card —
-/// AI insight, branch, stats, labels. Compact keeps just what drives action: title,
-/// repo, priority, and the status badges, two lines per card.
+/// How dense each PR card renders (General → Appearance). Both show the same
+/// data; Compact drops the avatar and steps down the paddings and type sizes.
 enum CardDensity: String, CaseIterable, Identifiable, Sendable {
     case detailed, compact   // order drives the Settings segmented control
 

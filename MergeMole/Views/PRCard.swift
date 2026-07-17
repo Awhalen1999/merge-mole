@@ -60,8 +60,8 @@ struct PRCard: View {
         .contentShape(Rectangle())
     }
 
-    /// Compact is the same card, tightened: row spacing drops a notch and the
-    /// avatar goes — everything else renders identically.
+    /// Compact is the same card with the same rows, tightened: the avatar goes,
+    /// and the paddings and the title/summary type sizes each step down a notch.
     private var content: some View {
         VStack(alignment: .leading, spacing: isCompact ? Layout.snug : Layout.base) {
             badges
