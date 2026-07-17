@@ -142,6 +142,22 @@ enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// How much each PR card shows (General → Appearance). Detailed is the full card —
+/// AI insight, branch, stats, labels. Compact keeps just what drives action: title,
+/// repo, priority, and the status badges, two lines per card.
+enum CardDensity: String, CaseIterable, Identifiable, Sendable {
+    case detailed, compact   // order drives the Settings segmented control
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .detailed: return "Detailed"
+        case .compact:  return "Compact"
+        }
+    }
+}
+
 /// The Settings window's tabs. Shared so the panel's ⋮ menu can deep-link to one
 /// (e.g. "About MergeMole" opens straight to About) instead of a separate window.
 enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
@@ -554,6 +570,15 @@ final class AppModel {
         }
     }
 
+    /// Detailed vs compact PR cards. Persisted; cards read it live, so switching
+    /// in Settings reflows the open panel immediately.
+    var cardDensity: CardDensity {
+        didSet {
+            guard cardDensity != oldValue else { return }
+            UserDefaults.standard.set(cardDensity.rawValue, forKey: Key.cardDensity)
+        }
+    }
+
     private(set) var isGitHubConnected: Bool
 
     /// Set when GitHub rejected the stored token (expired/revoked) mid-session, so the
@@ -571,6 +596,7 @@ final class AppModel {
         static let byoProvider = "byoProvider"
         static let refreshInterval = "refreshInterval"
         static let panelBackground = "panelBackground"
+        static let cardDensity = "cardDensity"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
@@ -599,6 +625,7 @@ final class AppModel {
         self.byoProvider = BYOProvider(rawValue: defaults.string(forKey: Key.byoProvider) ?? "") ?? .openAI
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .solid
+        self.cardDensity = CardDensity(rawValue: defaults.string(forKey: Key.cardDensity) ?? "") ?? .detailed
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
         self.readSignatures = readStore.load()
 
@@ -743,7 +770,7 @@ final class AppModel {
     /// Storage map (everything the app writes; this clears all of it):
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
-    ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground,
+    ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardDensity,
     ///     tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
     ///     the AI verdict cache.
@@ -760,6 +787,7 @@ final class AppModel {
         modelDiscovery = .idle
         refreshInterval = .every15
         panelBackground = .solid
+        cardDensity = .detailed
         customTabs = []
         tabOrder = PRTab.builtin
         hiddenTabs = Set(PRTab.builtin).subtracting(PRTab.defaultVisible)

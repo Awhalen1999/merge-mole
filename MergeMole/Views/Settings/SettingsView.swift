@@ -147,6 +147,15 @@ private struct GeneralSettings: View {
                     .labelsHidden()
                     .fixedSize()
                 }
+                Hairline()
+                SettingsRow(label: "Cards") {
+                    Picker("", selection: $model.cardDensity) {
+                        ForEach(CardDensity.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
             }
 
             SettingsSection("Behavior", padded: false) {

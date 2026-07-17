@@ -38,6 +38,8 @@ struct PRCard: View {
             }
     }
 
+    private var isCompact: Bool { model.cardDensity == .compact }
+
     private var row: some View {
         HStack(spacing: 0) {
             // The priority edge bar. Spans the full section height; clear (a bare
@@ -48,7 +50,7 @@ struct PRCard: View {
                 .frame(maxHeight: .infinity)
 
             content
-                .padding(.vertical, Layout.generous)
+                .padding(.vertical, isCompact ? Layout.roomy : Layout.generous)
                 // Content text lands on Layout.margin: the gutter eats the rest, so
                 // titles align with the header brand and tab labels above.
                 .padding(.leading, Layout.margin - Layout.accentBar)
@@ -58,8 +60,10 @@ struct PRCard: View {
         .contentShape(Rectangle())
     }
 
+    /// Compact is the same card, tightened: row spacing drops a notch and the
+    /// avatar goes — everything else renders identically.
     private var content: some View {
-        VStack(alignment: .leading, spacing: Layout.base) {
+        VStack(alignment: .leading, spacing: isCompact ? Layout.snug : Layout.base) {
             badges
             title
             repoLine
@@ -88,10 +92,12 @@ struct PRCard: View {
 
     private var title: some View {
         HStack(alignment: .top, spacing: Layout.base) {
-            Avatar(url: pr.authorAvatarURL)
-                .help(pr.author)
+            if !isCompact {
+                Avatar(url: pr.authorAvatarURL)
+                    .help(pr.author)
+            }
             Text(pr.title)
-                .font(.headline)
+                .font(isCompact ? .callout.weight(.semibold) : .headline)
                 .foregroundStyle(.appText)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -131,7 +137,7 @@ struct PRCard: View {
         case .ready(let v):
             VStack(alignment: .leading, spacing: Layout.tight) {
                 Text(v.summary)
-                    .font(.callout)
+                    .font(isCompact ? .subheadline : .callout)
                     .foregroundStyle(.appText)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(alignment: .firstTextBaseline, spacing: Layout.tight) {
