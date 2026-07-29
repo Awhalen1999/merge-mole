@@ -33,6 +33,7 @@ struct PullRequest: Identifiable, Hashable, Sendable {
     var isBehindBase: Bool = false      // head branch trails base — wants an update/rebase
     var isFirstTimeContributor: Bool = false   // author's first contribution here — review with care
     var isFromFork: Bool = false        // PR opened from a fork
+    var isArchived: Bool = false
     var requestedReviewers: [PRReviewer] = []  // whose review is still pending
 
     var labels: [String]    // e.g. "security", "bug" — high-signal for priority

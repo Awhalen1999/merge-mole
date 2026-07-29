@@ -337,6 +337,13 @@ final class AppModel {
     // MARK: PR state
 
     private(set) var pullRequests: [PullRequest] = []
+    /// The fetched PRs the panel actually surfaces — everything in `pullRequests`
+    /// minus archived-repo PRs when the filter is off. A display filter, not a fetch
+    /// filter, so flipping the toggle re-derives instantly. Route every user-facing
+    /// view (list, counts, badge) through here so they filter as one.
+    private var activePullRequests: [PullRequest] {
+        includeArchivedRepos ? pullRequests : pullRequests.filter { !$0.isArchived }
+    }
     private(set) var verdicts: [PullRequest.ID: VerdictState] = [:]
     /// Read/unread state: PR id → the content signature when last marked read. The
     /// observed in-memory map (the disk copy lives in `readStore`). A PR is unread
@@ -577,6 +584,17 @@ final class AppModel {
             UserDefaults.standard.set(cardDensity.rawValue, forKey: Key.cardDensity)
         }
     }
+    
+    /// Whether PRs from archived repos show in the panel. A *display* filter — the
+    /// archived PRs still live in `pullRequests`; this only gates what's surfaced, so
+    /// toggling it re-derives the visible list instantly (no refetch). Panel, tab
+    /// counts, and badge all read through `activePullRequests`, so they filter as one.
+    var includeArchivedRepos: Bool {
+        didSet {
+            guard includeArchivedRepos != oldValue else { return }
+            UserDefaults.standard.set(includeArchivedRepos, forKey: Key.includeArchivedRepos)
+        }
+    }
 
     private(set) var isGitHubConnected: Bool
 
@@ -601,6 +619,7 @@ final class AppModel {
         static let badgeTabs = "badgeTabs"
         static let customTabs = "customTabs"
         static let readStateInitialized = "readStateInitialized"
+        static let includeArchivedRepos = "includeArchivedRepos"
     }
 
     // MARK: Init
@@ -625,6 +644,7 @@ final class AppModel {
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .solid
         self.cardDensity = CardDensity(rawValue: defaults.string(forKey: Key.cardDensity) ?? "") ?? .detailed
+        self.includeArchivedRepos = defaults.object(forKey: Key.includeArchivedRepos) as? Bool ?? true
         self.isGitHubConnected = secrets.string(for: .githubToken) != nil
         self.readSignatures = readStore.load()
 
@@ -787,6 +807,7 @@ final class AppModel {
         refreshInterval = .every15
         panelBackground = .solid
         cardDensity = .detailed
+        includeArchivedRepos = true
         customTabs = []
         tabOrder = PRTab.builtin
         hiddenTabs = Set(PRTab.builtin).subtracting(PRTab.defaultVisible)
@@ -824,15 +845,15 @@ final class AppModel {
     }
 
     func pullRequests(for tab: PRTab) -> [PullRequest] {
-        if case .all = tab { return pullRequests }
-        return pullRequests.filter { tab.matches($0) }
+        if case .all = tab { return activePullRequests }
+        return activePullRequests.filter { tab.matches($0) }
     }
 
     var tabCounts: [PRTab: Int] {
         // count(where:) rather than pullRequests(for:).count — no filtered-array
         // copies for a value the panel recomputes on every render.
         Dictionary(uniqueKeysWithValues: tabOrder.map { tab in
-            (tab, pullRequests.count(where: tab.matches))
+            (tab, activePullRequests.count(where: tab.matches))
         })
     }
 
@@ -840,7 +861,7 @@ final class AppModel {
     /// Requested), deduped across groups and independent of which tabs the panel
     /// shows. The pool the unread count draws from.
     private var badgePullRequests: [PullRequest] {
-        pullRequests.filter { pr in
+        activePullRequests.filter { pr in
             badgeTabs.contains { $0.matches(pr) }
         }
     }
@@ -885,7 +906,7 @@ final class AppModel {
 
     /// Whether a tab holds any unread PRs — drives its dot in the tab bar.
     func hasUnread(in tab: PRTab) -> Bool {
-        pullRequests.contains { tab.matches($0) && isUnread($0) }
+        activePullRequests.contains { tab.matches($0) && isUnread($0) }
     }
 
     /// The tabs currently holding unread PRs.

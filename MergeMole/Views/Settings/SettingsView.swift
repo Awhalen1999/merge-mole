@@ -175,6 +175,15 @@ private struct GeneralSettings: View {
                     .fixedSize()
                 }
             }
+            
+            SettingsSection("Archived PRs", padded: false) {
+                SettingsRow(label: "Include PRs for archived repositories") {
+                    Toggle("", isOn: $model.includeArchivedRepos)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.appAccent)
+                }
+            }
 
             SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
                 Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
