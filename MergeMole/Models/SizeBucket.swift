@@ -19,13 +19,13 @@ enum SizeBucket: String, CaseIterable, Sendable, Comparable {
         return l < r
     }
 
-    /// GitHub-style thresholds on total changed lines (additions + deletions).
+    /// Thresholds on total changed lines (additions + deletions).
     init(changedLines: Int) {
         switch changedLines {
-        case ..<10:   self = .xs
-        case ..<50:   self = .s
-        case ..<250:  self = .m
-        case ..<1000: self = .l
+        case ..<25:   self = .xs
+        case ..<150:  self = .s
+        case ..<500:  self = .m
+        case ..<2000: self = .l
         default:      self = .xl
         }
     }
