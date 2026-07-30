@@ -655,6 +655,7 @@ private struct AboutSettings: View {
     // Edit these in one place. Website is a placeholder until the marketing page is up.
     private let repoURL = URL(string: "https://github.com/Awhalen1999/merge-mole")!
     private let websiteURL = URL(string: "https://mergemole.app")!
+    private let releasesURL = URL(string: "https://mergemole.app/changelog")!
 
     var body: some View {
         VStack(spacing: 0) {
@@ -710,6 +711,9 @@ private struct AboutSettings: View {
             }
             Link(destination: websiteURL) {
                 Label("Website", systemImage: "globe")
+            }
+            Link(destination: releasesURL) {
+                Label("What's New", systemImage: "sparkles")
             }
         }
         .font(.callout)
