@@ -253,6 +253,7 @@ enum GitHubAPI {
         pr.isFirstTimeContributor = node.authorAssociation == "FIRST_TIME_CONTRIBUTOR"
             || node.authorAssociation == "FIRST_TIMER"
         pr.isFromFork = node.isCrossRepository ?? false
+        pr.isArchived = node.repository?.isArchived ?? false
         pr.requestedReviewers = (node.reviewRequests?.nodes ?? []).compactMap { node in
             guard let login = node.requestedReviewer?.login else { return nil }   // users only; skip teams/bots
             return PRReviewer(login: login, avatarURL: node.requestedReviewer?.avatarUrl.flatMap(URL.init(string:)))
@@ -328,7 +329,7 @@ enum GitHubAPI {
       reviewRequests(first: 10) {
         nodes { requestedReviewer { __typename ... on User { login avatarUrl(size: 64) } } }
       }
-      repository { nameWithOwner }
+      repository { nameWithOwner isArchived }
       author { login avatarUrl(size: 64) }
       headRefName
       baseRefName
@@ -417,7 +418,10 @@ private struct PRNode: Decodable {
     let labels: Labels?
     let commits: Commits?
 
-    struct Repository: Decodable { let nameWithOwner: String }
+    struct Repository: Decodable {
+        let nameWithOwner: String
+        let isArchived: Bool
+    }
     struct ReviewThreads: Decodable {
         let nodes: [Thread]
         struct Thread: Decodable { let isResolved: Bool? }
