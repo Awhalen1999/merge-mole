@@ -593,6 +593,7 @@ final class AppModel {
         didSet {
             guard includeArchivedRepos != oldValue else { return }
             UserDefaults.standard.set(includeArchivedRepos, forKey: Key.includeArchivedRepos)
+            Task { await recomputeVerdicts() }
         }
     }
 
@@ -1188,7 +1189,7 @@ final class AppModel {
     /// Any visible PR still waiting on a verdict — e.g. analysis was cut short when
     /// the panel closed. Lets a fresh reopen finish the work without refetching.
     private var hasPendingVerdicts: Bool {
-        pullRequests.contains { pr in
+        activePullRequests.contains { pr in
             if case .loading = verdictState(for: pr) { return true }
             return false
         }
@@ -1245,7 +1246,7 @@ final class AppModel {
         let generation = recomputeGeneration
 
         guard let engine = activeEngine else {
-            for pr in pullRequests { verdicts[pr.id] = .off }
+            for pr in activePullRequests { verdicts[pr.id] = .off }
             return
         }
 
@@ -1253,7 +1254,7 @@ final class AppModel {
         // ones whose content signature changed (or are new).
         let tag = engineTag
         var stale: [PullRequest] = []
-        for pr in pullRequests {
+        for pr in activePullRequests {
             if let cached = verdictCache.verdict(for: pr, engine: tag) {
                 verdicts[pr.id] = .ready(cached)
             } else {
