@@ -22,9 +22,9 @@ enum SizeBucket: String, CaseIterable, Sendable, Comparable {
     /// Thresholds on total changed lines (additions + deletions).
     init(changedLines: Int) {
         switch changedLines {
-        case ..<25:   self = .xs
-        case ..<150:  self = .s
-        case ..<500:  self = .m
+        case ..<50:   self = .xs
+        case ..<250:  self = .s
+        case ..<1000: self = .m
         case ..<2000: self = .l
         default:      self = .xl
         }
