@@ -8,6 +8,23 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.1.2</title>
+            <pubDate>Thu, 30 Jul 2026 22:40:04 +0000</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>1.1.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.1.2</p>
+<ul>
+<li>Archived repositories: a new General setting lets you hide pull requests from archived repositories. The panel, tab counts, and menu bar badge all respect it, and the AI analyzer skips hidden PRs so it never spends time on things you are not looking at. Archived PRs are included by default, so nothing changes unless you flip the switch.</li>
+<li>Recalibrated size chips: PR size buckets are now more forgiving. XS is under 50 changed lines, S up to 250, M up to 1000, L up to 2000, and XL beyond that. Small housekeeping PRs stop looking bigger than they are.</li>
+<li>What&#x27;s New: the About tab now links straight to the changelog at mergemole.app/changelog.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.1.2/MergeMole.dmg" sparkle:edSignature="vk2croPm0wMlK0MtmbaRgMX+Z0BeNlMGNCCbKj6Uo/0ele1mxg7gRBLLQzEAupouBFnAoeSjbdBosgB3xMV8Bg==" length="3530964" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.1.1</title>
             <pubDate>Fri, 17 Jul 2026 00:49:01 +0000</pubDate>
             <sparkle:version>11</sparkle:version>

@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.1.2",
+    "build": "12",
+    "date": "2026-07-30",
+    "notes": "MergeMole 1.1.2\n\n- Archived repositories: a new General setting lets you hide pull requests from archived repositories. The panel, tab counts, and menu bar badge all respect it, and the AI analyzer skips hidden PRs so it never spends time on things you are not looking at. Archived PRs are included by default, so nothing changes unless you flip the switch.\n- Recalibrated size chips: PR size buckets are now more forgiving. XS is under 50 changed lines, S up to 250, M up to 1000, L up to 2000, and XL beyond that. Small housekeeping PRs stop looking bigger than they are.\n- What's New: the About tab now links straight to the changelog at mergemole.app/changelog."
+  },
+  {
     "version": "1.1.1",
     "build": "11",
     "date": "2026-07-17",
