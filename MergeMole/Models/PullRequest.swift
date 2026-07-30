@@ -56,6 +56,9 @@ struct PullRequest: Identifiable, Hashable, Sendable {
 
     /// Native, AI-free size classification (see `SizeBucket`).
     var sizeBucket: SizeBucket { SizeBucket(changedLines: changedLines) }
+    
+    var stack: PullRequestStack?
+    var stackEntry: PullRequestStackEntry?
 }
 
 extension PullRequest {

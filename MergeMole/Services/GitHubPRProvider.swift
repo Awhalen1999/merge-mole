@@ -258,6 +258,24 @@ enum GitHubAPI {
             guard let login = node.requestedReviewer?.login else { return nil }   // users only; skip teams/bots
             return PRReviewer(login: login, avatarURL: node.requestedReviewer?.avatarUrl.flatMap(URL.init(string:)))
         }
+
+        if let stack = node.stack, let stackID = stack.id {
+            let stack = PullRequestStack(
+                id: stackID,
+                number: stack.number ?? 0,
+                size: stack.size ?? 0,
+                baseRefName: stack.baseRefName ?? "",
+                // Sibling entries aren't selected by the query yet, so the connection
+                // starts empty — populate it once we fetch `stack.entries` (see note).
+                entries: PullRequestStackEntryConnection(edges: [], nodes: [], totalCount: 0)
+            )
+            pr.stack = stack
+            if let wireEntry = node.stackEntry, let entryID = wireEntry.id {
+                pr.stackEntry = PullRequestStackEntry(id: entryID,
+                                                      position: wireEntry.position ?? 0,
+                                                      stack: stack)
+            }
+        }
         return pr
     }
 
@@ -339,6 +357,16 @@ enum GitHubAPI {
       commits(last: 1) {
         totalCount
         nodes { commit { statusCheckRollup { state } } }
+      }
+      stack {
+        id
+        number
+        size
+        baseRefName
+      }
+      stackEntry {
+        id
+        position
       }
     }
     """
@@ -446,5 +474,20 @@ private struct PRNode: Decodable {
         struct CommitNode: Decodable { let commit: Commit }
         struct Commit: Decodable { let statusCheckRollup: Rollup? }
         struct Rollup: Decodable { let state: String }
+    }
+    let stack: Stack?
+    let stackEntry: StackEntry?
+
+    // The gh-stack fields, mirroring only the JSON we actually select. `id` is a
+    // GraphQL ID (a String on the wire); the mapper converts it to the domain UUID.
+    struct Stack: Decodable {
+        let id: String?
+        let number: Int?
+        let size: Int?
+        let baseRefName: String?
+    }
+    struct StackEntry: Decodable {
+        let id: String?
+        let position: Int?
     }
 }
