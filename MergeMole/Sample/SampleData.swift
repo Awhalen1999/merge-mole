@@ -8,6 +8,8 @@ enum SampleData {
     /// Stand-in for the signed-in user, so the tab filters (mine / needs-review)
     /// mean something against the sample data. Real runs use the GitHub viewer.
     static let currentUser = "you"
+    
+    static let sampleStack = PullRequestStack(id: "sample", number: 1, size: 5, baseRefName: "main", entries: PullRequestStackEntryConnection(edges: [], nodes: [], totalCount: 0))
 
     static let pullRequests: [PullRequest] = [
         PullRequest(
@@ -34,7 +36,9 @@ enum SampleData {
             url: URL(string: "https://github.com/acme/web-platform/pull/482")!,
             createdAt: date(daysAgo: 1),
             updatedAt: date(minutesAgo: 18),
-            relationships: [.reviewRequested]
+            relationships: [.reviewRequested],
+            stack: sampleStack,
+            stackEntry: PullRequestStackEntry(id: "sample", position: 2, stack: sampleStack)
         ),
         PullRequest(
             id: "PR_2",
