@@ -32,15 +32,20 @@ struct OnboardingView: View {
                 footer
             }
             // Skip is always available until the last step, where Done takes over.
+            // Sits in the title-bar row, opposite the traffic lights.
             if step != .done {
                 Button("Skip setup") { finish() }
                     .buttonStyle(QuietButtonStyle())
                     .font(.callout.weight(.medium))
-                    .padding(Layout.roomy)
+                    .padding(.top, Layout.base)
+                    .padding(.trailing, Layout.generous)
             }
         }
-        .frame(width: 620, height: 700)
+        .frame(width: 620, height: 600)
         .background(Color.appBackground)
+        // The hidden title bar still reserves a safe-area strip; claim it so the
+        // content owns the full window and Skip lines up with the traffic lights.
+        .ignoresSafeArea(.container, edges: .top)
         // An accessory (menu-bar) app doesn't come forward on its own — without
         // this the wizard can open behind whatever the user was doing.
         .onAppear { NSApp.activate(ignoringOtherApps: true) }
@@ -165,24 +170,17 @@ private struct WelcomeStep: View {
 /// player once the clip exists. Sized and framed so the recording drops in 1:1.
 private struct DemoPlaceholder: View {
     var body: some View {
-        VStack(spacing: Layout.base) {
-            RoundedRectangle(cornerRadius: Layout.cardRadius)
-                .fill(LinearGradient(colors: [.appAccent.opacity(0.45), .appPurple.opacity(0.45)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay {
-                    Image(systemName: "play.fill")
-                        .font(.title2)
-                        .foregroundStyle(Color.appAccent)
-                        .frame(width: 56, height: 56)
-                        .background(.white, in: Circle())
-                }
-            Text("See MergeMole in action · 40s")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.appTextSecondary)
-        }
-        .padding(Layout.roomy)
-        .cardSurface()
-        .frame(maxHeight: 340)
+        RoundedRectangle(cornerRadius: Layout.cardRadius)
+            .fill(LinearGradient(colors: [.appAccent.opacity(0.45), .appPurple.opacity(0.45)],
+                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+            .overlay {
+                Image(systemName: "play.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.appAccent)
+                    .frame(width: 56, height: 56)
+                    .background(.white, in: Circle())
+            }
+            .frame(maxHeight: 300)
     }
 }
 
@@ -302,12 +300,14 @@ private struct TriageStep: View {
 
 // MARK: - 4 · Personalize
 
-/// The two highest-leverage defaults: launch at login, and which tabs the panel
-/// shows. The tab list is Settings' own `TabReorderList`, so drag-to-reorder and
-/// visibility behave identically in both places. (No custom tabs can exist yet,
-/// so the list's edit affordance never appears here.)
+/// The highest-leverage defaults, with Settings' own components so everything
+/// behaves identically in both places: launch at login, the tab list
+/// (`TabReorderList` + `NewTabRow`, custom tabs included), and which groups
+/// feed the menu-bar count (`BadgeTabList`).
 private struct PersonalizeStep: View {
     @State private var launchAtLogin = LoginItem.isEnabled
+    /// The custom-tab sheet, when open — creating a new tab or editing one.
+    @State private var editing: CustomTabEditor.Mode?
 
     var body: some View {
         ScrollView {
@@ -335,16 +335,32 @@ private struct PersonalizeStep: View {
 
                 VStack(alignment: .leading, spacing: Layout.snug) {
                     SectionHeader(title: "Show these tabs",
-                                  subtitle: "Drag to reorder. Uncheck to hide a tab from your panel.")
+                                  subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Tab turns any GitHub search into a tab of your own.")
                     VStack(spacing: 0) {
-                        TabReorderList { _ in }
+                        TabReorderList { editing = .edit($0) }
+                        Hairline()
+                        NewTabRow { editing = .create }
+                    }
+                    .cardSurface(padded: false)
+                }
+
+                VStack(alignment: .leading, spacing: Layout.snug) {
+                    SectionHeader(title: "Menu-bar count",
+                                  subtitle: "Which groups the number beside the menu-bar icon totals.")
+                    VStack(spacing: 0) {
+                        BadgeTabList()
                     }
                     .cardSurface(padded: false)
                 }
             }
-            .padding(Layout.generous * 2)
+            .padding(.horizontal, Layout.generous * 2)
+            .padding(.top, Layout.generous * 2)
+            .padding(.bottom, Layout.generous)
         }
         .onAppear { launchAtLogin = LoginItem.isEnabled }
+        .sheet(item: $editing) { mode in
+            CustomTabEditor(mode: mode)
+        }
     }
 }
 
@@ -358,22 +374,41 @@ private struct DoneStep: View {
         ) {
             StatusIcon(systemName: "checkmark", tint: .appAccent)
         } actions: {
-            VStack(spacing: Layout.base) {
+            // The custom alignment pins the arrow directly under MergeMole's
+            // status item in the mock, so it points at the icon itself.
+            VStack(alignment: .menuBarMole, spacing: Layout.tight) {
                 MenuBarMock()
-                Text("Look up there ↑")
+                Image(systemName: "arrow.up")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.appTextTertiary)
+                    .padding(.top, Layout.tight)
+                    .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
+                Text("Look up there")
                     .font(.caption)
                     .foregroundStyle(.appTextTertiary)
+                    .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
             }
             .padding(.top, Layout.generous)
         }
     }
 }
 
-/// A slice of menu bar with MergeMole's status item lit — a picture of where to
-/// look, not a control.
+/// Where MergeMole's status item sits in the mock — the "look up there" hint
+/// aligns its center to the pill's.
+extension HorizontalAlignment {
+    private struct MenuBarMole: AlignmentID {
+        static func defaultValue(in context: ViewDimensions) -> CGFloat {
+            context[HorizontalAlignment.center]
+        }
+    }
+    static let menuBarMole = HorizontalAlignment(MenuBarMole.self)
+}
+
+/// A slice of menu bar with MergeMole's status item lit among the usual system
+/// items — a picture of where to look, not a control.
 private struct MenuBarMock: View {
     var body: some View {
-        HStack(spacing: Layout.roomy) {
+        HStack(spacing: Layout.generous) {
             Spacer(minLength: Layout.generous)
             HStack(spacing: 3) {
                 BrandMark(size: 15, tint: .appText)
@@ -382,12 +417,18 @@ private struct MenuBarMock: View {
             .padding(.horizontal, Layout.snug)
             .padding(.vertical, Layout.tight)
             .background(Color.appFillSelected, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
-            Text("8:21 PM")
+            .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
+            Image(systemName: "battery.75percent")
+            Image(systemName: "wifi")
+            Image(systemName: "magnifyingglass")
+            Image(systemName: "switch.2")
+            Text("Fri Aug 1  11:00 AM")
                 .font(.caption)
-                .foregroundStyle(.appTextSecondary)
                 .padding(.trailing, Layout.roomy)
         }
-        .frame(width: 300, height: 30)
+        .font(.caption)
+        .foregroundStyle(.appTextSecondary)
+        .frame(width: 380, height: 30)
         .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.appHairline, lineWidth: 1))
     }

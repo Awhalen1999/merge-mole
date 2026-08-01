@@ -66,6 +66,54 @@ private struct TabRow: View {
     }
 }
 
+/// The "add a custom tab" affordance — a full-width row at the foot of the tabs
+/// list, where macOS puts list-editing "+" controls. Quiet on purpose: no fill,
+/// the label just brightens on hover like the other inline affordances.
+struct NewTabRow: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Layout.roomy) {
+                Image(systemName: "plus.circle.fill")
+                Text("New Tab…").font(.callout.weight(.medium))
+                Spacer(minLength: 0)
+            }
+            .tabSettingRowPadding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(QuietButtonStyle())
+        .help("Create a tab from a GitHub search")
+    }
+}
+
+/// The menu-bar-count rows — every tab with its live contribution and an
+/// include/exclude checkbox. Shared by Settings → Tabs and the onboarding
+/// wizard, so the badge is configured with the same surface in both places.
+/// Rows + dividers only — wrap it in a surface card.
+struct BadgeTabList: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let counts = model.tabCounts   // one pass, not one per row
+        ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
+            if index > 0 { Hairline() }
+            TabSettingRow(title: model.title(for: tab),
+                          dotColor: tab.dotColor,
+                          subtitle: tab.countSubtitle(counts[tab] ?? 0)) {
+                Toggle("", isOn: badgeBinding(for: tab))
+                    .labelsHidden()
+                    .toggleStyle(.checkbox)
+            }
+        }
+    }
+
+    private func badgeBinding(for tab: PRTab) -> Binding<Bool> {
+        Binding(get: { model.badgeTabs.contains(tab) },
+                set: { model.setBadge(tab, on: $0) })
+    }
+}
+
 /// One tab's identity row — drag grip (optional), identity dot, title, subtitle,
 /// and a trailing control. Shared by Settings → Tabs (drag grip + "what the tab is
 /// for" subtitle) and Settings → Menu-bar count (no grip + count subtitle), so both

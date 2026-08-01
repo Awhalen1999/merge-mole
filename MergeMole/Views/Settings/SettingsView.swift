@@ -132,6 +132,7 @@ struct FieldLabel: View {
 
 private struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var confirmingReset = false
 
@@ -193,7 +194,9 @@ private struct GeneralSettings: View {
         }
         .onAppear { launchAtLogin = LoginItem.isEnabled }
         .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
-            Button("Erase everything", role: .destructive) { model.resetAll() }
+            // Close the window too — a reset app with Settings still open reads
+            // as half-done; the next launch starts at the onboarding wizard.
+            Button("Erase everything", role: .destructive) { model.resetAll(); dismiss() }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
@@ -227,48 +230,12 @@ private struct TabsSettings: View {
             SettingsSection("Menu-bar count",
                             subtitle: "Which groups the number beside the menu-bar icon totals. Counts each PR once across the groups you pick.",
                             padded: false) {
-                let counts = model.tabCounts   // one pass, not one per row
-                ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
-                    if index > 0 { Hairline() }
-                    TabSettingRow(title: model.title(for: tab),
-                                  dotColor: tab.dotColor,
-                                  subtitle: tab.countSubtitle(counts[tab] ?? 0)) {
-                        Toggle("", isOn: badgeBinding(for: tab))
-                            .labelsHidden()
-                            .toggleStyle(.checkbox)
-                    }
-                }
+                BadgeTabList()
             }
         }
         .sheet(item: $editing) { mode in
             CustomTabEditor(mode: mode)
         }
-    }
-
-    private func badgeBinding(for tab: PRTab) -> Binding<Bool> {
-        Binding(get: { model.badgeTabs.contains(tab) },
-                set: { model.setBadge(tab, on: $0) })
-    }
-}
-
-/// The "add a custom tab" affordance — a full-width row at the foot of the tabs
-/// list, where macOS puts list-editing "+" controls. Quiet on purpose: no fill,
-/// the label just brightens on hover like the other inline affordances.
-private struct NewTabRow: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Layout.roomy) {
-                Image(systemName: "plus.circle.fill")
-                Text("New Tab…").font(.callout.weight(.medium))
-                Spacer(minLength: 0)
-            }
-            .tabSettingRowPadding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(QuietButtonStyle())
-        .help("Create a tab from a GitHub search")
     }
 }
 
