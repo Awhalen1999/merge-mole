@@ -34,6 +34,8 @@ struct VerdictInput {
     let approvals: Int
     let unresolvedThreads: Int
     let createdAt: Date
+    let stackPosition: Int?
+    let stackSize: Int?
 
     /// Head commit SHA. Feeds the **signature only** (never the prompt — the model
     /// has no use for a hash). This is what makes a new commit reliably re-analyze:
@@ -61,6 +63,8 @@ struct VerdictInput {
         unresolvedThreads = pr.unresolvedThreads
         createdAt = pr.createdAt
         headOID = pr.headOID
+        stackPosition = pr.stackEntry?.position
+        stackSize = pr.stack?.size
     }
 
     /// The guaranteed-minimum priority from the label/title glossary scan — the
@@ -87,6 +91,9 @@ struct VerdictInput {
             "Changes: +\(additions) / -\(deletions) across \(changedFiles) files (size \(sizeLabel))",
         ]
         if hasConflicts { lines.append("Merge conflicts: yes — needs a rebase before it can merge.") }
+        if let position = stackPosition, let size = stackSize {
+            lines.append("Stack: part of a \(size)-PR stack, position \(position) — earlier PRs in the stack must merge first.")
+        }
         if let activity = reviewActivity { lines.append("Review activity: \(activity)") }
         if isFromFork { lines.append("Opened from a fork (external contributor).") }
         if !labels.isEmpty { lines.append("Labels: \(labels.joined(separator: ", "))") }
