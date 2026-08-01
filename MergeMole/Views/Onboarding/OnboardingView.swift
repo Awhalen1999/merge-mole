@@ -23,6 +23,10 @@ struct OnboardingView: View {
 
     @State private var step: Step = .welcome
 
+    /// How far Skip lifts out of the content into the hidden title bar, so it
+    /// sits level with the traffic lights instead of below the strip.
+    private static let titleBarLift: CGFloat = 24
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
@@ -37,15 +41,15 @@ struct OnboardingView: View {
                 Button("Skip setup") { finish() }
                     .buttonStyle(QuietButtonStyle())
                     .font(.callout.weight(.medium))
-                    .padding(.top, Layout.base)
                     .padding(.trailing, Layout.generous)
+                    .offset(y: -Self.titleBarLift)
             }
         }
         .frame(width: 620, height: 600)
-        .background(Color.appBackground)
-        // The hidden title bar still reserves a safe-area strip; claim it so the
-        // content owns the full window and Skip lines up with the traffic lights.
-        .ignoresSafeArea(.container, edges: .top)
+        // The background alone escapes the safe area, painting the hidden
+        // title-bar strip to match — the content keeps its normal bounds, so the
+        // footer stays flush with the window's bottom edge.
+        .background(Color.appBackground.ignoresSafeArea())
         // An accessory (menu-bar) app doesn't come forward on its own — without
         // this the wizard can open behind whatever the user was doing.
         .onAppear { NSApp.activate(ignoringOtherApps: true) }
@@ -147,12 +151,30 @@ private struct StepHeader: View {
     }
 }
 
+/// A step's content area with one shared inset: centered while it fits the
+/// window, scrolling only when it outgrows it (e.g. the custom-model form).
+private struct WizardPage<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ViewThatFits(in: .vertical) {
+            inner
+            ScrollView { inner }
+        }
+    }
+
+    private var inner: some View {
+        VStack(spacing: Layout.generous) { content }
+            .padding(Layout.generous * 2)
+            .frame(maxWidth: .infinity)
+    }
+}
+
 // MARK: - 1 · Welcome
 
 private struct WelcomeStep: View {
     var body: some View {
         VStack(spacing: Layout.generous) {
-            Spacer(minLength: Layout.generous)
             Image("AppLogo")
                 .resizable()
                 .frame(width: 72, height: 72)
@@ -160,14 +182,14 @@ private struct WelcomeStep: View {
             StepHeader(title: "Welcome to MergeMole",
                        subtitle: "The pull requests that need you, triaged by effort and priority, right in your menu bar.")
             DemoPlaceholder()
-            Spacer(minLength: Layout.generous)
         }
-        .padding(.horizontal, Layout.generous * 2)
+        .padding(Layout.generous * 2)
     }
 }
 
 /// Placeholder for the recorded product demo — swap this view's body for a video
-/// player once the clip exists. Sized and framed so the recording drops in 1:1.
+/// player once the clip exists. Greedy on purpose: it takes whatever height the
+/// welcome step has left, so the recording drops into the same frame.
 private struct DemoPlaceholder: View {
     var body: some View {
         RoundedRectangle(cornerRadius: Layout.cardRadius)
@@ -180,7 +202,6 @@ private struct DemoPlaceholder: View {
                     .frame(width: 56, height: 56)
                     .background(.white, in: Circle())
             }
-            .frame(maxHeight: 300)
     }
 }
 
@@ -273,27 +294,24 @@ private struct TriageStep: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Layout.generous) {
-                StepHeader(title: "How should MergeMole triage?",
-                           subtitle: "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
-                VStack(spacing: Layout.base) {
-                    ForEach(AIMode.allCases) { mode in
-                        RadioCard(title: mode.cardTitle,
-                                  detail: mode.detail,
-                                  badge: mode == .onDevice ? "Recommended" : nil,
-                                  warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
-                                  selected: model.aiMode == mode) {
-                            model.aiMode = mode
-                        }
-                        if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
-                            CustomModelForm().cardSurface()
-                        }
+        WizardPage {
+            StepHeader(title: "How should MergeMole triage?",
+                       subtitle: "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
+            VStack(spacing: Layout.base) {
+                ForEach(AIMode.allCases) { mode in
+                    RadioCard(title: mode.cardTitle,
+                              detail: mode.detail,
+                              badge: mode == .onDevice ? "Recommended" : nil,
+                              warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
+                              selected: model.aiMode == mode) {
+                        model.aiMode = mode
+                    }
+                    if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
+                        CustomModelForm().cardSurface()
                     }
                 }
-                .animation(.easeOut(duration: 0.15), value: model.aiMode)
             }
-            .padding(Layout.generous * 2)
+            .animation(.easeOut(duration: 0.15), value: model.aiMode)
         }
     }
 }
@@ -310,52 +328,47 @@ private struct PersonalizeStep: View {
     @State private var editing: CustomTabEditor.Mode?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Layout.generous) {
-                StepHeader(title: "Make it yours",
-                           subtitle: "A couple of defaults. Tweak everything later in Settings.")
+        WizardPage {
+            StepHeader(title: "Make it yours",
+                       subtitle: "A couple of defaults. Tweak everything later in Settings.")
 
-                HStack(spacing: Layout.roomy) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Launch at login")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.appText)
-                        Text("Keep MergeMole in your menu bar automatically.")
-                            .font(.caption)
-                            .foregroundStyle(.appTextSecondary)
-                    }
-                    Spacer(minLength: Layout.base)
-                    Toggle("", isOn: $launchAtLogin)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.appAccent)
-                        .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
+            HStack(spacing: Layout.roomy) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Launch at login")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.appText)
+                    Text("Keep MergeMole in your menu bar automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.appTextSecondary)
                 }
-                .cardSurface()
-
-                VStack(alignment: .leading, spacing: Layout.snug) {
-                    SectionHeader(title: "Show these tabs",
-                                  subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Tab turns any GitHub search into a tab of your own.")
-                    VStack(spacing: 0) {
-                        TabReorderList { editing = .edit($0) }
-                        Hairline()
-                        NewTabRow { editing = .create }
-                    }
-                    .cardSurface(padded: false)
-                }
-
-                VStack(alignment: .leading, spacing: Layout.snug) {
-                    SectionHeader(title: "Menu-bar count",
-                                  subtitle: "Which groups the number beside the menu-bar icon totals.")
-                    VStack(spacing: 0) {
-                        BadgeTabList()
-                    }
-                    .cardSurface(padded: false)
-                }
+                Spacer(minLength: Layout.base)
+                Toggle("", isOn: $launchAtLogin)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(.appAccent)
+                    .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
             }
-            .padding(.horizontal, Layout.generous * 2)
-            .padding(.top, Layout.generous * 2)
-            .padding(.bottom, Layout.generous)
+            .cardSurface()
+
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "Show these tabs",
+                              subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Tab turns any GitHub search into a tab of your own.")
+                VStack(spacing: 0) {
+                    TabReorderList { editing = .edit($0) }
+                    Hairline()
+                    NewTabRow { editing = .create }
+                }
+                .cardSurface(padded: false)
+            }
+
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "Menu-bar count",
+                              subtitle: "Which groups the number beside the menu-bar icon totals.")
+                VStack(spacing: 0) {
+                    BadgeTabList()
+                }
+                .cardSurface(padded: false)
+            }
         }
         .onAppear { launchAtLogin = LoginItem.isEnabled }
         .sheet(item: $editing) { mode in
@@ -367,6 +380,9 @@ private struct PersonalizeStep: View {
 // MARK: - 5 · All set
 
 private struct DoneStep: View {
+    /// Drives the arrow's gentle bob toward the menu bar.
+    @State private var bobbing = false
+
     var body: some View {
         StatusScreen(
             title: "You're all set",
@@ -383,6 +399,10 @@ private struct DoneStep: View {
                     .foregroundStyle(.appTextTertiary)
                     .padding(.top, Layout.tight)
                     .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
+                    // A quiet bob toward the icon — enough to draw the eye up.
+                    .offset(y: bobbing ? -2 : 2)
+                    .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: bobbing)
+                    .onAppear { bobbing = true }
                 Text("Look up there")
                     .font(.caption)
                     .foregroundStyle(.appTextTertiary)
@@ -422,7 +442,7 @@ private struct MenuBarMock: View {
             Image(systemName: "wifi")
             Image(systemName: "magnifyingglass")
             Image(systemName: "switch.2")
-            Text("Fri Aug 1  11:00 AM")
+            Text("Sat Aug 1  11:00 AM")
                 .font(.caption)
                 .padding(.trailing, Layout.roomy)
         }
