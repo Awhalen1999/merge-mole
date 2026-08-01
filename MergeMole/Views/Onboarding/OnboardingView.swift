@@ -178,8 +178,8 @@ private struct WelcomeStep: View {
         VStack(spacing: Layout.generous) {
             Image("AppLogo")
                 .resizable()
-                .frame(width: 72, height: 72)
-                .clipShape(.rect(cornerRadius: 16, style: .continuous))
+                .frame(width: 56, height: 56)
+                .clipShape(.rect(cornerRadius: 12, style: .continuous))
             StepHeader(title: "Welcome to MergeMole",
                        subtitle: "The pull requests that need you, triaged by effort and priority, right in your menu bar.")
             DemoVideo()
@@ -299,7 +299,7 @@ private struct ConnectStep: View {
             title: "Connect your GitHub",
             message: "MergeMole reads your pull requests to triage what needs your attention first. Your token stays on this Mac."
         ) {
-            BrandMark(size: 46)
+            EmptyView()   // the form is the focus; no glyph needed above it
         } actions: {
             VStack(spacing: Layout.base) {
                 SecureField("ghp_…", text: $token)
@@ -493,8 +493,8 @@ private struct MenuBarMock: View {
         HStack(spacing: Layout.generous) {
             Spacer(minLength: Layout.generous)
             HStack(spacing: 3) {
-                BrandMark(size: 15, tint: .appText)
-                Text("3").font(.caption.weight(.medium)).monospacedDigit()
+                BrandMark(size: 17, tint: .appText)
+                Text("3").font(.callout.weight(.medium)).monospacedDigit()
             }
             .padding(.horizontal, Layout.snug)
             .padding(.vertical, Layout.tight)
@@ -505,12 +505,11 @@ private struct MenuBarMock: View {
             Image(systemName: "magnifyingglass")
             Image(systemName: "switch.2")
             Text("Sat Aug 1  11:00 AM")
-                .font(.caption)
                 .padding(.trailing, Layout.roomy)
         }
-        .font(.caption)
+        .font(.callout)
         .foregroundStyle(.appTextSecondary)
-        .frame(width: 380, height: 30)
+        .frame(width: 380, height: 34)
         .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.appHairline, lineWidth: 1))
     }
