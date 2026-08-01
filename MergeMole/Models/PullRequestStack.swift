@@ -11,14 +11,12 @@ struct PullRequestStack: Identifiable, Hashable, Sendable {
 struct PullRequestStackEntry: Identifiable, Hashable, Sendable {
     var id: String          // GraphQL ID (ID!) — a server-assigned string
     var position: Int
-//    var pullRequest: PullRequest
     var stack: PullRequestStack
 }
 
 struct PullRequestStackEntryConnection: Hashable, Sendable {
     var edges: [PullRequestStackEntryEdge]
     var nodes: [PullRequestStackEntry]
-//    var pageInfo: PageInfo
     var totalCount: Int
 }
 

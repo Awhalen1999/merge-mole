@@ -478,8 +478,6 @@ private struct PRNode: Decodable {
     let stack: Stack?
     let stackEntry: StackEntry?
 
-    // The gh-stack fields, mirroring only the JSON we actually select. `id` is a
-    // GraphQL ID (a String on the wire); the mapper converts it to the domain UUID.
     struct Stack: Decodable {
         let id: String?
         let number: Int?
