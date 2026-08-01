@@ -450,7 +450,9 @@ private struct DoneStep: View {
             title: "You're all set",
             message: "MergeMole lives in your menu bar. Click the icon anytime to see what needs you."
         ) {
-            StatusIcon(systemName: "checkmark", tint: .appAccent)
+            // Green, not accent: success is green everywhere in the app (Connected
+            // dots, ok-status checks); the accent stays on the Done button alone.
+            StatusIcon(systemName: "checkmark", tint: .appGreen)
         } actions: {
             // The custom alignment pins the arrow directly under MergeMole's
             // status item in the mock, so it points at the icon itself.
