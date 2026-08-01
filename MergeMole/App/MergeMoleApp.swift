@@ -26,6 +26,19 @@ struct MergeMoleApp: App {
                 .environment(model)
                 .environment(updater)
         }
+
+        // First-run setup. The scene itself carries the policy: it presents at
+        // launch only until onboarding has completed (finished, skipped, or a
+        // GitHub token predating the wizard — see `hasCompletedOnboarding`), and
+        // nothing ever opens it programmatically, so it can't reappear.
+        Window("MergeMole Setup", id: OnboardingView.windowID) {
+            OnboardingView()
+                .environment(model)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultLaunchBehavior(model.hasCompletedOnboarding ? .suppressed : .presented)
+        .restorationBehavior(.disabled)
     }
 }
 

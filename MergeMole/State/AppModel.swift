@@ -599,6 +599,12 @@ final class AppModel {
 
     private(set) var isGitHubConnected: Bool
 
+    /// Whether first-run setup has run its course. Set once — by finishing the
+    /// wizard, skipping it, or at init when a GitHub token already exists (that
+    /// install predates onboarding; it's already set up) — and only a factory
+    /// reset unsets it. `MergeMoleApp` reads this to present the wizard at launch.
+    private(set) var hasCompletedOnboarding: Bool
+
     /// Set when GitHub rejected the stored token (expired/revoked) mid-session, so the
     /// connect screen can say "reconnect" with context instead of a bare first-run prompt.
     private(set) var tokenRejected = false
@@ -621,6 +627,7 @@ final class AppModel {
         static let customTabs = "customTabs"
         static let readStateInitialized = "readStateInitialized"
         static let includeArchivedRepos = "includeArchivedRepos"
+        static let onboardingCompleted = "onboardingCompleted"
     }
 
     // MARK: Init
@@ -646,8 +653,16 @@ final class AppModel {
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .solid
         self.cardDensity = CardDensity(rawValue: defaults.string(forKey: Key.cardDensity) ?? "") ?? .detailed
         self.includeArchivedRepos = defaults.object(forKey: Key.includeArchivedRepos) as? Bool ?? true
-        self.isGitHubConnected = secrets.string(for: .githubToken) != nil
+        let hasToken = secrets.string(for: .githubToken) != nil
+        self.isGitHubConnected = hasToken
         self.readSignatures = readStore.load()
+
+        // A token already in the Keychain means this install was set up before
+        // onboarding existed (or restored from a backup) — count it as done, and
+        // persist that so a later disconnect can't resurrect the wizard.
+        let onboarded = defaults.bool(forKey: Key.onboardingCompleted) || hasToken
+        self.hasCompletedOnboarding = onboarded
+        if onboarded { defaults.set(true, forKey: Key.onboardingCompleted) }
 
         // Custom tabs load first: they define which `custom:` raws in the saved
         // order / hidden / badge lists still point at a live definition.
@@ -702,6 +717,15 @@ final class AppModel {
     private static func loadCustomTabs(_ defaults: UserDefaults) -> [CustomTab] {
         guard let data = defaults.data(forKey: Key.customTabs) else { return [] }
         return (try? JSONDecoder().decode([CustomTab].self, from: data)) ?? []
+    }
+
+    // MARK: Onboarding
+
+    /// Record that first-run setup is done — finished or deliberately skipped,
+    /// the wizard never shows again either way.
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        UserDefaults.standard.set(true, forKey: Key.onboardingCompleted)
     }
 
     // MARK: GitHub connection
@@ -815,6 +839,7 @@ final class AppModel {
         badgeTabs = [.reviewRequested]
         selectedTab = .reviewRequested
         readSignatures = [:]
+        hasCompletedOnboarding = false   // a fresh start onboards again
 
         // 2. Keychain — every slot we own.
         for key in SecretKey.allCases { secrets.set(nil, for: key) }
