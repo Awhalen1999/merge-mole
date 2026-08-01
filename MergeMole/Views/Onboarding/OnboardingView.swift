@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVKit
 
 /// The first-run setup wizard: welcome → connect GitHub → choose AI → personalize
 /// → done, in its own window (see the scene in `MergeMoleApp`). Every step edits
@@ -181,15 +182,76 @@ private struct WelcomeStep: View {
                 .clipShape(.rect(cornerRadius: 16, style: .continuous))
             StepHeader(title: "Welcome to MergeMole",
                        subtitle: "The pull requests that need you, triaged by effort and priority, right in your menu bar.")
-            DemoPlaceholder()
+            DemoVideo()
         }
         .padding(Layout.generous * 2)
     }
 }
 
-/// Placeholder for the recorded product demo — swap this view's body for a video
-/// player once the clip exists. Greedy on purpose: it takes whatever height the
-/// welcome step has left, so the recording drops into the same frame.
+/// The product demo (Resources/demo.mp4) looping silently, no controls. It takes
+/// whatever height the welcome step has left and keeps the clip's own aspect, so
+/// the width follows the recording — swap the asset and the frame adapts.
+/// Falls back to the design placeholder if the resource ever goes missing.
+private struct DemoVideo: View {
+    private static let url = Bundle.main.url(forResource: "demo", withExtension: "mp4")
+
+    /// The clip's aspect, read from the asset when the step appears. The seed
+    /// value matches the current recording, so there's no first-frame reflow;
+    /// a swapped recording re-shapes the frame on load.
+    @State private var aspect = CGSize(width: 828, height: 1080)
+
+    var body: some View {
+        if let url = Self.url {
+            LoopingPlayerView(url: url)
+                .aspectRatio(aspect, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: Layout.cardRadius))
+                .frame(maxWidth: .infinity)
+                .task {
+                    guard let track = try? await AVURLAsset(url: url).loadTracks(withMediaType: .video).first,
+                          let size = try? await track.load(.naturalSize) else { return }
+                    aspect = CGSize(width: abs(size.width), height: abs(size.height))
+                }
+        } else {
+            DemoPlaceholder()
+        }
+    }
+}
+
+/// Chromeless looping video — an `AVPlayerLayer` (no `VideoPlayer` controls)
+/// fed by an `AVPlayerLooper` for a seamless repeat, muted.
+private struct LoopingPlayerView: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context: Context) -> PlayerView { PlayerView(url: url) }
+    func updateNSView(_ view: PlayerView, context: Context) {}
+
+    final class PlayerView: NSView {
+        private let playerLayer = AVPlayerLayer()
+        private let player = AVQueuePlayer()
+        private var looper: AVPlayerLooper?
+
+        init(url: URL) {
+            super.init(frame: .zero)
+            wantsLayer = true
+            player.isMuted = true
+            looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+            playerLayer.player = player
+            playerLayer.videoGravity = .resizeAspect
+            layer?.addSublayer(playerLayer)
+            player.play()
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func layout() {
+            super.layout()
+            playerLayer.frame = bounds
+        }
+    }
+}
+
+/// The design-time stand-in, kept only as `DemoVideo`'s missing-asset fallback.
 private struct DemoPlaceholder: View {
     var body: some View {
         RoundedRectangle(cornerRadius: Layout.cardRadius)
