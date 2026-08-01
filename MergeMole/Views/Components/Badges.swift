@@ -226,3 +226,21 @@ struct ConversationsBadge: View {
         }
     }
 }
+
+struct StackBadge: View {
+    let position: Int
+    let size: Int
+    
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "square.3.layers.3d")
+            Text("\(position)/\(size)").monospacedDigit()
+        }
+        .font(.caption2.weight(.medium))
+        .foregroundStyle(.appTextSecondary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(Color.appText.opacity(0.06), in: Capsule())
+        .help("Part of a stack — PR \(position) of \(size)")
+    }
+}
