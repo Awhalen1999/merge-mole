@@ -460,13 +460,34 @@ private struct PersonalizeStep: View {
 // MARK: - 5 · All set
 
 private struct DoneStep: View {
+    @Environment(AppModel.self) private var model
+
     /// Drives the arrow's gentle bob toward the menu bar.
     @State private var bobbing = false
+
+    /// The setup receipt — what this run actually configured, one quiet line.
+    /// Reads from live state, so a skipped connect shows the next step instead
+    /// of claiming a connection that isn't there.
+    private var recap: String {
+        var parts = [
+            model.isGitHubConnected ? "Connected as @\(model.currentUser)"
+                                    : "Connect GitHub anytime in Settings",
+        ]
+        switch model.aiMode {
+        case .onDevice:     parts.append("On-device AI")
+        case .bringYourOwn: parts.append("Custom model")
+        case .off:          parts.append("AI off")
+        }
+        let tabs = model.visibleTabs.count
+        parts.append("\(tabs) tab\(tabs == 1 ? "" : "s")")
+        return parts.joined(separator: " · ")
+    }
 
     var body: some View {
         StatusScreen(
             title: "You're all set",
-            message: "MergeMole lives in your menu bar. Click the icon anytime to see what needs you."
+            message: "MergeMole lives in your menu bar. Click the icon anytime to see what needs you.",
+            footnote: recap
         ) {
             // Green, not accent: success is green everywhere in the app (Connected
             // dots, ok-status checks); the accent stays on the Done button alone.
@@ -477,7 +498,7 @@ private struct DoneStep: View {
             VStack(alignment: .menuBarMole, spacing: Layout.tight) {
                 MenuBarMock()
                 Image(systemName: "arrow.up")
-                    .font(.caption.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(.appTextTertiary)
                     .padding(.top, Layout.tight)
                     .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
@@ -485,18 +506,14 @@ private struct DoneStep: View {
                     .offset(y: bobbing ? -2 : 2)
                     .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: bobbing)
                     .onAppear { bobbing = true }
-                Text("Look up there")
-                    .font(.caption)
-                    .foregroundStyle(.appTextTertiary)
-                    .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
             }
             .padding(.top, Layout.generous)
         }
     }
 }
 
-/// Where MergeMole's status item sits in the mock — the "look up there" hint
-/// aligns its center to the pill's.
+/// Where MergeMole's status item sits in the mock — the pointing arrow aligns
+/// its center to the pill's.
 private extension HorizontalAlignment {
     private struct MenuBarMole: AlignmentID {
         static func defaultValue(in context: ViewDimensions) -> CGFloat {
