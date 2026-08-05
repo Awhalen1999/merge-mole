@@ -483,10 +483,18 @@ private struct DoneStep: View {
         return parts.joined(separator: " · ")
     }
 
+    /// True only when the "your PRs are imported" promise is — the skipped-connect
+    /// run keeps the generic line instead of claiming an import that never ran.
+    private var message: String {
+        model.isGitHubConnected
+            ? "MergeMole lives in your menu bar. Your open PRs are already imported, the menu bar icon will update when new ones arrive or something changes."
+            : "MergeMole lives in your menu bar. Click the icon anytime to see what needs you."
+    }
+
     var body: some View {
         StatusScreen(
             title: "You're all set",
-            message: "MergeMole lives in your menu bar. Click the icon anytime to see what needs you.",
+            message: message,
             footnote: recap
         ) {
             // Green, not accent: success is green everywhere in the app (Connected
@@ -524,22 +532,16 @@ private extension HorizontalAlignment {
 }
 
 /// A slice of menu bar with MergeMole's status item lit among the usual system
-/// items — a picture of where to look, not a control. The count is the user's
-/// real badge count (hidden at zero, exactly like the live status item), so the
-/// mock matches what "up there" actually shows.
+/// items — a picture of where to look, not a control. Deliberately no badge
+/// number: the first sync seeds everything as read (`reconcileReadState`), so
+/// the real icon is always bare at this moment — a count here would promise
+/// something the menu bar isn't showing.
 private struct MenuBarMock: View {
-    @Environment(AppModel.self) private var model
-
     var body: some View {
         HStack(spacing: Layout.generous) {
             Spacer(minLength: Layout.generous)
-            HStack(spacing: 3) {
-                BrandMark(size: 17, tint: .appText)
-                if model.badgeCount > 0 {
-                    Text("\(model.badgeCount)").font(.callout.weight(.medium)).monospacedDigit()
-                }
-            }
-            .padding(.horizontal, Layout.snug)
+            BrandMark(size: 17, tint: .appText)
+                .padding(.horizontal, Layout.snug)
             .padding(.vertical, Layout.tight)
             .background(Color.appFillSelected, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
             .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
