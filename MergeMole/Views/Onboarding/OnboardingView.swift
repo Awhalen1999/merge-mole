@@ -101,7 +101,7 @@ struct OnboardingView: View {
             if model.isGitHubConnected {
                 prominent("Continue")
             } else {
-                Button("Skip for now") { step = step.next }
+                Button("Not now") { step = step.next }
                     .buttonStyle(QuietButtonStyle())
                     .font(.callout.weight(.medium))
             }
@@ -157,10 +157,24 @@ private struct StepHeader: View {
 private struct WizardPage<Content: View>: View {
     @ViewBuilder var content: Content
 
+    /// How far scrolled-away content fades out under the window's top chrome
+    /// (traffic lights, Skip) instead of hitting an invisible bar. Covers the
+    /// title-bar strip with room for the dissolve to read as gradual.
+    /// (Instance, not static — generic types can't store static properties.)
+    private let topFade: CGFloat = 56
+
     var body: some View {
         ViewThatFits(in: .vertical) {
             inner
             ScrollView { inner }
+                .mask {
+                    VStack(spacing: 0) {
+                        LinearGradient(colors: [.clear, .black],
+                                       startPoint: .top, endPoint: .bottom)
+                            .frame(height: topFade)
+                        Color.black
+                    }
+                }
         }
     }
 
@@ -198,7 +212,7 @@ private struct DemoVideo: View {
     /// The clip's aspect, read from the asset when the step appears. The seed
     /// value matches the current recording, so there's no first-frame reflow;
     /// a swapped recording re-shapes the frame on load.
-    @State private var aspect = CGSize(width: 828, height: 1080)
+    @State private var aspect = CGSize(width: 1280, height: 1280)
 
     var body: some View {
         if let url = Self.url {
@@ -278,6 +292,10 @@ private struct ConnectStep: View {
     @State private var connecting = false
     @State private var feedback: InlineFeedback?
 
+    /// The token field and its Connect button share one width, so the form
+    /// reads as a single column.
+    private static let formWidth: CGFloat = 260
+
     var body: some View {
         if model.isGitHubConnected { connected } else { form }
     }
@@ -305,17 +323,17 @@ private struct ConnectStep: View {
                 SecureField("ghp_…", text: $token)
                     .font(.body.monospaced())
                     .settingsField()
-                    .frame(width: 260)
+                    .frame(width: Self.formWidth)
                     .onSubmit { if canConnect { connect() } }
                 Button("Connect") { connect() }
                     .buttonStyle(ProminentButtonStyle())
-                    .frame(width: 260)
+                    .frame(width: Self.formWidth)
                     .disabled(!canConnect)
 
-                switch feedback {
-                case _ where connecting: InlineStatus(kind: .progress("Verifying…"))
-                case .error(let m):      InlineStatus(kind: .error(m))
-                default:                 EmptyView()
+                if connecting {
+                    InlineStatus(kind: .progress("Verifying…"))
+                } else if case .error(let message) = feedback {
+                    InlineStatus(kind: .error(message))
                 }
 
                 Link("Create a token (scopes: repo, read:org)",
@@ -479,7 +497,7 @@ private struct DoneStep: View {
 
 /// Where MergeMole's status item sits in the mock — the "look up there" hint
 /// aligns its center to the pill's.
-extension HorizontalAlignment {
+private extension HorizontalAlignment {
     private struct MenuBarMole: AlignmentID {
         static func defaultValue(in context: ViewDimensions) -> CGFloat {
             context[HorizontalAlignment.center]
@@ -489,14 +507,20 @@ extension HorizontalAlignment {
 }
 
 /// A slice of menu bar with MergeMole's status item lit among the usual system
-/// items — a picture of where to look, not a control.
+/// items — a picture of where to look, not a control. The count is the user's
+/// real badge count (hidden at zero, exactly like the live status item), so the
+/// mock matches what "up there" actually shows.
 private struct MenuBarMock: View {
+    @Environment(AppModel.self) private var model
+
     var body: some View {
         HStack(spacing: Layout.generous) {
             Spacer(minLength: Layout.generous)
             HStack(spacing: 3) {
                 BrandMark(size: 17, tint: .appText)
-                Text("3").font(.callout.weight(.medium)).monospacedDigit()
+                if model.badgeCount > 0 {
+                    Text("\(model.badgeCount)").font(.callout.weight(.medium)).monospacedDigit()
+                }
             }
             .padding(.horizontal, Layout.snug)
             .padding(.vertical, Layout.tight)
@@ -506,14 +530,14 @@ private struct MenuBarMock: View {
             Image(systemName: "wifi")
             Image(systemName: "magnifyingglass")
             Image(systemName: "switch.2")
-            Text("Sat Aug 1  11:00 AM")
+            Text("Sat Aug 1  9:41 AM")
                 .padding(.trailing, Layout.roomy)
         }
         .font(.callout)
         .foregroundStyle(.appTextSecondary)
         .frame(width: 380, height: 34)
-        .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.appHairline, lineWidth: 1))
+        .background(Color.appSurface, in: RoundedRectangle(cornerRadius: Layout.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Layout.cardRadius).strokeBorder(Color.appHairline, lineWidth: 1))
     }
 }
 

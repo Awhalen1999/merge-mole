@@ -96,11 +96,16 @@ struct BadgeTabList: View {
 
     var body: some View {
         let counts = model.tabCounts   // one pass, not one per row
+        // Counts only mean something once real data exists. Before a connection
+        // (or during the first fetch) every row would read "0 PRs" — which looks
+        // broken, not empty — so fall back to the tabs' descriptive lines.
+        let showCounts = model.isGitHubConnected && !(model.isLoading && model.pullRequests.isEmpty)
         ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
             if index > 0 { Hairline() }
             TabSettingRow(title: model.title(for: tab),
                           dotColor: tab.dotColor,
-                          subtitle: tab.countSubtitle(counts[tab] ?? 0)) {
+                          subtitle: showCounts ? tab.countSubtitle(counts[tab] ?? 0)
+                                               : model.subtitle(for: tab)) {
                 Toggle("", isOn: badgeBinding(for: tab))
                     .labelsHidden()
                     .toggleStyle(.checkbox)
