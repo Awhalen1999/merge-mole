@@ -41,8 +41,6 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 - **Bring your own:** connect an OpenAI-compatible, Anthropic, or local (Ollama) endpoint with your own key.
 - **Off:** use it as a fast, plain PR organizer.
 
-PR diffs are never sent to any AI. Triage runs on metadata only.
-
 ## Privacy
 
 Your GitHub token and any AI keys stay in the macOS Keychain. No account, no telemetry, no backend. The app talks only to GitHub and the AI endpoint you choose.
