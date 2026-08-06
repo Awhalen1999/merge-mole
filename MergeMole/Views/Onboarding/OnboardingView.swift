@@ -403,11 +403,13 @@ private struct TriageStep: View {
 /// (`TabReorderList` + `NewTabRow`, custom tabs included), and which groups
 /// feed the menu-bar count (`BadgeTabList`).
 private struct PersonalizeStep: View {
+    @Environment(AppModel.self) private var model
     @State private var launchAtLogin = LoginItem.isEnabled
     /// The custom-tab sheet, when open — creating a new tab or editing one.
     @State private var editing: CustomTabEditor.Mode?
 
     var body: some View {
+        @Bindable var model = model
         WizardPage {
             StepHeader(title: "Make it yours",
                        subtitle: "A couple of defaults. Tweak everything later in Settings.")
@@ -427,6 +429,24 @@ private struct PersonalizeStep: View {
                     .toggleStyle(.switch)
                     .tint(.appAccent)
                     .onChange(of: launchAtLogin) { _, on in LoginItem.set(on) }
+            }
+            .cardSurface()
+
+            HStack(spacing: Layout.roomy) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Refresh automatically")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.appText)
+                    Text("How often MergeMole checks GitHub for changes.")
+                        .font(.caption)
+                        .foregroundStyle(.appTextSecondary)
+                }
+                Spacer(minLength: Layout.base)
+                Picker("", selection: $model.refreshInterval) {
+                    ForEach(RefreshInterval.allCases) { Text($0.label).tag($0) }
+                }
+                .labelsHidden()
+                .fixedSize()
             }
             .cardSurface()
 
