@@ -7,8 +7,8 @@
 
 MergeMole is a menu bar app that triages your pull requests with AI. It pulls every PR that needs your attention into one list and ranks each by priority and effort, with a one-line summary of what it does. It's free, and by default your code never leaves your Mac.
 
-<!-- VIDEO PLACEHOLDER: open this file in GitHub's web editor, drag MergeMole/Resources/demo.mp4 into it, and replace the line below with the generated user-attachments URL (it must sit on its own line to render as a player). -->
-https://github.com/user-attachments/assets/REPLACE-ME
+<img width="480" height="668" alt="demo-screenshot" src="https://github.com/user-attachments/assets/73cc06bc-539a-4678-b4a2-663d410f0d0a" />
+
 
 [![download](https://img.shields.io/github/v/release/Awhalen1999/merge-mole?label=download&color=brightgreen)](https://github.com/Awhalen1999/merge-mole/releases/latest)
 ![platform](https://img.shields.io/badge/platform-macOS-blue)
