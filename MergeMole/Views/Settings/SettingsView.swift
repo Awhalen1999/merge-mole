@@ -132,7 +132,6 @@ struct FieldLabel: View {
 
 private struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var confirmingReset = false
 
@@ -194,9 +193,10 @@ private struct GeneralSettings: View {
         }
         .onAppear { launchAtLogin = LoginItem.isEnabled }
         .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
-            // Close the window too — a reset app with Settings still open reads
-            // as half-done; the next launch starts at the onboarding wizard.
-            Button("Erase everything", role: .destructive) { model.resetAll(); dismiss() }
+            // Settings stays open on purpose: watching every control snap to
+            // defaults is the confirmation the reset worked, and the reconnect
+            // path is right here.
+            Button("Erase everything", role: .destructive) { model.resetAll() }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
@@ -228,7 +228,7 @@ private struct TabsSettings: View {
             }
 
             SettingsSection("Menu-bar count",
-                            subtitle: "Which groups the number beside the menu-bar icon totals. Counts each PR once across the groups you pick.",
+                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
                             padded: false) {
                 BadgeTabList()
             }

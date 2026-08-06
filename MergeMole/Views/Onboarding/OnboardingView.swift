@@ -285,7 +285,7 @@ private struct DemoPlaceholder: View {
 
 /// The panel's connect flow, restaged for the wizard: token in, verified with
 /// GitHub before it's saved (`model.connect`), then the step reads as connected.
-/// The footer's Skip for now / Continue reacts to `isGitHubConnected`.
+/// The footer's Not now / Continue reacts to `isGitHubConnected`.
 private struct ConnectStep: View {
     @Environment(AppModel.self) private var model
     @State private var token = ""
@@ -463,7 +463,7 @@ private struct PersonalizeStep: View {
 
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Menu-bar count",
-                              subtitle: "Which groups the number beside the menu-bar icon totals.")
+                              subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.")
                 VStack(spacing: 0) {
                     BadgeTabList()
                 }
@@ -562,9 +562,9 @@ private struct MenuBarMock: View {
             Spacer(minLength: Layout.generous)
             BrandMark(size: 17, tint: .appText)
                 .padding(.horizontal, Layout.snug)
-            .padding(.vertical, Layout.tight)
-            .background(Color.appFillSelected, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
-            .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
+                .padding(.vertical, Layout.tight)
+                .background(Color.appFillSelected, in: RoundedRectangle(cornerRadius: Layout.controlRadius))
+                .alignmentGuide(.menuBarMole) { $0[HorizontalAlignment.center] }
             Image(systemName: "battery.75percent")
             Image(systemName: "wifi")
             Image(systemName: "magnifyingglass")
