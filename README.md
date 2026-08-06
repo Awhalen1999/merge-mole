@@ -25,15 +25,28 @@ Download the latest release [here](https://github.com/Awhalen1999/merge-mole/rel
 
 You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMole walks you through creating one on first launch.
 
-## Features
+## Features/Roadmap
 
-- [x] Every PR waiting on you in one list: review requested, assigned, created, mentioned, and reviewed
+> [!NOTE]
+> MergeMole is currently in active development. Some features have not yet been implemented. Download the latest release [here](https://github.com/Awhalen1999/merge-mole/releases/latest) and see the roadmap below for upcoming features.
+
+- [x] Menu bar panel: every PR waiting on you in one list
+- [x] Built-in tabs: review requested, assigned, created, mentioned, and reviewed
 - [x] AI triage: priority and effort ratings, plus a one-line summary of each PR
-- [x] Custom tabs: turn any GitHub search into a tab of your own
+- [x] On-device AI with Apple's Foundation Models
+- [x] Bring-your-own model: OpenAI-compatible, Anthropic, or local (Ollama)
+- [x] Smart verdict caching: a PR only re-analyzes when it meaningfully changes
+- [x] Read/unread tracking with a live menu bar count
 - [x] Review state, CI checks, merge conflicts, and size at a glance
-- [x] Unread tracking: the menu bar count shows what's new and empties as you catch up
-- [x] PRs re-surface when something meaningful changes: new commits, CI flips, reviews
-- [x] Launch at login and automatic updates
+- [x] Automatic updates, with signed and notarized releases
+- [x] Panel appearance options: solid or transparent background, detailed or compact cards
+- [x] Custom tabs: turn any GitHub search into a tab of your own
+- [x] Configurable refresh, from every minute to manual
+- [x] Include or exclude PRs from archived repositories
+- [x] Launch at login
+- [x] First-run onboarding flow
+- [ ] Stacked PR support
+- [ ] Compact card updates
 
 ## AI options
 
