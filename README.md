@@ -1,23 +1,39 @@
 <div align="center">
+  <img src=".github/assets/app-icon.png" width="180" height="180" alt="MergeMole icon">
 
 # MergeMole
 
-**Your pull requests, triaged by AI, in your menu bar.**
-
-MergeMole reads the PRs that need your attention and ranks them by priority and effort. Each one gets a one-line AI summary of what it does and a quick look at its review status. It's free, and by default your code never leaves your Mac.
-
-[Download for macOS](https://github.com/Awhalen1999/merge-mole/releases/latest) · [mergemole.app](https://mergemole.app)
-
 </div>
 
----
+MergeMole is a menu bar app that triages your pull requests with AI. It pulls every PR that needs your attention into one list and ranks each by priority and effort, with a one-line summary of what it does. It's free, and by default your code never leaves your Mac.
+
+<!-- VIDEO PLACEHOLDER: open this file in GitHub's web editor, drag MergeMole/Resources/demo.mp4 into it, and replace the line below with the generated user-attachments URL (it must sit on its own line to render as a player). -->
+https://github.com/user-attachments/assets/REPLACE-ME
+
+[![download](https://img.shields.io/github/v/release/Awhalen1999/merge-mole?label=download&color=brightgreen)](https://github.com/Awhalen1999/merge-mole/releases/latest)
+![platform](https://img.shields.io/badge/platform-macOS-blue)
+![requirements](https://img.shields.io/badge/requirements-macOS%2015%2B-fa4e49)
+[![website](https://img.shields.io/badge/Website-mergemole.app-4a90d9)](https://mergemole.app)
+[![license](https://img.shields.io/github/license/Awhalen1999/merge-mole?color=orange)](LICENSE)
+
+> [!NOTE]
+> On-device AI triage requires macOS 26 (Tahoe) on an Apple Silicon Mac with Apple Intelligence. On macOS 15, bring your own model or use MergeMole as a fast, plain PR organizer.
+
+## Install
+
+Download the latest release [here](https://github.com/Awhalen1999/merge-mole/releases/latest) or from [mergemole.app](https://mergemole.app), open the DMG, and move MergeMole into your `Applications` folder.
+
+You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMole walks you through creating one on first launch.
 
 ## Features
 
-- Pulls every PR waiting on you into one list: review-requested, assigned, authored, mentioned, and reviewed.
-- Ranks them by priority and effort, each with a one-line AI summary.
-- Shows review state, checks, and merge status at a glance.
-- Lives in the menu bar with a live count. No dock icon, no window.
+- [x] Every PR waiting on you in one list: review requested, assigned, created, mentioned, and reviewed
+- [x] AI triage: priority and effort ratings, plus a one-line summary of each PR
+- [x] Custom tabs: turn any GitHub search into a tab of your own
+- [x] Review state, CI checks, merge conflicts, and size at a glance
+- [x] Unread tracking: the menu bar count shows what's new and empties as you catch up
+- [x] PRs re-surface when something meaningful changes: new commits, CI flips, reviews
+- [x] Launch at login and automatic updates
 
 ## AI options
 
@@ -31,21 +47,9 @@ PR diffs are never sent to any AI. Triage runs on metadata only.
 
 Your GitHub token and any AI keys stay in the macOS Keychain. No account, no telemetry, no backend. The app talks only to GitHub and the AI endpoint you choose.
 
-## Requirements
+## Why does on-device AI need macOS 26?
 
-- macOS 15 (Sequoia) or later
-- A GitHub personal access token (`repo`, `read:org`)
-- On-device AI needs macOS 26 (Tahoe) on an Apple Silicon Mac with Apple Intelligence. On older versions, bring your own provider or turn triage off.
-
-## Building
-
-```sh
-git clone https://github.com/Awhalen1999/merge-mole.git
-cd merge-mole
-open MergeMole.xcodeproj
-```
-
-The only dependency is Sparkle, resolved via Swift Package Manager.
+MergeMole's on-device triage is built on Apple's Foundation Models framework, which ships with macOS 26 and needs an Apple Silicon Mac with Apple Intelligence enabled. Everything else in the app works on macOS 15, where you can pair it with your own model or run triage off.
 
 ## Contributing
 
@@ -53,4 +57,4 @@ Issues are welcome. ❤️
 
 ## License
 
-[MIT](LICENSE) © 2026 Alex Whalen
+MergeMole is available under the [MIT license](LICENSE).
