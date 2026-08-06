@@ -193,6 +193,9 @@ private struct GeneralSettings: View {
         }
         .onAppear { launchAtLogin = LoginItem.isEnabled }
         .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
+            // Settings stays open on purpose: watching every control snap to
+            // defaults is the confirmation the reset worked, and the reconnect
+            // path is right here.
             Button("Erase everything", role: .destructive) { model.resetAll() }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -225,50 +228,14 @@ private struct TabsSettings: View {
             }
 
             SettingsSection("Menu-bar count",
-                            subtitle: "Which groups the number beside the menu-bar icon totals. Counts each PR once across the groups you pick.",
+                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
                             padded: false) {
-                let counts = model.tabCounts   // one pass, not one per row
-                ForEach(Array(model.orderedTabs.enumerated()), id: \.element) { index, tab in
-                    if index > 0 { Hairline() }
-                    TabSettingRow(title: model.title(for: tab),
-                                  dotColor: tab.dotColor,
-                                  subtitle: tab.countSubtitle(counts[tab] ?? 0)) {
-                        Toggle("", isOn: badgeBinding(for: tab))
-                            .labelsHidden()
-                            .toggleStyle(.checkbox)
-                    }
-                }
+                BadgeTabList()
             }
         }
         .sheet(item: $editing) { mode in
             CustomTabEditor(mode: mode)
         }
-    }
-
-    private func badgeBinding(for tab: PRTab) -> Binding<Bool> {
-        Binding(get: { model.badgeTabs.contains(tab) },
-                set: { model.setBadge(tab, on: $0) })
-    }
-}
-
-/// The "add a custom tab" affordance — a full-width row at the foot of the tabs
-/// list, where macOS puts list-editing "+" controls. Quiet on purpose: no fill,
-/// the label just brightens on hover like the other inline affordances.
-private struct NewTabRow: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Layout.roomy) {
-                Image(systemName: "plus.circle.fill")
-                Text("New Tab…").font(.callout.weight(.medium))
-                Spacer(minLength: 0)
-            }
-            .tabSettingRowPadding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(QuietButtonStyle())
-        .help("Create a tab from a GitHub search")
     }
 }
 
