@@ -45,6 +45,7 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 - [x] Include or exclude PRs from archived repositories
 - [x] Launch at login
 - [x] First-run onboarding flow
+- [ ] Archived PR indicator
 - [ ] Stacked PR support
 - [ ] Compact card updates
 - [ ] Install via Homebrew, alongside the DMG download
