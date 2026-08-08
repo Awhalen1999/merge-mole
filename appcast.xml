@@ -8,6 +8,23 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.2.0</title>
+            <pubDate>Sat, 08 Aug 2026 15:07:02 +0000</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.2.0</p>
+<ul>
+<li>First-run setup: new installs get a short guided walkthrough. Connect GitHub, pick your AI reviewer, and set up your tabs and menu bar badge, with a live demo of the app on the first screen. Skip any time and finish later in Settings.</li>
+<li>Already using MergeMole? Nothing changes. Existing installs with a saved token skip setup entirely.</li>
+<li>Starting fresh: Reset from Settings now brings the setup walkthrough back on next launch.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.2.0/MergeMole.dmg" sparkle:edSignature="xEPLV7uCFCCvJ7icTUTL+m9pVE8ln+lLpa8qjSVB8Z27WxGwvdzC9Fz5Fdnz4qMZ23ZSrU20z1kz3xUluV4cBA==" length="7841516" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.1.2</title>
             <pubDate>Thu, 30 Jul 2026 22:40:04 +0000</pubDate>
             <sparkle:version>12</sparkle:version>

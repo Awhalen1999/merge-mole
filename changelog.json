@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.2.0",
+    "build": "13",
+    "date": "2026-08-08",
+    "notes": "MergeMole 1.2.0\n\n- First-run setup: new installs get a short guided walkthrough. Connect GitHub, pick your AI reviewer, and set up your tabs and menu bar badge, with a live demo of the app on the first screen. Skip any time and finish later in Settings.\n- Already using MergeMole? Nothing changes. Existing installs with a saved token skip setup entirely.\n- Starting fresh: Reset from Settings now brings the setup walkthrough back on next launch."
+  },
+  {
     "version": "1.1.2",
     "build": "12",
     "date": "2026-07-30",
