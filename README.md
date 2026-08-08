@@ -39,15 +39,15 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 - [x] Read/unread tracking with a live menu bar count
 - [x] Review state, CI checks, merge conflicts, and size at a glance
 - [x] Automatic updates, with signed and notarized releases
-- [x] Panel appearance options: solid or transparent background, detailed or compact cards
+- [x] Panel appearance options: solid or transparent background, card layout and detail controls
 - [x] Custom tabs: turn any GitHub search into a tab of your own
 - [x] Configurable refresh, from every minute to manual
 - [x] Include or exclude PRs from archived repositories
 - [x] Launch at login
 - [x] First-run onboarding flow
-- [ ] Archived PR indicator
+- [x] Archived PR indicator
+- [x] Compact card updates
 - [ ] Stacked PR support
-- [ ] Compact card updates
 - [ ] Install via Homebrew, alongside the DMG download
 - [ ] Read vs unread customization options
 
