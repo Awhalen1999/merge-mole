@@ -158,8 +158,8 @@ enum CardLayout: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// How much each PR card shows (General → Appearance → Detail). Detailed is
-/// everything; Minimal strips the card to title, repo #number, and the AI
-/// verdict — no avatar, branch, stats, or labels.
+/// everything; Minimal strips the card to title, repo #number, branches, and
+/// the AI verdict — no avatar, size chip, stats, or labels.
 enum CardDetail: String, CaseIterable, Identifiable, Sendable {
     case detailed, minimal   // order drives the Settings segmented control
 
