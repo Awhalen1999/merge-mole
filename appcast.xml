@@ -8,6 +8,24 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.3.0</title>
+            <pubDate>Sat, 08 Aug 2026 18:40:53 +0000</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.3.0</p>
+<ul>
+<li>Card appearance is now two settings: Layout (Standard or Compact) and Detail (Detailed or Minimal).</li>
+<li>The new Minimal option strips cards down to the title, repo, branches, and the AI verdict.</li>
+<li>PRs from archived repositories now show a small archive icon next to the repo name.</li>
+<li>Your existing card style choice carries over automatically.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.3.0/MergeMole.dmg" sparkle:edSignature="9zn8Egp/kMpz4vGYIbpMGoj+D9mW3oJmyGiN7tDaGRH+MuYLqRyIw4VPg1d4zkUOh/IDD0rm1fkLITA0EzKpAw==" length="7849884" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.2.0</title>
             <pubDate>Sat, 08 Aug 2026 15:07:02 +0000</pubDate>
             <sparkle:version>13</sparkle:version>
