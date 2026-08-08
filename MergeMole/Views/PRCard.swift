@@ -87,6 +87,9 @@ struct PRCard: View {
                 PriorityBadge(priority: priority)
             }
             SizeBadge(bucket: pr.sizeBucket)
+            if let stack = pr.stack, let entry = pr.stackEntry {
+                StackBadge(position: entry.position, size: stack.size)
+            }
         }
     }
 
