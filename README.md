@@ -44,7 +44,7 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 - [x] Configurable refresh, from every minute to manual
 - [x] Include or exclude PRs from archived repositories
 - [x] Launch at login
-- [ ] First-run onboarding flow
+- [x] First-run onboarding flow
 - [ ] Stacked PR support
 - [ ] Compact card updates
 
