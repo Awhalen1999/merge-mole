@@ -47,6 +47,8 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 - [x] First-run onboarding flow
 - [ ] Stacked PR support
 - [ ] Compact card updates
+- [ ] Install via Homebrew, alongside the DMG download
+- [ ] Read vs unread customization options
 
 ## AI options
 
