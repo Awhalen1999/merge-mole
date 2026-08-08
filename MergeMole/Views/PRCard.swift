@@ -144,10 +144,14 @@ struct PRCard: View {
     }
 
     private var repoLine: some View {
-        HStack(spacing: Layout.snug) {
+        HStack(alignment: .firstTextBaseline, spacing: Layout.snug) {
             Text("\(pr.repository) #\(pr.number)")
                 .lineLimit(1)
                 .truncationMode(.middle)
+            if pr.isArchived {
+                Image(systemName: "archivebox")
+                    .help("Repository is archived")
+            }
             Spacer(minLength: Layout.tight)
             Text(pr.updatedAt.relativeShort)
                 .fixedSize()
