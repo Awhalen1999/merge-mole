@@ -148,9 +148,18 @@ private struct GeneralSettings: View {
                     .fixedSize()
                 }
                 Hairline()
-                SettingsRow(label: "Cards") {
-                    Picker("", selection: $model.cardDensity) {
-                        ForEach(CardDensity.allCases) { Text($0.label).tag($0) }
+                SettingsRow(label: "Layout") {
+                    Picker("", selection: $model.cardLayout) {
+                        ForEach(CardLayout.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                Hairline()
+                SettingsRow(label: "Detail") {
+                    Picker("", selection: $model.cardDetail) {
+                        ForEach(CardDetail.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()

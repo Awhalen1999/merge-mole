@@ -38,7 +38,8 @@ struct PRCard: View {
             }
     }
 
-    private var isCompact: Bool { model.cardDensity == .compact }
+    private var isCompact: Bool { model.cardLayout == .compact }
+    private var isMinimal: Bool { model.cardDetail == .minimal }
 
     private var row: some View {
         HStack(spacing: 0) {
@@ -60,8 +61,10 @@ struct PRCard: View {
         .contentShape(Rectangle())
     }
 
-    /// Compact is the same card with the same rows, tightened: the avatar goes,
-    /// and the paddings and the title/summary type sizes each step down a notch.
+    /// Two independent axes. Layout (Standard/Compact) keeps the same rows and
+    /// tightens them: paddings, type sizes, and the avatar each step down a notch.
+    /// Detail (Detailed/Minimal) strips rows instead: Minimal is title, repo
+    /// #number, branches, and the verdict — no avatar, size chip, stats, or labels.
     private var content: some View {
         VStack(alignment: .leading, spacing: isCompact ? Layout.snug : Layout.base) {
             badges
@@ -69,32 +72,51 @@ struct PRCard: View {
             repoLine
             insight       // summary + rationale / loading / failed — gone when AI off
             branchLine
-            stats
-            labels        // only when labels exist
+            if !isMinimal {
+                stats
+                labels    // only when labels exist
+            }
         }
     }
 
     // MARK: Rows
 
     /// Leading unread dot (when unseen) · priority (only when it wants attention) ·
-    /// the always-on size glyph. One `snug` gap throughout so the row reads evenly.
+    /// the size glyph. On Minimal the unread dot moves inline with the title and
+    /// the size glyph is cut, so this row only appears for a high/urgent priority
+    /// badge — otherwise it vanishes rather than carrying an empty row's spacing.
+    @ViewBuilder
     private var badges: some View {
-        HStack(spacing: Layout.snug) {
-            if isUnread {
-                Circle().fill(Color.appAccent).frame(width: 7, height: 7)
+        if !isMinimal || wantsPriorityBadge {
+            HStack(spacing: Layout.snug) {
+                if isUnread && !isMinimal {
+                    UnreadDot()
+                }
+                if let priority = readyVerdict?.priority, priority >= .high {
+                    PriorityBadge(priority: priority)
+                }
+                if !isMinimal {
+                    SizeBadge(bucket: pr.sizeBucket)
+                }
             }
-            if let priority = readyVerdict?.priority, priority >= .high {
-                PriorityBadge(priority: priority)
-            }
-            SizeBadge(bucket: pr.sizeBucket)
         }
     }
 
+    private var wantsPriorityBadge: Bool {
+        readyVerdict.map { $0.priority >= .high } ?? false
+    }
+
+    /// Minimal swaps the avatar for an inline unread dot and puts the +/− line
+    /// counts on the title's trailing edge (they lose their stats row there).
+    /// Baseline alignment keeps the dot and the counts on the title's first line
+    /// when it wraps.
     private var title: some View {
-        HStack(alignment: .top, spacing: Layout.base) {
-            if !isCompact {
-                Avatar(url: pr.authorAvatarURL)
+        HStack(alignment: isMinimal ? .firstTextBaseline : .top, spacing: Layout.base) {
+            if !isMinimal {
+                Avatar(url: pr.authorAvatarURL, size: isCompact ? 18 : 22)
                     .help(pr.author)
+            } else if isUnread {
+                UnreadDot()
             }
             Text(pr.title)
                 .font(isCompact ? .callout.weight(.semibold) : .headline)
@@ -102,7 +124,18 @@ struct PRCard: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
+            if isMinimal {
+                lineCounts
+            }
         }
+    }
+
+    private var lineCounts: some View {
+        HStack(spacing: Layout.tight) {
+            Text("+\(pr.additions)").foregroundStyle(Color.appGreen)
+            Text("−\(pr.deletions)").foregroundStyle(Color.appRed)
+        }
+        .font(.caption.monospacedDigit())
     }
 
     private var repoLine: some View {
@@ -140,13 +173,15 @@ struct PRCard: View {
                     .font(isCompact ? .subheadline : .callout)
                     .foregroundStyle(.appText)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(alignment: .firstTextBaseline, spacing: Layout.tight) {
-                    Image(systemName: "sparkles")
-                    Text(v.rationale)
-                        .fixedSize(horizontal: false, vertical: true)
+                if !isMinimal {
+                    HStack(alignment: .firstTextBaseline, spacing: Layout.tight) {
+                        Image(systemName: "sparkles")
+                        Text(v.rationale)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.appTextSecondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.appTextSecondary)
             }
 
         case .failed(let reason):
@@ -174,11 +209,7 @@ struct PRCard: View {
     /// always-on size signal — they stay regardless of AI.
     private var stats: some View {
         FlowLayout(spacing: Layout.base) {
-            HStack(spacing: Layout.tight) {
-                Text("+\(pr.additions)").foregroundStyle(Color.appGreen)
-                Text("−\(pr.deletions)").foregroundStyle(Color.appRed)
-            }
-            .font(.caption.monospacedDigit())
+            lineCounts
 
             if pr.commitCount > 0 {
                 Text("\(pr.commitCount) commits")
@@ -229,6 +260,14 @@ struct PRCard: View {
         case .high:   return .appAmber
         default:      return nil
         }
+    }
+}
+
+/// The 7pt accent dot marking an unseen PR — one shape whether it leads the badge
+/// row (Detailed) or sits inline before the title (Minimal).
+private struct UnreadDot: View {
+    var body: some View {
+        Circle().fill(Color.appAccent).frame(width: 7, height: 7)
     }
 }
 

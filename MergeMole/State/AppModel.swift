@@ -142,17 +142,33 @@ enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// How dense each PR card renders (General → Appearance). Both show the same
-/// data; Compact drops the avatar and steps down the paddings and type sizes.
-enum CardDensity: String, CaseIterable, Identifiable, Sendable {
-    case detailed, compact   // order drives the Settings segmented control
+/// How roomy each PR card renders (General → Appearance → Layout). Both show the
+/// same data; Compact steps the paddings, type sizes, and avatar down a notch.
+enum CardLayout: String, CaseIterable, Identifiable, Sendable {
+    case standard, compact   // order drives the Settings segmented control
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .standard: return "Standard"
+        case .compact:  return "Compact"
+        }
+    }
+}
+
+/// How much each PR card shows (General → Appearance → Detail). Detailed is
+/// everything; Minimal strips the card to title, repo #number, and the AI
+/// verdict — no avatar, branch, stats, or labels.
+enum CardDetail: String, CaseIterable, Identifiable, Sendable {
+    case detailed, minimal   // order drives the Settings segmented control
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .detailed: return "Detailed"
-        case .compact:  return "Compact"
+        case .minimal:  return "Minimal"
         }
     }
 }
@@ -576,12 +592,21 @@ final class AppModel {
         }
     }
 
-    /// Detailed vs compact PR cards. Persisted; cards read it live, so switching
+    /// Standard vs compact PR cards. Persisted; cards read it live, so switching
     /// in Settings reflows the open panel immediately.
-    var cardDensity: CardDensity {
+    var cardLayout: CardLayout {
         didSet {
-            guard cardDensity != oldValue else { return }
-            UserDefaults.standard.set(cardDensity.rawValue, forKey: Key.cardDensity)
+            guard cardLayout != oldValue else { return }
+            UserDefaults.standard.set(cardLayout.rawValue, forKey: Key.cardLayout)
+        }
+    }
+
+    /// Detailed vs minimal PR cards. Persisted; cards read it live, so switching
+    /// in Settings reflows the open panel immediately.
+    var cardDetail: CardDetail {
+        didSet {
+            guard cardDetail != oldValue else { return }
+            UserDefaults.standard.set(cardDetail.rawValue, forKey: Key.cardDetail)
         }
     }
     
@@ -620,7 +645,12 @@ final class AppModel {
         static let byoProvider = "byoProvider"
         static let refreshInterval = "refreshInterval"
         static let panelBackground = "panelBackground"
-        static let cardDensity = "cardDensity"
+        // Layout keeps the pre-1.3 "cardDensity" storage key so an existing
+        // Compact choice survives the rename; the old "detailed" raw value fails
+        // to parse as CardLayout and falls through to .standard, which is the
+        // same look it named.
+        static let cardLayout = "cardDensity"
+        static let cardDetail = "cardDetail"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
@@ -651,7 +681,8 @@ final class AppModel {
         self.byoProvider = BYOProvider(rawValue: defaults.string(forKey: Key.byoProvider) ?? "") ?? .openAI
         self.refreshInterval = RefreshInterval(rawValue: defaults.string(forKey: Key.refreshInterval) ?? "") ?? .every15
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .solid
-        self.cardDensity = CardDensity(rawValue: defaults.string(forKey: Key.cardDensity) ?? "") ?? .detailed
+        self.cardLayout = CardLayout(rawValue: defaults.string(forKey: Key.cardLayout) ?? "") ?? .standard
+        self.cardDetail = CardDetail(rawValue: defaults.string(forKey: Key.cardDetail) ?? "") ?? .detailed
         self.includeArchivedRepos = defaults.object(forKey: Key.includeArchivedRepos) as? Bool ?? true
         let hasToken = secrets.string(for: .githubToken) != nil
         self.isGitHubConnected = hasToken
@@ -814,7 +845,7 @@ final class AppModel {
     /// Storage map (everything the app writes; this clears all of it):
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
-    ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardDensity,
+    ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardLayout, cardDetail,
     ///     tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
     ///     the AI verdict cache.
@@ -831,7 +862,8 @@ final class AppModel {
         modelDiscovery = .idle
         refreshInterval = .every15
         panelBackground = .solid
-        cardDensity = .detailed
+        cardLayout = .standard
+        cardDetail = .detailed
         includeArchivedRepos = true
         customTabs = []
         tabOrder = PRTab.builtin
