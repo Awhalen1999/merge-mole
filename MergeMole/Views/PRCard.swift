@@ -64,7 +64,9 @@ struct PRCard: View {
     /// Two independent axes. Layout (Standard/Compact) keeps the same rows and
     /// tightens them: paddings, type sizes, and the avatar each step down a notch.
     /// Detail (Detailed/Minimal) strips rows instead: Minimal is title, repo
-    /// #number, branches, and the verdict — no avatar, size chip, stats, or labels.
+    /// #number, branches, and the full verdict — no avatar, size chip, stats, or
+    /// labels. The verdict never slims down: with AI on you get summary and
+    /// rationale in both modes.
     private var content: some View {
         VStack(alignment: .leading, spacing: isCompact ? Layout.snug : Layout.base) {
             badges
@@ -87,12 +89,12 @@ struct PRCard: View {
     /// badge — otherwise it vanishes rather than carrying an empty row's spacing.
     @ViewBuilder
     private var badges: some View {
-        if !isMinimal || wantsPriorityBadge {
+        if !isMinimal || attentionPriority != nil {
             HStack(spacing: Layout.snug) {
                 if isUnread && !isMinimal {
                     UnreadDot()
                 }
-                if let priority = readyVerdict?.priority, priority >= .high {
+                if let priority = attentionPriority {
                     PriorityBadge(priority: priority)
                 }
                 if !isMinimal {
@@ -102,8 +104,11 @@ struct PRCard: View {
         }
     }
 
-    private var wantsPriorityBadge: Bool {
-        readyVerdict.map { $0.priority >= .high } ?? false
+    /// The priority worth flagging — high/urgent only, nil otherwise. The one
+    /// threshold the badge row reads, both to show the chip and to decide whether
+    /// Minimal renders the row at all.
+    private var attentionPriority: Priority? {
+        readyVerdict.flatMap { $0.priority >= .high ? $0.priority : nil }
     }
 
     /// Minimal swaps the avatar for an inline unread dot and puts the +/− line
@@ -173,15 +178,13 @@ struct PRCard: View {
                     .font(isCompact ? .subheadline : .callout)
                     .foregroundStyle(.appText)
                     .fixedSize(horizontal: false, vertical: true)
-                if !isMinimal {
-                    HStack(alignment: .firstTextBaseline, spacing: Layout.tight) {
-                        Image(systemName: "sparkles")
-                        Text(v.rationale)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.appTextSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: Layout.tight) {
+                    Image(systemName: "sparkles")
+                    Text(v.rationale)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .font(.caption)
+                .foregroundStyle(.appTextSecondary)
             }
 
         case .failed(let reason):
@@ -283,4 +286,20 @@ private struct UnreadDot: View {
     .frame(width: 400)
     .background(Color.appBackground)
     .environment(AppModel(secrets: InMemorySecretStore()))
+}
+
+#Preview("Minimal") {
+    let model = AppModel(secrets: InMemorySecretStore())
+    model.cardDetail = .minimal
+    let pr = SampleData.pullRequests[0]
+    return VStack(spacing: 0) {
+        PRCard(pr: pr, verdict: .ready(SampleData.verdict(for: pr)))
+        Hairline()
+        PRCard(pr: SampleData.pullRequests[1], verdict: .loading)
+        Hairline()
+        PRCard(pr: SampleData.pullRequests[2], verdict: .off)
+    }
+    .frame(width: 400)
+    .background(Color.appBackground)
+    .environment(model)
 }
