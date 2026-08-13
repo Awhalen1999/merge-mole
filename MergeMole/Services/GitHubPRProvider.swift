@@ -254,6 +254,10 @@ enum GitHubAPI {
             || node.authorAssociation == "FIRST_TIMER"
         pr.isFromFork = node.isCrossRepository ?? false
         pr.isArchived = node.repository?.isArchived ?? false
+        pr.recentCommits = (node.recentCommits?.nodes ?? []).compactMap { node in
+            guard let oid = node.commit.oid else { return nil }
+            return PRCommit(oid: oid, isMerge: (node.commit.parents?.totalCount ?? 1) > 1)
+        }
         pr.requestedReviewers = (node.reviewRequests?.nodes ?? []).compactMap { node in
             guard let login = node.requestedReviewer?.login else { return nil }   // users only; skip teams/bots
             return PRReviewer(login: login, avatarURL: node.requestedReviewer?.avatarUrl.flatMap(URL.init(string:)))
@@ -340,6 +344,9 @@ enum GitHubAPI {
         totalCount
         nodes { commit { statusCheckRollup { state } } }
       }
+      recentCommits: commits(last: 5) {
+        nodes { commit { oid parents(first: 1) { totalCount } } }
+      }
     }
     """
     }
@@ -417,6 +424,7 @@ private struct PRNode: Decodable {
     let reviewDecision: String?
     let labels: Labels?
     let commits: Commits?
+    let recentCommits: RecentCommits?
 
     struct Repository: Decodable {
         let nameWithOwner: String
@@ -446,5 +454,14 @@ private struct PRNode: Decodable {
         struct CommitNode: Decodable { let commit: Commit }
         struct Commit: Decodable { let statusCheckRollup: Rollup? }
         struct Rollup: Decodable { let state: String }
+    }
+    struct RecentCommits: Decodable {
+        let nodes: [CommitNode]
+        struct CommitNode: Decodable { let commit: Commit }
+        struct Commit: Decodable {
+            let oid: String?
+            let parents: Parents?
+            struct Parents: Decodable { let totalCount: Int? }
+        }
     }
 }

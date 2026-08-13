@@ -36,6 +36,11 @@ struct PullRequest: Identifiable, Hashable, Sendable {
     var isArchived: Bool = false
     var requestedReviewers: [PRReviewer] = []  // whose review is still pending
 
+    /// The newest few commits (oldest → newest, head last), just identity + shape.
+    /// Lets the unread logic tell a real push from base landing in the branch: a
+    /// merge-from-base is a multi-parent commit (see `AppModel.isUnread`).
+    var recentCommits: [PRCommit] = []
+
     var labels: [String]    // e.g. "security", "bug" — high-signal for priority
     var url: URL
     var createdAt: Date     // when the PR was opened — lets us read true age, not just "updated"
@@ -88,6 +93,13 @@ struct PRReviewer: Hashable, Sendable, Identifiable {
     let login: String
     let avatarURL: URL?
     var id: String { login }
+}
+
+/// One commit in a PR's recent history — just what the unread logic needs to
+/// walk the head's last few moves.
+struct PRCommit: Hashable, Sendable {
+    let oid: String
+    let isMerge: Bool   // 2+ parents — base (or another branch) merged in, not authored work
 }
 
 /// Why a PR involves you — the search bucket GitHub returned it in. Tabs are a

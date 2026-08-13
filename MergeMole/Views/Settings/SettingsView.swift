@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// The Settings window (⌘,). Four tabs — General / Tabs / Providers / About — in the
-/// native macOS preferences `TabView`, so the chrome (centered title + toolbar
-/// tabs) is the system's. Content is Flexoki-skinned section cards on a *solid*
-/// window surface — glass is for the transient panel, not a settings window. Form
-/// controls stay native (segmented, pop-ups, switches, checkboxes) for the clean
-/// native feel; the brand blue is the accent only, never a fill.
+/// The Settings window (⌘,). Five tabs — General / Tabs / Unread / Providers /
+/// About — in the native macOS preferences `TabView`, so the chrome (centered
+/// title + toolbar tabs) is the system's. Content is Flexoki-skinned section
+/// cards on a *solid* window surface — glass is for the transient panel, not a
+/// settings window. Form controls stay native (segmented, pop-ups, switches,
+/// checkboxes) for the clean native feel; the brand blue is the accent only,
+/// never a fill.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -18,6 +19,9 @@ struct SettingsView: View {
             TabsSettings()
                 .tabItem { Label("Tabs", systemImage: "rectangle.3.group") }
                 .tag(SettingsTab.tabs)
+            UnreadSettings()
+                .tabItem { Label("Unread", systemImage: "app.badge") }
+                .tag(SettingsTab.unread)
             ProvidersSettings()
                 .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
                 .tag(SettingsTab.providers)
@@ -183,9 +187,7 @@ private struct GeneralSettings: View {
                     .labelsHidden()
                     .fixedSize()
                 }
-            }
-            
-            SettingsSection("Archived PRs", padded: false) {
+                Hairline()
                 SettingsRow(label: "Include PRs for archived repositories") {
                     Toggle("", isOn: $model.includeArchivedRepos)
                         .labelsHidden()
@@ -211,16 +213,98 @@ private struct GeneralSettings: View {
             Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
         }
     }
+}
 
+// MARK: - Unread
+
+/// The unread system, top to bottom: what flags a PR (the mode), when a read PR
+/// flags again (the activity signals), and where the count surfaces (which groups
+/// feed the menu-bar badge). One tab because it's one mental model — "why is the
+/// menu bar showing 3?" should have a single answer screen.
+private struct UnreadSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        SettingsScaffold {
+            SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
+                SettingsRow(label: "Flag") {
+                    Picker("", selection: $model.unreadMode) {
+                        ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                // The activity signals define the right segment; the card grows to
+                // show them and collapses back to the mode row for New-only
+                // (the checkbox config is kept either way).
+                if model.unreadMode == .activity {
+                    Group {
+                        Hairline()
+                        UnreadSignalRow(signal: .commits, isOn: signalBinding(.commits))
+                        UnreadSignalRow(signal: .baseBranchMerges, isOn: signalBinding(.baseBranchMerges), indented: true)
+                            .disabled(!model.unreadSignals.contains(.commits))
+                        Hairline()
+                        UnreadSignalRow(signal: .prose, isOn: signalBinding(.prose))
+                        Hairline()
+                        UnreadSignalRow(signal: .review, isOn: signalBinding(.review))
+                        Hairline()
+                        UnreadSignalRow(signal: .status, isOn: signalBinding(.status))
+                        Hairline()
+                        UnreadSignalRow(signal: .labels, isOn: signalBinding(.labels))
+                        Hairline()
+                        UnreadSignalRow(signal: .comments, isOn: signalBinding(.comments))
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
+
+            SettingsSection("Menu-bar count",
+                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
+                            padded: false) {
+                BadgeTabList()
+            }
+        }
+    }
+
+    /// A checkbox for one unread signal, writing through to the model's set.
+    private func signalBinding(_ signal: UnreadSignal) -> Binding<Bool> {
+        Binding(
+            get: { model.unreadSignals.contains(signal) },
+            set: { on in
+                if on { model.unreadSignals.insert(signal) }
+                else { model.unreadSignals.remove(signal) }
+            }
+        )
+    }
+}
+
+/// One checkbox row in Settings → Unread. The base-branch case renders indented
+/// beneath "New commits are pushed" — it refines that signal (which head moves
+/// count) rather than standing alone, and disables with it.
+private struct UnreadSignalRow: View {
+    let signal: UnreadSignal
+    @Binding var isOn: Bool
+    var indented = false
+
+    var body: some View {
+        Toggle(signal.label, isOn: $isOn)
+            .toggleStyle(.checkbox)
+            .tint(.appAccent)
+            .padding(.leading, Layout.roomy + (indented ? Layout.generous : 0))
+            .padding(.trailing, Layout.roomy)
+            .padding(.vertical, Layout.base)
+    }
 }
 
 // MARK: - Tabs
 
-/// Everything about the panel's tabs in one place: which tabs show and in what order,
-/// which of those groups feed the menu-bar badge count, and the user's own custom
-/// tabs — created and edited in a sheet, then living in the same list as the
-/// built-ins. Both lists are built from `TabSettingRow`, so they read as one
-/// consistent surface.
+/// The panel's tab structure: which tabs show and in what order, plus the user's
+/// own custom tabs — created and edited in a sheet, then living in the same list
+/// as the built-ins. (Which groups feed the menu-bar count lives on the Unread
+/// tab, with the rest of the unread system.)
 private struct TabsSettings: View {
     @Environment(AppModel.self) private var model
     /// The custom-tab sheet, when open — creating a new tab or editing an existing one.
@@ -234,12 +318,6 @@ private struct TabsSettings: View {
                 TabReorderList { editing = .edit($0) }
                 Hairline()
                 NewTabRow { editing = .create }
-            }
-
-            SettingsSection("Menu-bar count",
-                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
-                            padded: false) {
-                BadgeTabList()
             }
         }
         .sheet(item: $editing) { mode in
@@ -348,15 +426,22 @@ private struct AITriageSection: View {
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
                     // On-device shows why it can't run inside its own card;
-                    // "bring your own" reveals its endpoint form just below.
-                    RadioCard(title: mode.cardTitle,
-                              detail: mode.detail,
-                              warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
-                              selected: model.aiMode == mode) {
-                        model.aiMode = mode
-                    }
-                    if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
-                        CustomModelForm().cardSurface()
+                    // "bring your own" grows its card to hold the endpoint form.
+                    if mode == .bringYourOwn {
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        } expansion: {
+                            CustomModelForm()
+                        }
+                    } else {
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        }
                     }
                 }
             }

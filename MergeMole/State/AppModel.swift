@@ -176,7 +176,7 @@ enum CardDetail: String, CaseIterable, Identifiable, Sendable {
 /// The Settings window's tabs. Shared so the panel's ⋮ menu can deep-link to one
 /// (e.g. "About MergeMole" opens straight to About) instead of a separate window.
 enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
-    case general, tabs, providers, about
+    case general, tabs, unread, providers, about
     var id: String { rawValue }
 }
 
@@ -361,10 +361,11 @@ final class AppModel {
         includeArchivedRepos ? pullRequests : pullRequests.filter { !$0.isArchived }
     }
     private(set) var verdicts: [PullRequest.ID: VerdictState] = [:]
-    /// Read/unread state: PR id → the content signature when last marked read. The
-    /// observed in-memory map (the disk copy lives in `readStore`). A PR is unread
-    /// when its entry is missing or no longer matches its current signature.
-    private(set) var readSignatures: [String: String] = [:]
+    /// Read/unread state: PR id → the per-signal `ReadSignature` components when
+    /// last marked read. The observed in-memory map (the disk copy lives in
+    /// `readStore`). A PR is unread when its entry is missing or any *enabled*
+    /// signal's component no longer matches — see `isUnread`.
+    private(set) var readComponents: [String: [String: String]] = [:]
     private(set) var isLoading = false
     private(set) var loadError: String?
     /// When the PR list last loaded successfully — shown in the error state so a
@@ -609,6 +610,27 @@ final class AppModel {
             UserDefaults.standard.set(cardDetail.rawValue, forKey: Key.cardDetail)
         }
     }
+
+    /// What the unread dot means (Settings → Unread): flag only brand-new PRs, or
+    /// re-flag on activity. Persisted; a pure display choice, so switching is
+    /// instant and lossless — read records keep being snapshotted in both modes.
+    var unreadMode: UnreadMode {
+        didSet {
+            guard unreadMode != oldValue else { return }
+            UserDefaults.standard.set(unreadMode.rawValue, forKey: Key.unreadMode)
+        }
+    }
+
+    /// Which kinds of PR activity mark a read PR unread again (Settings → Unread,
+    /// in `.activity` mode). Persisted; only changes which stored components
+    /// `isUnread` *compares* — the components themselves are always all computed
+    /// and snapshotted — so toggling a signal never mass-flips the list.
+    var unreadSignals: Set<UnreadSignal> {
+        didSet {
+            guard unreadSignals != oldValue else { return }
+            UserDefaults.standard.set(unreadSignals.map(\.rawValue).sorted(), forKey: Key.unreadSignals)
+        }
+    }
     
     /// Whether PRs from archived repos show in the panel. A *display* filter — the
     /// archived PRs still live in `pullRequests`; this only gates what's surfaced, so
@@ -651,6 +673,8 @@ final class AppModel {
         // same look it named.
         static let cardLayout = "cardDensity"
         static let cardDetail = "cardDetail"
+        static let unreadMode = "unreadMode"
+        static let unreadSignals = "unreadSignals"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
@@ -683,10 +707,16 @@ final class AppModel {
         self.panelBackground = PanelBackground(rawValue: defaults.string(forKey: Key.panelBackground) ?? "") ?? .solid
         self.cardLayout = CardLayout(rawValue: defaults.string(forKey: Key.cardLayout) ?? "") ?? .standard
         self.cardDetail = CardDetail(rawValue: defaults.string(forKey: Key.cardDetail) ?? "") ?? .detailed
+        self.unreadMode = UnreadMode(rawValue: defaults.string(forKey: Key.unreadMode) ?? "") ?? .activity
+        if let savedSignals = defaults.array(forKey: Key.unreadSignals) as? [String] {
+            self.unreadSignals = Set(savedSignals.compactMap(UnreadSignal.init(rawValue:)))
+        } else {
+            self.unreadSignals = UnreadSignal.defaultEnabled
+        }
         self.includeArchivedRepos = defaults.object(forKey: Key.includeArchivedRepos) as? Bool ?? true
         let hasToken = secrets.string(for: .githubToken) != nil
         self.isGitHubConnected = hasToken
-        self.readSignatures = readStore.load()
+        self.readComponents = readStore.load()
 
         // A token already in the Keychain means this install was set up before
         // onboarding existed (or restored from a backup) — count it as done, and
@@ -788,7 +818,7 @@ final class AppModel {
         isGitHubConnected = false
         tokenRejected = false   // a deliberate disconnect isn't a rejection
         pullRequests = []
-        signatureByID = [:]
+        readSignatureByID = [:]
         verdicts = [:]
         currentUserAvatarURL = nil
         loadError = nil
@@ -846,7 +876,7 @@ final class AppModel {
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
     ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardLayout, cardDetail,
-    ///     tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
+    ///     unreadMode/unreadSignals, tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
     ///     the AI verdict cache.
     ///   • Login item (SMAppService) — launch-at-login registration.
@@ -864,13 +894,15 @@ final class AppModel {
         panelBackground = .solid
         cardLayout = .standard
         cardDetail = .detailed
+        unreadMode = .activity
+        unreadSignals = UnreadSignal.defaultEnabled
         includeArchivedRepos = true
         customTabs = []
         tabOrder = PRTab.builtin
         hiddenTabs = Set(PRTab.builtin).subtracting(PRTab.defaultVisible)
         badgeTabs = [.reviewRequested]
         selectedTab = .reviewRequested
-        readSignatures = [:]
+        readComponents = [:]
         hasCompletedOnboarding = false   // a fresh start onboards again
 
         // 2. Keychain — every slot we own.
@@ -940,26 +972,50 @@ final class AppModel {
 
     // MARK: Read / unread
 
-    /// Content signatures for the current list, memoized. `VerdictInput.signature`
-    /// hashes the PR body (a regex pass + SHA-256) — far too heavy for the
+    /// Read signatures for the current list, memoized. Component hashing runs
+    /// SHA-256 over the title and body among others — far too heavy for the
     /// `isUnread` checks every card, tab dot, and the badge make per render.
     /// Cleared when a fetch replaces the list; `@ObservationIgnored` because it's
     /// derived state no view should ever re-render on.
-    @ObservationIgnored private var signatureByID: [String: String] = [:]
+    @ObservationIgnored private var readSignatureByID: [String: [String: String]] = [:]
 
-    private func signature(of pr: PullRequest) -> String {
-        if let cached = signatureByID[pr.id] { return cached }
-        let signature = VerdictInput(pr).signature
-        signatureByID[pr.id] = signature
-        return signature
+    private func readSignature(of pr: PullRequest) -> [String: String] {
+        if let cached = readSignatureByID[pr.id] { return cached }
+        let components = ReadSignature(pr).components
+        readSignatureByID[pr.id] = components
+        return components
     }
 
-    /// Unread when we have no record of this PR, or its content changed since the
-    /// user last marked it read. Uses the same `VerdictInput.signature` as the
-    /// verdict cache, so a PR re-surfaces as unread on exactly the changes that
-    /// re-run the AI (new commit, CI flip, review, labels) — not on mere chatter.
+    /// Unread when we have no record of this PR — or, in activity mode, when any
+    /// *enabled* signal's stored component no longer matches (Settings → Unread
+    /// picks the mode and the signals). A missing stored component compares as a
+    /// match — it means an older build wrote the entry; `reconcileReadState()`
+    /// backfills it on the next sync.
     func isUnread(_ pr: PullRequest) -> Bool {
-        readSignatures[pr.id] != signature(of: pr)
+        guard let stored = readComponents[pr.id] else { return true }   // never opened → new
+        guard unreadMode == .activity else { return false }             // New-only: seen once is seen forever
+        let current = readSignature(of: pr)
+        return UnreadSignal.primary.contains { signal in
+            guard unreadSignals.contains(signal),
+                  let now = current[signal.rawValue],
+                  let then = stored[signal.rawValue],
+                  then != now
+            else { return false }
+            if signal == .commits { return commitsCountAsNew(pr, since: then) }
+            return true
+        }
+    }
+
+    /// Whether the head moving off `storedOID` counts as "new commits". With the
+    /// base-branch modifier on, any move counts. Otherwise walk the recent window:
+    /// only non-merge commits past the stored head count — a head that advanced by
+    /// merge commits alone is just the base landing in the branch, not new work.
+    /// A stored head outside the window (or an empty window, e.g. sample data) is
+    /// conservative: we can't prove it was all merges, so it flags.
+    private func commitsCountAsNew(_ pr: PullRequest, since storedOID: String) -> Bool {
+        if unreadSignals.contains(.baseBranchMerges) { return true }
+        guard let index = pr.recentCommits.firstIndex(where: { $0.oid == storedOID }) else { return true }
+        return pr.recentCommits[(index + 1)...].contains { !$0.isMerge }
     }
 
     /// Whether a tab holds any unread PRs — drives its dot in the tab bar.
@@ -978,16 +1034,16 @@ final class AppModel {
     }
 
     func markRead(_ pr: PullRequest) {
-        let signature = signature(of: pr)
-        guard readSignatures[pr.id] != signature else { return }   // already read in this state
-        readSignatures[pr.id] = signature
-        readStore.save(readSignatures)
+        let signature = readSignature(of: pr)
+        guard readComponents[pr.id] != signature else { return }   // already read in this state
+        readComponents[pr.id] = signature
+        readStore.save(readComponents)
     }
 
     func markUnread(_ pr: PullRequest) {
-        guard readSignatures[pr.id] != nil else { return }
-        readSignatures.removeValue(forKey: pr.id)
-        readStore.save(readSignatures)
+        guard readComponents[pr.id] != nil else { return }
+        readComponents.removeValue(forKey: pr.id)
+        readStore.save(readComponents)
     }
 
     /// Mark every PR in a tab read — the header's "Mark all read", scoped to the
@@ -995,33 +1051,67 @@ final class AppModel {
     func markAllRead(in tab: PRTab) {
         var changed = false
         for pr in pullRequests(for: tab) {
-            let signature = signature(of: pr)
-            guard readSignatures[pr.id] != signature else { continue }
-            readSignatures[pr.id] = signature
+            let signature = readSignature(of: pr)
+            guard readComponents[pr.id] != signature else { continue }
+            readComponents[pr.id] = signature
             changed = true
         }
-        if changed { readStore.save(readSignatures) }
+        if changed { readStore.save(readComponents) }
     }
 
     /// Reconcile read state after each sync. On the very first run, treat the whole
     /// existing list as already seen (so a new user doesn't open to a wall of
-    /// unread); then drop records for PRs that are gone, so the map tracks only the
-    /// live set and can't grow unbounded. Writes once, and only if something changed.
+    /// unread). Then, per stored entry, advance the components that shouldn't count
+    /// against it: ones an older build never wrote (backfill), signals the user has
+    /// disabled (so enabling one later starts tracking from now, not from history),
+    /// and a head that provably moved by base merges alone (so the stored commit
+    /// stays inside the merge walk's window). Finally drop records for PRs that are
+    /// gone, so the map tracks only the live set and can't grow unbounded. Writes
+    /// once, and only if something changed.
     private func reconcileReadState() {
         var changed = false
 
         if !UserDefaults.standard.bool(forKey: Key.readStateInitialized) {
-            for pr in pullRequests { readSignatures[pr.id] = signature(of: pr) }
+            for pr in pullRequests { readComponents[pr.id] = readSignature(of: pr) }
             UserDefaults.standard.set(true, forKey: Key.readStateInitialized)
             changed = true
         }
 
-        let live = Set(pullRequests.map(\.id))
-        let before = readSignatures.count
-        readSignatures = readSignatures.filter { live.contains($0.key) }
-        if readSignatures.count != before { changed = true }
+        for pr in pullRequests {
+            guard var stored = readComponents[pr.id] else { continue }
+            let current = readSignature(of: pr)
+            var updated = false
+            for signal in UnreadSignal.primary {
+                let key = signal.rawValue
+                guard let now = current[key] else { continue }
+                guard let then = stored[key] else {
+                    stored[key] = now; updated = true   // backfill an older build's entry
+                    continue
+                }
+                guard then != now else { continue }
+                // A signal only counts against the PR in activity mode, and only
+                // when checked; everything else tracks silently, so months in
+                // New-only mode can't pile up a wall of unread for later.
+                let live = unreadMode == .activity && unreadSignals.contains(signal)
+                let absorb = !live
+                    || (signal == .commits && !commitsCountAsNew(pr, since: then))
+                if absorb {
+                    stored[key] = now
+                    updated = true
+                }
+            }
+            if updated {
+                readComponents[pr.id] = stored
+                changed = true
+            }
+        }
 
-        if changed { readStore.save(readSignatures) }
+        let live = Set(pullRequests.map(\.id))
+        let before = readComponents.count
+        readComponents = readComponents.filter { live.contains($0.key) }
+        if readComponents.count != before { changed = true }
+
+        if changed { readStore.save(readComponents) }
     }
 
     /// Whether verdicts should compute at all. Mirrors `activeEngine != nil` but
@@ -1268,7 +1358,7 @@ final class AppModel {
             if let viewer = result.viewer { currentUser = viewer }
             if let avatar = result.viewerAvatarURL { currentUserAvatarURL = avatar }
             pullRequests = result.pullRequests
-            signatureByID = [:]   // fresh content → signatures recompute lazily
+            readSignatureByID = [:]   // fresh content → signatures recompute lazily
             lastSyncedAt = .now
             reconcileReadState()
             isLoading = false

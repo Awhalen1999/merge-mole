@@ -1,10 +1,9 @@
 import Foundation
 
-/// On-disk persistence for read/unread state: a map of PR id → the content
-/// `signature` the PR had when the user last marked it read. A PR is "unread" when
-/// this stored signature is missing or no longer matches its current signature —
-/// the *same* `VerdictInput.signature` the verdict cache uses, so a PR re-surfaces
-/// as unread on exactly the changes that re-run the AI (commit, CI, review, labels).
+/// On-disk persistence for read/unread state: a map of PR id → the per-signal
+/// `ReadSignature.components` the PR had when the user last marked it read. A PR
+/// is "unread" when its entry is missing or any *enabled* signal's component no
+/// longer matches (see `AppModel.isUnread` and Settings → Unread).
 ///
 /// The live map is held (and observed) on `AppModel`; this type only loads and
 /// saves it, mirroring how `VerdictCache` backs the observed `verdicts`. JSON in
@@ -14,16 +13,24 @@ final class ReadStore {
 
     init() { fileURL = Self.makeFileURL() }
 
-    func load() -> [String: String] {
-        guard let fileURL,
-              let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode([String: String].self, from: data)
-        else { return [:] }
-        return decoded
+    func load() -> [String: [String: String]] {
+        guard let fileURL, let data = try? Data(contentsOf: fileURL) else { return [:] }
+        if let decoded = try? JSONDecoder().decode([String: [String: String]].self, from: data) {
+            return decoded
+        }
+        // Pre-1.4 format: one flat content hash per PR. The hash matches no
+        // component we track now, so carry the ids over as empty entries — "read,
+        // nothing tracked yet" (a missing component always compares as a match) —
+        // and the first sync's reconcile backfills fresh components. The one-time
+        // cost: changes from before the upgrade won't re-flag these PRs.
+        if let legacy = try? JSONDecoder().decode([String: String].self, from: data) {
+            return legacy.mapValues { _ in [:] }
+        }
+        return [:]
     }
 
-    func save(_ signatures: [String: String]) {
-        guard let fileURL, let data = try? JSONEncoder().encode(signatures) else { return }
+    func save(_ components: [String: [String: String]]) {
+        guard let fileURL, let data = try? JSONEncoder().encode(components) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
 

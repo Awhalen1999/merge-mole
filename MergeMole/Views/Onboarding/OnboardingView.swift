@@ -379,15 +379,22 @@ private struct TriageStep: View {
                        subtitle: "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
-                    RadioCard(title: mode.cardTitle,
-                              detail: mode.detail,
-                              badge: mode == .onDevice ? "Recommended" : nil,
-                              warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
-                              selected: model.aiMode == mode) {
-                        model.aiMode = mode
-                    }
-                    if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
-                        CustomModelForm().cardSurface()
+                    if mode == .bringYourOwn {
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        } expansion: {
+                            CustomModelForm()
+                        }
+                    } else {
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  badge: mode == .onDevice ? "Recommended" : nil,
+                                  warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        }
                     }
                 }
             }
