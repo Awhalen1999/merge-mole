@@ -185,6 +185,40 @@ private struct GeneralSettings: View {
                 }
             }
             
+            SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
+                SettingsRow(label: "Flag") {
+                    Picker("", selection: $model.unreadMode) {
+                        ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                // The activity signals define the right segment; the card grows to
+                // show them and collapses back to the mode row for New-only
+                // (the checkbox config is kept either way).
+                if model.unreadMode == .activity {
+                    Group {
+                        Hairline()
+                        UnreadSignalRow(signal: .commits, isOn: signalBinding(.commits))
+                        UnreadSignalRow(signal: .baseBranchMerges, isOn: signalBinding(.baseBranchMerges), indented: true)
+                            .disabled(!model.unreadSignals.contains(.commits))
+                        Hairline()
+                        UnreadSignalRow(signal: .prose, isOn: signalBinding(.prose))
+                        Hairline()
+                        UnreadSignalRow(signal: .review, isOn: signalBinding(.review))
+                        Hairline()
+                        UnreadSignalRow(signal: .status, isOn: signalBinding(.status))
+                        Hairline()
+                        UnreadSignalRow(signal: .labels, isOn: signalBinding(.labels))
+                        Hairline()
+                        UnreadSignalRow(signal: .comments, isOn: signalBinding(.comments))
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
+
             SettingsSection("Archived PRs", padded: false) {
                 SettingsRow(label: "Include PRs for archived repositories") {
                     Toggle("", isOn: $model.includeArchivedRepos)
@@ -212,6 +246,34 @@ private struct GeneralSettings: View {
         }
     }
 
+    /// A checkbox for one unread signal, writing through to the model's set.
+    private func signalBinding(_ signal: UnreadSignal) -> Binding<Bool> {
+        Binding(
+            get: { model.unreadSignals.contains(signal) },
+            set: { on in
+                if on { model.unreadSignals.insert(signal) }
+                else { model.unreadSignals.remove(signal) }
+            }
+        )
+    }
+}
+
+/// One checkbox row in General → Unread. The base-branch case renders indented
+/// beneath "New commits are pushed" — it refines that signal (which head moves
+/// count) rather than standing alone, and disables with it.
+private struct UnreadSignalRow: View {
+    let signal: UnreadSignal
+    @Binding var isOn: Bool
+    var indented = false
+
+    var body: some View {
+        Toggle(signal.label, isOn: $isOn)
+            .toggleStyle(.checkbox)
+            .tint(.appAccent)
+            .padding(.leading, Layout.roomy + (indented ? Layout.generous : 0))
+            .padding(.trailing, Layout.roomy)
+            .padding(.vertical, Layout.base)
+    }
 }
 
 // MARK: - Tabs
@@ -348,15 +410,22 @@ private struct AITriageSection: View {
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
                     // On-device shows why it can't run inside its own card;
-                    // "bring your own" reveals its endpoint form just below.
-                    RadioCard(title: mode.cardTitle,
-                              detail: mode.detail,
-                              warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
-                              selected: model.aiMode == mode) {
-                        model.aiMode = mode
-                    }
-                    if mode == .bringYourOwn && model.aiMode == .bringYourOwn {
-                        CustomModelForm().cardSurface()
+                    // "bring your own" grows its card to hold the endpoint form.
+                    if mode == .bringYourOwn {
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        } expansion: {
+                            CustomModelForm()
+                        }
+                    } else {
+                        RadioCard(title: mode.cardTitle,
+                                  detail: mode.detail,
+                                  warning: mode == .onDevice ? model.onDeviceUnavailableReason : nil,
+                                  selected: model.aiMode == mode) {
+                            model.aiMode = mode
+                        }
                     }
                 }
             }
