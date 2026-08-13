@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-/// What the unread dot means (General → Unread). `newOnly` flags a PR once, when
+/// What the unread dot means (Settings → Unread). `newOnly` flags a PR once, when
 /// it first appears, and opening it clears it for good; `activity` re-flags on
 /// the signals the user picked (`UnreadSignal`). Separate from `unreadSignals`
 /// so switching modes never destroys the checkbox configuration.
@@ -18,7 +18,7 @@ enum UnreadMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Which kinds of PR activity re-surface a read PR as unread (General → Unread).
+/// Which kinds of PR activity re-surface a read PR as unread (Settings → Unread).
 /// Every primary signal owns one component of `ReadSignature`; the user's enabled
 /// set (persisted on `AppModel.unreadSignals`) decides which components `isUnread`
 /// actually compares. Lives here rather than with the Settings enums because the
@@ -43,7 +43,7 @@ enum UnreadSignal: String, CaseIterable, Identifiable, Sendable {
     /// (the reason this setting exists) and label churn.
     static let defaultEnabled: Set<UnreadSignal> = [.commits, .prose, .review, .status]
 
-    /// The Settings checkbox row (General → Unread).
+    /// The Settings checkbox row (Settings → Unread).
     var label: String {
         switch self {
         case .commits:          return "New commits are pushed"

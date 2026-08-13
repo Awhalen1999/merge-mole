@@ -3,7 +3,7 @@ import Foundation
 /// On-disk persistence for read/unread state: a map of PR id → the per-signal
 /// `ReadSignature.components` the PR had when the user last marked it read. A PR
 /// is "unread" when its entry is missing or any *enabled* signal's component no
-/// longer matches (see `AppModel.isUnread` and General → Unread).
+/// longer matches (see `AppModel.isUnread` and Settings → Unread).
 ///
 /// The live map is held (and observed) on `AppModel`; this type only loads and
 /// saves it, mirroring how `VerdictCache` backs the observed `verdicts`. JSON in

@@ -176,7 +176,7 @@ enum CardDetail: String, CaseIterable, Identifiable, Sendable {
 /// The Settings window's tabs. Shared so the panel's ⋮ menu can deep-link to one
 /// (e.g. "About MergeMole" opens straight to About) instead of a separate window.
 enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
-    case general, tabs, providers, about
+    case general, tabs, unread, providers, about
     var id: String { rawValue }
 }
 
@@ -611,7 +611,7 @@ final class AppModel {
         }
     }
 
-    /// What the unread dot means (General → Unread): flag only brand-new PRs, or
+    /// What the unread dot means (Settings → Unread): flag only brand-new PRs, or
     /// re-flag on activity. Persisted; a pure display choice, so switching is
     /// instant and lossless — read records keep being snapshotted in both modes.
     var unreadMode: UnreadMode {
@@ -621,7 +621,7 @@ final class AppModel {
         }
     }
 
-    /// Which kinds of PR activity mark a read PR unread again (General → Unread,
+    /// Which kinds of PR activity mark a read PR unread again (Settings → Unread,
     /// in `.activity` mode). Persisted; only changes which stored components
     /// `isUnread` *compares* — the components themselves are always all computed
     /// and snapshotted — so toggling a signal never mass-flips the list.
@@ -987,7 +987,7 @@ final class AppModel {
     }
 
     /// Unread when we have no record of this PR — or, in activity mode, when any
-    /// *enabled* signal's stored component no longer matches (General → Unread
+    /// *enabled* signal's stored component no longer matches (Settings → Unread
     /// picks the mode and the signals). A missing stored component compares as a
     /// match — it means an older build wrote the entry; `reconcileReadState()`
     /// backfills it on the next sync.

@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// The Settings window (⌘,). Four tabs — General / Tabs / Providers / About — in the
-/// native macOS preferences `TabView`, so the chrome (centered title + toolbar
-/// tabs) is the system's. Content is Flexoki-skinned section cards on a *solid*
-/// window surface — glass is for the transient panel, not a settings window. Form
-/// controls stay native (segmented, pop-ups, switches, checkboxes) for the clean
-/// native feel; the brand blue is the accent only, never a fill.
+/// The Settings window (⌘,). Five tabs — General / Tabs / Unread / Providers /
+/// About — in the native macOS preferences `TabView`, so the chrome (centered
+/// title + toolbar tabs) is the system's. Content is Flexoki-skinned section
+/// cards on a *solid* window surface — glass is for the transient panel, not a
+/// settings window. Form controls stay native (segmented, pop-ups, switches,
+/// checkboxes) for the clean native feel; the brand blue is the accent only,
+/// never a fill.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -18,6 +19,9 @@ struct SettingsView: View {
             TabsSettings()
                 .tabItem { Label("Tabs", systemImage: "rectangle.3.group") }
                 .tag(SettingsTab.tabs)
+            UnreadSettings()
+                .tabItem { Label("Unread", systemImage: "app.badge") }
+                .tag(SettingsTab.unread)
             ProvidersSettings()
                 .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
                 .tag(SettingsTab.providers)
@@ -183,8 +187,46 @@ private struct GeneralSettings: View {
                     .labelsHidden()
                     .fixedSize()
                 }
+                Hairline()
+                SettingsRow(label: "Include PRs for archived repositories") {
+                    Toggle("", isOn: $model.includeArchivedRepos)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.appAccent)
+                }
             }
-            
+
+            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
+                Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
+                    .buttonStyle(.bordered)
+                    .tint(.appRed)
+            }
+        }
+        .onAppear { launchAtLogin = LoginItem.isEnabled }
+        .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
+            // Settings stays open on purpose: watching every control snap to
+            // defaults is the confirmation the reset worked, and the reconnect
+            // path is right here.
+            Button("Erase everything", role: .destructive) { model.resetAll() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
+        }
+    }
+}
+
+// MARK: - Unread
+
+/// The unread system, top to bottom: what flags a PR (the mode), when a read PR
+/// flags again (the activity signals), and where the count surfaces (which groups
+/// feed the menu-bar badge). One tab because it's one mental model — "why is the
+/// menu bar showing 3?" should have a single answer screen.
+private struct UnreadSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        SettingsScaffold {
             SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
                 SettingsRow(label: "Flag") {
                     Picker("", selection: $model.unreadMode) {
@@ -219,30 +261,11 @@ private struct GeneralSettings: View {
             }
             .animation(.easeOut(duration: 0.15), value: model.unreadMode)
 
-            SettingsSection("Archived PRs", padded: false) {
-                SettingsRow(label: "Include PRs for archived repositories") {
-                    Toggle("", isOn: $model.includeArchivedRepos)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.appAccent)
-                }
+            SettingsSection("Menu-bar count",
+                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
+                            padded: false) {
+                BadgeTabList()
             }
-
-            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
-                Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
-                    .buttonStyle(.bordered)
-                    .tint(.appRed)
-            }
-        }
-        .onAppear { launchAtLogin = LoginItem.isEnabled }
-        .confirmationDialog("Reset MergeMole?", isPresented: $confirmingReset) {
-            // Settings stays open on purpose: watching every control snap to
-            // defaults is the confirmation the reset worked, and the reconnect
-            // path is right here.
-            Button("Erase everything", role: .destructive) { model.resetAll() }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This erases your GitHub connection, saved model keys, and all preferences from this Mac. The panel returns to its connect screen.")
         }
     }
 
@@ -258,7 +281,7 @@ private struct GeneralSettings: View {
     }
 }
 
-/// One checkbox row in General → Unread. The base-branch case renders indented
+/// One checkbox row in Settings → Unread. The base-branch case renders indented
 /// beneath "New commits are pushed" — it refines that signal (which head moves
 /// count) rather than standing alone, and disables with it.
 private struct UnreadSignalRow: View {
@@ -278,11 +301,10 @@ private struct UnreadSignalRow: View {
 
 // MARK: - Tabs
 
-/// Everything about the panel's tabs in one place: which tabs show and in what order,
-/// which of those groups feed the menu-bar badge count, and the user's own custom
-/// tabs — created and edited in a sheet, then living in the same list as the
-/// built-ins. Both lists are built from `TabSettingRow`, so they read as one
-/// consistent surface.
+/// The panel's tab structure: which tabs show and in what order, plus the user's
+/// own custom tabs — created and edited in a sheet, then living in the same list
+/// as the built-ins. (Which groups feed the menu-bar count lives on the Unread
+/// tab, with the rest of the unread system.)
 private struct TabsSettings: View {
     @Environment(AppModel.self) private var model
     /// The custom-tab sheet, when open — creating a new tab or editing an existing one.
@@ -296,12 +318,6 @@ private struct TabsSettings: View {
                 TabReorderList { editing = .edit($0) }
                 Hairline()
                 NewTabRow { editing = .create }
-            }
-
-            SettingsSection("Menu-bar count",
-                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
-                            padded: false) {
-                BadgeTabList()
             }
         }
         .sheet(item: $editing) { mode in
