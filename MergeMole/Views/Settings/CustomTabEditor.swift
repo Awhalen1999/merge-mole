@@ -105,7 +105,7 @@ struct CustomTabEditor: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Layout.tight) {
-            Text(isEditing ? "Edit Tab" : "New Tab")
+            Text(isEditing ? "Edit Tab" : "New Custom Tab")
                 .font(.headline)
                 .foregroundStyle(.appText)
             Text("Show any GitHub pull-request search as a tab in the panel.")

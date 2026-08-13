@@ -76,7 +76,7 @@ struct NewTabRow: View {
         Button(action: action) {
             HStack(spacing: Layout.roomy) {
                 Image(systemName: "plus.circle.fill")
-                Text("New Tab…").font(.callout.weight(.medium))
+                Text("New Custom Tab…").font(.callout.weight(.medium))
                 Spacer(minLength: 0)
             }
             .tabSettingRowPadding()
