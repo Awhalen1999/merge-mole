@@ -16,6 +16,14 @@ enum UnreadMode: String, CaseIterable, Identifiable, Sendable {
         case .activity: return "PR activity"
         }
     }
+
+    /// One-line explanation under the radio-card heading in onboarding.
+    var detail: String {
+        switch self {
+        case .newOnly:  return "Flags a pull request once, when it first appears. Opening it clears it for good."
+        case .activity: return "A read pull request flags again on new activity: commits, reviews, and status changes."
+        }
+    }
 }
 
 /// Which kinds of PR activity re-surface a read PR as unread (Settings → Unread).
