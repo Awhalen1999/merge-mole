@@ -6,8 +6,10 @@ import SwiftUI
 ///
 /// An option that needs configuration passes `expansion`: it renders inside the
 /// same card, under a divider, while the option is selected — the card grows and
-/// shrinks with the choice instead of spawning a sibling box. Used by Settings →
-/// Providers and the onboarding wizard for the AI-mode options.
+/// shrinks with the choice instead of spawning a sibling box. Expansion content
+/// is full-bleed (so row lists keep edge-to-edge hairlines); pad forms at the
+/// call site. Used by Settings → Providers, Settings → Unread's onboarding twin,
+/// and the wizard's AI step.
 struct RadioCard<Expansion: View>: View {
     let title: String
     let detail: String
@@ -73,7 +75,6 @@ struct RadioCard<Expansion: View>: View {
                 Group {
                     Hairline()
                     expansion()
-                        .padding(Layout.roomy)
                 }
                 .transition(.opacity)
             }

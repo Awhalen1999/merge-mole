@@ -386,7 +386,7 @@ private struct TriageStep: View {
                                   selected: model.aiMode == mode) {
                             model.aiMode = mode
                         } expansion: {
-                            CustomModelForm()
+                            CustomModelForm().padding(Layout.roomy)
                         }
                     } else {
                         RadioCard(title: mode.cardTitle,
@@ -495,13 +495,27 @@ private struct UnreadStep: View {
 
             VStack(spacing: Layout.base) {
                 ForEach(UnreadMode.allCases) { mode in
-                    RadioCard(title: mode.label,
-                              detail: mode.detail,
-                              selected: model.unreadMode == mode) {
-                        model.unreadMode = mode
+                    // Activity grows its card to hold the signal checkboxes —
+                    // the same list as Settings → Unread, same expansion move
+                    // as the custom-model card on the AI step.
+                    if mode == .activity {
+                        RadioCard(title: mode.label,
+                                  detail: mode.detail,
+                                  selected: model.unreadMode == mode) {
+                            model.unreadMode = mode
+                        } expansion: {
+                            UnreadSignalList()
+                        }
+                    } else {
+                        RadioCard(title: mode.label,
+                                  detail: mode.detail,
+                                  selected: model.unreadMode == mode) {
+                            model.unreadMode = mode
+                        }
                     }
                 }
             }
+            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
 
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Menu-bar count",
