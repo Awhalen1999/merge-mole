@@ -215,6 +215,33 @@ private struct GeneralSettings: View {
     }
 }
 
+// MARK: - Tabs
+
+/// The panel's tab structure: which tabs show and in what order, plus the user's
+/// own custom tabs — created and edited in a sheet, then living in the same list
+/// as the built-ins. (Which groups feed the menu-bar count lives on the Unread
+/// tab, with the rest of the unread system.)
+private struct TabsSettings: View {
+    @Environment(AppModel.self) private var model
+    /// The custom-tab sheet, when open — creating a new tab or editing an existing one.
+    @State private var editing: CustomTabEditor.Mode?
+
+    var body: some View {
+        SettingsScaffold {
+            SettingsSection("Show these tabs",
+                            subtitle: "Drag to reorder. Uncheck to hide a tab from the panel. New Custom Tab turns any GitHub search into a tab of your own.",
+                            padded: false) {
+                TabReorderList { editing = .edit($0) }
+                Hairline()
+                NewTabRow { editing = .create }
+            }
+        }
+        .sheet(item: $editing) { mode in
+            CustomTabEditor(mode: mode)
+        }
+    }
+}
+
 // MARK: - Unread
 
 /// The unread system, top to bottom: what flags a PR (the mode), when a read PR
@@ -254,33 +281,6 @@ private struct UnreadSettings: View {
                             padded: false) {
                 BadgeTabList()
             }
-        }
-    }
-}
-
-// MARK: - Tabs
-
-/// The panel's tab structure: which tabs show and in what order, plus the user's
-/// own custom tabs — created and edited in a sheet, then living in the same list
-/// as the built-ins. (Which groups feed the menu-bar count lives on the Unread
-/// tab, with the rest of the unread system.)
-private struct TabsSettings: View {
-    @Environment(AppModel.self) private var model
-    /// The custom-tab sheet, when open — creating a new tab or editing an existing one.
-    @State private var editing: CustomTabEditor.Mode?
-
-    var body: some View {
-        SettingsScaffold {
-            SettingsSection("Show these tabs",
-                            subtitle: "Drag to reorder. Uncheck to hide a tab from the panel. New Custom Tab turns any GitHub search into a tab of your own.",
-                            padded: false) {
-                TabReorderList { editing = .edit($0) }
-                Hairline()
-                NewTabRow { editing = .create }
-            }
-        }
-        .sheet(item: $editing) { mode in
-            CustomTabEditor(mode: mode)
         }
     }
 }

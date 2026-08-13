@@ -121,14 +121,15 @@ struct VerdictInput {
         }
     }
 
-    /// A stable fingerprint of the PR's **reviewable content** (plus the head SHA). A
-    /// mismatch means re-run — and, since the read-store shares this value, re-surface
-    /// as unread. So it deliberately excludes the soft context the prompt also shows:
-    /// `approvals` / `unresolvedThreads` (would re-run + re-flag on every review click)
-    /// and `createdAt`-derived age (time, not content — would churn daily). `isFromFork`
-    /// is static, so it's safe to include. Hashed so the cache file stays compact even
-    /// with a long description. `Hasher` is unusable here (its seed is randomized per
-    /// launch and wouldn't survive a relaunch).
+    /// A stable fingerprint of the PR's **reviewable content** (plus the head SHA):
+    /// the verdict cache's key, so a mismatch means re-run. It deliberately excludes
+    /// the soft context the prompt also shows: `approvals` / `unresolvedThreads`
+    /// (would re-run on every review click) and `createdAt`-derived age (time, not
+    /// content — would churn daily). `isFromFork` is static, so it's safe to include.
+    /// Hashed so the cache file stays compact even with a long description. `Hasher`
+    /// is unusable here (its seed is randomized per launch and wouldn't survive a
+    /// relaunch). Read/unread state deliberately does NOT share this value — it keys
+    /// on the user's chosen signals via `ReadSignature`, free to drift from this.
     var signature: String {
         let raw = [
             title, body, repository, author,
