@@ -3,20 +3,20 @@ import AppKit
 import AVKit
 
 /// The first-run setup wizard: welcome → connect GitHub → choose AI → personalize
-/// → done, in its own window (see the scene in `MergeMoleApp`). Every step edits
-/// the live `AppModel` directly, exactly like Settings does — there's nothing to
-/// apply or roll back, so Back and Skip need no bookkeeping. Finishing (or
-/// skipping) records completion and closes the window; the panel takes it from
-/// there.
+/// → unread → done, in its own window (see the scene in `MergeMoleApp`). Every
+/// step edits the live `AppModel` directly, exactly like Settings does — there's
+/// nothing to apply or roll back, so Back and Skip need no bookkeeping. Finishing
+/// (or skipping) records completion and closes the window; the panel takes it
+/// from there.
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismissWindow) private var dismissWindow
 
     static let windowID = "onboarding"
 
-    /// The five steps, in order. Raw values give Back/Continue for free.
+    /// The six steps, in order. Raw values give Back/Continue for free.
     private enum Step: Int, CaseIterable {
-        case welcome, connect, triage, personalize, done
+        case welcome, connect, triage, personalize, unread, done
 
         var next: Step { Step(rawValue: rawValue + 1) ?? self }
         var previous: Step { Step(rawValue: rawValue - 1) ?? self }
@@ -62,6 +62,7 @@ struct OnboardingView: View {
         case .connect:     ConnectStep()
         case .triage:      TriageStep()
         case .personalize: PersonalizeStep()
+        case .unread:      UnreadStep()
         case .done:        DoneStep()
         }
     }
@@ -105,7 +106,7 @@ struct OnboardingView: View {
                     .buttonStyle(QuietButtonStyle())
                     .font(.callout.weight(.medium))
             }
-        case .triage, .personalize:
+        case .triage, .personalize, .unread:
             prominent("Continue")
         case .done:
             Button("Done") { finish() }
@@ -385,7 +386,7 @@ private struct TriageStep: View {
                                   selected: model.aiMode == mode) {
                             model.aiMode = mode
                         } expansion: {
-                            CustomModelForm()
+                            CustomModelForm().padding(Layout.roomy)
                         }
                     } else {
                         RadioCard(title: mode.cardTitle,
@@ -406,9 +407,10 @@ private struct TriageStep: View {
 // MARK: - 4 · Personalize
 
 /// The highest-leverage defaults, with Settings' own components so everything
-/// behaves identically in both places: launch at login, the tab list
-/// (`TabReorderList` + `NewTabRow`, custom tabs included), and which groups
-/// feed the menu-bar count (`BadgeTabList`).
+/// behaves identically in both places: launch at login, refresh cadence, and
+/// the tab list (`TabReorderList` + `NewTabRow`, custom tabs included). The
+/// attention choices (unread mode, menu-bar count) get their own step next,
+/// mirroring the Settings tab split.
 private struct PersonalizeStep: View {
     @Environment(AppModel.self) private var model
     @State private var launchAtLogin = LoginItem.isEnabled
@@ -468,6 +470,53 @@ private struct PersonalizeStep: View {
                 .cardSurface(padded: false)
             }
 
+        }
+        .onAppear { launchAtLogin = LoginItem.isEnabled }
+        .sheet(item: $editing) { mode in
+            CustomTabEditor(mode: mode)
+        }
+    }
+}
+
+// MARK: - 5 · Unread
+
+/// The attention step — the same choice as Settings → Unread, framed as a
+/// question, plus which groups feed the menu-bar count (`BadgeTabList`). Only
+/// the mode is asked here; the per-signal checkboxes stay in Settings, with the
+/// subtitle pointing the way. Radio cards echo the AI step, so both "pick one"
+/// screens read the same.
+private struct UnreadStep: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        WizardPage {
+            StepHeader(title: "What counts as unread?",
+                       subtitle: "Pick what the unread dot and menu-bar count flag. Fine-tune which activity counts anytime in Settings → Unread.")
+
+            VStack(spacing: Layout.base) {
+                ForEach(UnreadMode.allCases) { mode in
+                    // Activity grows its card to hold the signal checkboxes —
+                    // the same list as Settings → Unread, same expansion move
+                    // as the custom-model card on the AI step.
+                    if mode == .activity {
+                        RadioCard(title: mode.label,
+                                  detail: mode.detail,
+                                  selected: model.unreadMode == mode) {
+                            model.unreadMode = mode
+                        } expansion: {
+                            UnreadSignalList()
+                        }
+                    } else {
+                        RadioCard(title: mode.label,
+                                  detail: mode.detail,
+                                  selected: model.unreadMode == mode) {
+                            model.unreadMode = mode
+                        }
+                    }
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
+
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Menu-bar count",
                               subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.")
@@ -477,14 +526,10 @@ private struct PersonalizeStep: View {
                 .cardSurface(padded: false)
             }
         }
-        .onAppear { launchAtLogin = LoginItem.isEnabled }
-        .sheet(item: $editing) { mode in
-            CustomTabEditor(mode: mode)
-        }
     }
 }
 
-// MARK: - 5 · All set
+// MARK: - 6 · All set
 
 private struct DoneStep: View {
     @Environment(AppModel.self) private var model
@@ -507,6 +552,10 @@ private struct DoneStep: View {
         }
         let tabs = model.visibleTabs.count
         parts.append("\(tabs) tab\(tabs == 1 ? "" : "s")")
+        switch model.unreadMode {
+        case .newOnly:  parts.append("Unread: new PRs only")
+        case .activity: parts.append("Unread: PR activity")
+        }
         return parts.joined(separator: " · ")
     }
 

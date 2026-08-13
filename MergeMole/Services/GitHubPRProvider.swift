@@ -344,7 +344,7 @@ enum GitHubAPI {
         totalCount
         nodes { commit { statusCheckRollup { state } } }
       }
-      recentCommits: commits(last: 5) {
+      recentCommits: commits(last: 20) {
         nodes { commit { oid parents(first: 1) { totalCount } } }
       }
     }

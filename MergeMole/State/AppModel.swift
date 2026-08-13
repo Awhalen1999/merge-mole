@@ -4,7 +4,7 @@ import SwiftUI
 import AppKit
 import Network
 
-/// How the user wants AI to run (chosen in Settings → AI). All three funnel
+/// How the user wants AI to run (chosen in Settings → Providers). All three funnel
 /// through one `VerdictState` the card branches on, so they stay seamless.
 enum AIMode: String, CaseIterable, Identifiable, Sendable {
     case onDevice       // Foundation Models (default)
@@ -877,8 +877,8 @@ final class AppModel {
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
     ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardLayout, cardDetail,
     ///     unreadMode/unreadSignals, tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
-    ///   • Application Support (`…/Application Support/MergeMole/verdict-cache.json`) —
-    ///     the AI verdict cache.
+    ///   • Application Support (`…/Application Support/MergeMole/`) — the AI verdict
+    ///     cache (`verdict-cache.json`) and read/unread state (`read-state.json`).
     ///   • Login item (SMAppService) — launch-at-login registration.
     func resetAll() {
         // 1. Live state → defaults, so any open window updates immediately.
@@ -1011,7 +1011,13 @@ final class AppModel {
     /// only non-merge commits past the stored head count — a head that advanced by
     /// merge commits alone is just the base landing in the branch, not new work.
     /// A stored head outside the window (or an empty window, e.g. sample data) is
-    /// conservative: we can't prove it was all merges, so it flags.
+    /// conservative: we can't prove it was all merges, so it flags. The window (20,
+    /// set in the provider's query) only has to span gaps between fetches — each
+    /// sync's reconcile absorbs merge-only moves — so blowing it takes ~20 base
+    /// merges landing while the app isn't fetching (days away + an auto-update
+    /// bot), and the cost is one spurious flag a click clears. Flagging is the
+    /// right failure direction; assuming merge-only beyond the window could hide
+    /// a real push.
     private func commitsCountAsNew(_ pr: PullRequest, since storedOID: String) -> Bool {
         if unreadSignals.contains(.baseBranchMerges) { return true }
         guard let index = pr.recentCommits.firstIndex(where: { $0.oid == storedOID }) else { return true }
