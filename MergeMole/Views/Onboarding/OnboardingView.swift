@@ -459,7 +459,7 @@ private struct PersonalizeStep: View {
 
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Show these tabs",
-                              subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Tab turns any GitHub search into a tab of your own.")
+                              subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Custom Tab turns any GitHub search into a tab of your own.")
                 VStack(spacing: 0) {
                     TabReorderList { editing = .edit($0) }
                     Hairline()
