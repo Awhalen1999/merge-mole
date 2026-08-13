@@ -51,6 +51,7 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 - [ ] Author PFP customization options
 - [ ] Install via Homebrew, alongside the DMG download
 - [ ] Read vs unread customization options
+- [ ] Update tab customization
 
 ## AI options
 
