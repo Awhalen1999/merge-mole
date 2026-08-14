@@ -27,6 +27,12 @@ import Testing
         (.comments, makePR(comments: 9)),
     ]
 
+    /// Self-policing: a new primary signal must register an isolation case above,
+    /// or this fails before the coverage gap can hide.
+    @Test func isolationCasesCoverEveryPrimarySignal() {
+        #expect(Set(Self.isolationCases.map(\.0)) == Set(UnreadSignal.primary))
+    }
+
     @Test(arguments: isolationCases.map(\.0))
     func onlyTheChangedSignalsComponentMoves(signal: UnreadSignal) {
         let before = ReadSignature(makePR()).components
