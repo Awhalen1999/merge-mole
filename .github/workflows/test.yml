@@ -1,0 +1,34 @@
+name: Tests
+
+# Runs the full suite on every pull request (and each push to one), so a red
+# suite blocks the merge once the check is marked required in branch protection.
+# Plain pushes to main don't trigger this; everything lands via PR, and the
+# release workflow runs the same job again before anything ships.
+on:
+  pull_request:
+    branches: [main]
+
+# A force-push to a PR supersedes the previous run; don't finish it.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # CODE_SIGNING_ALLOWED=NO because the runner has no Developer ID. Safe for
+      # tests: the suite is hermetic (no Keychain, no network, no entitlement-
+      # gated APIs), so the unsigned test host runs everything the signed app would.
+      - name: Run tests
+        run: >
+          xcodebuild test -project MergeMole.xcodeproj -scheme MergeMole
+          -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
