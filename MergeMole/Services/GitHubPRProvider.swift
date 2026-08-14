@@ -88,6 +88,14 @@ enum GitHubAPI {
         let data = try await send(query: prQuery(customCount: customTabs.count),
                                   variables: variables,
                                   token: token)
+        return try fetchResult(from: data, customTabs: customTabs)
+    }
+
+    /// Decode + assemble one fetch's raw GraphQL response into the domain result.
+    /// Split from the network call (and left internal) so the whole mapping —
+    /// field decoding, bucket merging, custom-tab tagging — is testable against
+    /// fixture JSON without a session.
+    static func fetchResult(from data: Data, customTabs: [CustomTab]) throws -> PRFetchResult {
         let payload = try decode(PRPayload.self, from: data)
 
         var byID: [String: PullRequest] = [:]
@@ -132,7 +140,7 @@ enum GitHubAPI {
     /// the whole app is PRs, and without `is:pr` issues would eat the result budget
     /// and then silently vanish (the PR fragment skips them). Adds the dashboard's
     /// freshness sort unless the user chose their own.
-    private static func wireQuery(_ raw: String) -> String {
+    static func wireQuery(_ raw: String) -> String {
         var query = "is:pr \(raw)"
         if !raw.localizedCaseInsensitiveContains("sort:") { query += " sort:updated-desc" }
         return query
@@ -295,7 +303,7 @@ enum GitHubAPI {
     /// bound to a `$q<n>` variable. `reviewed-by` and `mentions` can't be derived
     /// from a PR's own fields, which is why we ask the search API per relationship
     /// rather than filtering one `involves:@me` list client-side.
-    private static func prQuery(customCount: Int) -> String {
+    static func prQuery(customCount: Int) -> String {
         let params = (0..<customCount).map { "$q\($0): String!" }.joined(separator: ", ")
         let customSearches = (0..<customCount).map {
             "  custom\($0): search(query: $q\($0), type: ISSUE, first: 40) { nodes { ...PRFields } }\n"

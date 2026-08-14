@@ -22,10 +22,12 @@ final class Updater {
     /// Mirrors Sparkle's persisted "check automatically" setting for the Settings toggle.
     private(set) var automaticallyChecksForUpdates: Bool
 
-    init() {
+    /// `startsUpdater: false` creates the controller without launching the scheduled
+    /// checker — the test host passes it so a suite run never pings the appcast.
+    init(startsUpdater: Bool = true) {
         // startingUpdater: true launches the scheduled checker immediately, reading its
         // config from Info.plist. nil delegates = Sparkle's stock update UI + flow.
-        controller = SPUStandardUpdaterController(startingUpdater: true,
+        controller = SPUStandardUpdaterController(startingUpdater: startsUpdater,
                                                   updaterDelegate: nil,
                                                   userDriverDelegate: nil)
         let updater = controller.updater
