@@ -321,8 +321,11 @@ final class AppModel {
     private let injectedEngine: VerdictEngine?
     let secrets: SecretStore
 
-    private let verdictCache = VerdictCache()
-    private let readStore = ReadStore()
+    private let verdictCache: VerdictCache
+    private let readStore: ReadStore
+    /// Where preferences persist. `.standard` in production; tests inject a
+    /// throwaway suite so no run ever touches real settings.
+    private let defaults: UserDefaults
 
     /// How long an open-panel refresh trusts the last sync before refetching.
     /// Short enough to feel live, long enough that rapid open/close doesn't spam
@@ -382,7 +385,7 @@ final class AppModel {
     /// values; on load we append any tabs a newer version added so they're never
     /// silently dropped, and discard any we no longer ship.
     private(set) var tabOrder: [PRTab] {
-        didSet { UserDefaults.standard.set(tabOrder.map(\.rawValue), forKey: Key.tabOrder) }
+        didSet { defaults.set(tabOrder.map(\.rawValue), forKey: Key.tabOrder) }
     }
 
     /// Tabs the user has hidden in Settings. Persisted; the panel shows the rest.
@@ -390,7 +393,7 @@ final class AppModel {
     /// rather than being silently suppressed by an old saved list.
     private(set) var hiddenTabs: Set<PRTab> {
         didSet {
-            UserDefaults.standard.set(hiddenTabs.map(\.rawValue), forKey: Key.hiddenTabs)
+            defaults.set(hiddenTabs.map(\.rawValue), forKey: Key.hiddenTabs)
             // Never strand the selection on a tab that's no longer shown.
             if hiddenTabs.contains(selectedTab), let first = visibleTabs.first {
                 selectedTab = first
@@ -429,7 +432,7 @@ final class AppModel {
     /// raw values; defaults to Review Requested. The badge totals the deduped union
     /// of PRs across these groups, independent of which tabs the panel shows.
     private(set) var badgeTabs: Set<PRTab> {
-        didSet { UserDefaults.standard.set(badgeTabs.map(\.rawValue), forKey: Key.badgeTabs) }
+        didSet { defaults.set(badgeTabs.map(\.rawValue), forKey: Key.badgeTabs) }
     }
 
     /// Include/exclude a group from the menu-bar count. Any subset is allowed —
@@ -446,7 +449,7 @@ final class AppModel {
     private(set) var customTabs: [CustomTab] {
         didSet {
             if let data = try? JSONEncoder().encode(customTabs) {
-                UserDefaults.standard.set(data, forKey: Key.customTabs)
+                defaults.set(data, forKey: Key.customTabs)
             }
         }
     }
@@ -531,7 +534,7 @@ final class AppModel {
     var aiMode: AIMode {
         didSet {
             guard aiMode != oldValue else { return }
-            UserDefaults.standard.set(aiMode.rawValue, forKey: Key.aiMode)
+            defaults.set(aiMode.rawValue, forKey: Key.aiMode)
             Task { await recomputeVerdicts() }
         }
     }
@@ -543,7 +546,7 @@ final class AppModel {
 
     var byoEndpoint: String {
         didSet {
-            UserDefaults.standard.set(byoEndpoint, forKey: Key.byoEndpoint)
+            defaults.set(byoEndpoint, forKey: Key.byoEndpoint)
             byoStatus = .untested
             modelDiscovery = .idle
         }
@@ -552,7 +555,7 @@ final class AppModel {
     /// Editing the model invalidates a prior test result.
     var byoModel: String {
         didSet {
-            UserDefaults.standard.set(byoModel, forKey: Key.byoModel)
+            defaults.set(byoModel, forKey: Key.byoModel)
             byoStatus = .untested
         }
     }
@@ -563,7 +566,7 @@ final class AppModel {
     var byoProvider: BYOProvider {
         didSet {
             guard byoProvider != oldValue else { return }
-            UserDefaults.standard.set(byoProvider.rawValue, forKey: Key.byoProvider)
+            defaults.set(byoProvider.rawValue, forKey: Key.byoProvider)
             byoStatus = .untested
             modelDiscovery = .idle
         }
@@ -579,7 +582,7 @@ final class AppModel {
     var refreshInterval: RefreshInterval {
         didSet {
             guard refreshInterval != oldValue else { return }
-            UserDefaults.standard.set(refreshInterval.rawValue, forKey: Key.refreshInterval)
+            defaults.set(refreshInterval.rawValue, forKey: Key.refreshInterval)
             startAutoRefresh()
         }
     }
@@ -589,7 +592,7 @@ final class AppModel {
     var panelBackground: PanelBackground {
         didSet {
             guard panelBackground != oldValue else { return }
-            UserDefaults.standard.set(panelBackground.rawValue, forKey: Key.panelBackground)
+            defaults.set(panelBackground.rawValue, forKey: Key.panelBackground)
         }
     }
 
@@ -598,7 +601,7 @@ final class AppModel {
     var cardLayout: CardLayout {
         didSet {
             guard cardLayout != oldValue else { return }
-            UserDefaults.standard.set(cardLayout.rawValue, forKey: Key.cardLayout)
+            defaults.set(cardLayout.rawValue, forKey: Key.cardLayout)
         }
     }
 
@@ -607,7 +610,7 @@ final class AppModel {
     var cardDetail: CardDetail {
         didSet {
             guard cardDetail != oldValue else { return }
-            UserDefaults.standard.set(cardDetail.rawValue, forKey: Key.cardDetail)
+            defaults.set(cardDetail.rawValue, forKey: Key.cardDetail)
         }
     }
 
@@ -617,7 +620,7 @@ final class AppModel {
     var unreadMode: UnreadMode {
         didSet {
             guard unreadMode != oldValue else { return }
-            UserDefaults.standard.set(unreadMode.rawValue, forKey: Key.unreadMode)
+            defaults.set(unreadMode.rawValue, forKey: Key.unreadMode)
         }
     }
 
@@ -628,7 +631,7 @@ final class AppModel {
     var unreadSignals: Set<UnreadSignal> {
         didSet {
             guard unreadSignals != oldValue else { return }
-            UserDefaults.standard.set(unreadSignals.map(\.rawValue).sorted(), forKey: Key.unreadSignals)
+            defaults.set(unreadSignals.map(\.rawValue).sorted(), forKey: Key.unreadSignals)
         }
     }
     
@@ -639,7 +642,7 @@ final class AppModel {
     var includeArchivedRepos: Bool {
         didSet {
             guard includeArchivedRepos != oldValue else { return }
-            UserDefaults.standard.set(includeArchivedRepos, forKey: Key.includeArchivedRepos)
+            defaults.set(includeArchivedRepos, forKey: Key.includeArchivedRepos)
             Task { await recomputeVerdicts() }
         }
     }
@@ -686,19 +689,31 @@ final class AppModel {
 
     // MARK: Init
 
+    /// Every dependency defaults to the production implementation; tests inject
+    /// fakes for all of them (see MergeMoleTests) so a suite run is hermetic —
+    /// no Keychain, no network, no real preferences or Application Support files.
+    /// `observesSystemEvents` gates the wake/network observers and the refresh
+    /// scheduler, whose initial network-path callback would otherwise race a
+    /// test's scripted fetches.
     init(
         prProvider: PRProvider? = nil,
         verdictEngine: VerdictEngine? = nil,
         secrets: SecretStore? = nil,
-        currentUser: String? = nil
+        currentUser: String? = nil,
+        readStore: ReadStore = ReadStore(),
+        verdictCache: VerdictCache = VerdictCache(),
+        defaults: UserDefaults = .standard,
+        observesSystemEvents: Bool = true
     ) {
         let secrets = secrets ?? KeychainSecretStore()
         self.prProvider = prProvider ?? GitHubPRProvider(secrets: secrets)
         self.injectedEngine = verdictEngine
         self.secrets = secrets
         self.currentUser = currentUser ?? SampleData.currentUser
+        self.readStore = readStore
+        self.verdictCache = verdictCache
+        self.defaults = defaults
 
-        let defaults = UserDefaults.standard
         self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
         self.byoEndpoint = defaults.string(forKey: Key.byoEndpoint) ?? ""
         self.byoModel = defaults.string(forKey: Key.byoModel) ?? ""
@@ -768,8 +783,10 @@ final class AppModel {
         }
 
         // Background freshness: periodic refetch + refresh on wake / network return.
-        observeSystemEvents()
-        startAutoRefresh()
+        if observesSystemEvents {
+            observeSystemEvents()
+            startAutoRefresh()
+        }
     }
 
     /// The saved custom-tab definitions, or none — a fresh install, or JSON from
@@ -786,7 +803,7 @@ final class AppModel {
     /// the wizard never shows again either way.
     func completeOnboarding() {
         hasCompletedOnboarding = true
-        UserDefaults.standard.set(true, forKey: Key.onboardingCompleted)
+        defaults.set(true, forKey: Key.onboardingCompleted)
     }
 
     // MARK: GitHub connection
@@ -920,7 +937,7 @@ final class AppModel {
         //    nothing is left behind, and this also sweeps @AppStorage values and any
         //    keys from earlier builds.
         if let bundleID = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            defaults.removePersistentDomain(forName: bundleID)
         }
     }
 
@@ -1077,9 +1094,9 @@ final class AppModel {
     private func reconcileReadState() {
         var changed = false
 
-        if !UserDefaults.standard.bool(forKey: Key.readStateInitialized) {
+        if !defaults.bool(forKey: Key.readStateInitialized) {
             for pr in pullRequests { readComponents[pr.id] = readSignature(of: pr) }
-            UserDefaults.standard.set(true, forKey: Key.readStateInitialized)
+            defaults.set(true, forKey: Key.readStateInitialized)
             changed = true
         }
 

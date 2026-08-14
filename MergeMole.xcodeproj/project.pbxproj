@@ -10,14 +10,30 @@
 		684689902FF4946200E6023B /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 6846898F2FF4946200E6023B /* Sparkle */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		68AA000000000000000000C2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6810E7AB2FE4ADC300640F38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6810E7B22FE4ADC300640F38;
+			remoteInfo = MergeMole;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		6810E7B32FE4ADC300640F38 /* MergeMole.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MergeMole.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		68AA000000000000000000B1 /* MergeMoleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MergeMoleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6810E7B52FE4ADC300640F38 /* MergeMole */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MergeMole;
+			sourceTree = "<group>";
+		};
+		68AA000000000000000000A1 /* MergeMoleTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MergeMoleTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +47,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		68AA000000000000000000F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -38,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				6810E7B52FE4ADC300640F38 /* MergeMole */,
+				68AA000000000000000000A1 /* MergeMoleTests */,
 				6810E7B42FE4ADC300640F38 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				6810E7B32FE4ADC300640F38 /* MergeMole.app */,
+				68AA000000000000000000B1 /* MergeMoleTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,6 +101,29 @@
 			productReference = 6810E7B32FE4ADC300640F38 /* MergeMole.app */;
 			productType = "com.apple.product-type.application";
 		};
+		68AA000000000000000000C1 /* MergeMoleTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 68AA000000000000000000D1 /* Build configuration list for PBXNativeTarget "MergeMoleTests" */;
+			buildPhases = (
+				68AA000000000000000000E1 /* Sources */,
+				68AA000000000000000000F1 /* Frameworks */,
+				68AA000000000000000000A2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				68AA000000000000000000B2 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				68AA000000000000000000A1 /* MergeMoleTests */,
+			);
+			name = MergeMoleTests;
+			packageProductDependencies = (
+			);
+			productName = MergeMoleTests;
+			productReference = 68AA000000000000000000B1 /* MergeMoleTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -88,6 +136,10 @@
 				TargetAttributes = {
 					6810E7B22FE4ADC300640F38 = {
 						CreatedOnToolsVersion = 26.5;
+					};
+					68AA000000000000000000C1 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 6810E7B22FE4ADC300640F38;
 					};
 				};
 			};
@@ -109,12 +161,20 @@
 			projectRoot = "";
 			targets = (
 				6810E7B22FE4ADC300640F38 /* MergeMole */,
+				68AA000000000000000000C1 /* MergeMoleTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		6810E7B12FE4ADC300640F38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		68AA000000000000000000A2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -131,7 +191,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		68AA000000000000000000E1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		68AA000000000000000000B2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6810E7B22FE4ADC300640F38 /* MergeMole */;
+			targetProxy = 68AA000000000000000000C2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		6810E7BC2FE4ADC400640F38 /* Debug */ = {
@@ -316,6 +391,46 @@
 			};
 			name = Release;
 		};
+		68AA000000000000000000D2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 14;
+				DEVELOPMENT_TEAM = TA2LQ3B5QN;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.mergemole.MergeMoleTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MergeMole.app/Contents/MacOS/MergeMole";
+			};
+			name = Debug;
+		};
+		68AA000000000000000000E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 14;
+				DEVELOPMENT_TEAM = TA2LQ3B5QN;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.mergemole.MergeMoleTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MergeMole.app/Contents/MacOS/MergeMole";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -333,6 +448,15 @@
 			buildConfigurations = (
 				6810E7BF2FE4ADC400640F38 /* Debug */,
 				6810E7C02FE4ADC400640F38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		68AA000000000000000000D1 /* Build configuration list for PBXNativeTarget "MergeMoleTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				68AA000000000000000000D2 /* Debug */,
+				68AA000000000000000000E2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

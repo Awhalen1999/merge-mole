@@ -13,6 +13,11 @@ final class ReadStore {
 
     init() { fileURL = Self.makeFileURL() }
 
+    /// A store at an explicit location — tests point this at a scratch file so a
+    /// suite run exercises the real load/save/migration path without ever touching
+    /// the Application Support copy.
+    init(fileURL: URL) { self.fileURL = fileURL }
+
     func load() -> [String: [String: String]] {
         guard let fileURL, let data = try? Data(contentsOf: fileURL) else { return [:] }
         if let decoded = try? JSONDecoder().decode([String: [String: String]].self, from: data) {

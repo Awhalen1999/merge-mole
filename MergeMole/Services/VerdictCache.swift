@@ -18,6 +18,14 @@ final class VerdictCache {
         entries = Self.load(from: fileURL)
     }
 
+    /// A cache at an explicit location — tests point this at a scratch file so a
+    /// suite run never reads or prunes the real cache. The legacy-file sweep stays
+    /// on the production init; it touches the real Application Support root.
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+        entries = Self.load(from: fileURL)
+    }
+
     /// The cached verdict, but only if the PR's content signature still matches.
     /// Keyed by `engine` too, so different engines (on-device vs a hosted model)
     /// don't serve each other's verdicts. A mismatch (or miss) means re-run. The
