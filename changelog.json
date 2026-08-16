@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.4.0",
+    "build": "15",
+    "date": "2026-08-16",
+    "notes": "MergeMole 1.4.0\n\n- Choose what counts as unread in the new Settings tab: flag new PRs only, or re-flag on the activity you pick (commits, edits, reviews, checks, labels, comments).\n- Updating a branch from its base no longer marks the PR unread. A checkbox in Settings brings the old behavior back.\n- Label changes no longer re-flag a read PR by default, and new comments can now flag if you enable them.\n- The menu-bar count options now live on the Unread tab, next to the rest of the unread settings.\n- Onboarding gained a step so new installs pick their unread behavior up front.\n- Your existing read state carries over automatically.\n- Under the hood: an automated test suite now checks every change before it ships."
+  },
+  {
     "version": "1.3.0",
     "build": "14",
     "date": "2026-08-08",
