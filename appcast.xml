@@ -8,6 +8,21 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.4.1</title>
+            <pubDate>Sun, 16 Aug 2026 15:00:52 +0000</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.4.1</p>
+<ul>
+<li>Updated the demo video shown during onboarding.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.4.1/MergeMole.dmg" sparkle:edSignature="jKjq+hCkfU64cOLql46b36/Lv6J9ExVCtxr6WIcsQK/KHqTWiNhHmUzYgApuKI/qB6bELX4Xth27LNcJ+UM8BQ==" length="7944420" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.4.0</title>
             <pubDate>Sun, 16 Aug 2026 14:14:26 +0000</pubDate>
             <sparkle:version>15</sparkle:version>

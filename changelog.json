@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.4.1",
+    "build": "16",
+    "date": "2026-08-16",
+    "notes": "MergeMole 1.4.1\n\n- Updated the demo video shown during onboarding."
+  },
+  {
     "version": "1.4.0",
     "build": "15",
     "date": "2026-08-16",
