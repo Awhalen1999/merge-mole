@@ -39,6 +39,7 @@ struct MergeMoleApp: App {
             secrets: InMemorySecretStore(),
             readStore: ReadStore(fileURL: scratch.appendingPathComponent("read-state.json")),
             verdictCache: VerdictCache(fileURL: scratch.appendingPathComponent("verdict-cache.json")),
+            notifier: NoopNotifier(),   // never claim the notification-center delegate mid-suite
             defaults: defaults,
             observesSystemEvents: false
         )

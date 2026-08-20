@@ -281,6 +281,18 @@ private struct UnreadSettings: View {
                             padded: false) {
                 BadgeTabList()
             }
+
+            SettingsSection("Notifications",
+                            subtitle: "Banners follow the menu-bar count: same groups, same signals, and they clear when you catch up. macOS also needs to allow MergeMole notifications in System Settings.",
+                            padded: false) {
+                SettingsRow(label: "Show banners") {
+                    Picker("", selection: $model.notifyMode) {
+                        ForEach(NotifyMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+            }
         }
     }
 }
