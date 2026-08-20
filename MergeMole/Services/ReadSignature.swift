@@ -63,6 +63,21 @@ enum UnreadSignal: String, CaseIterable, Identifiable, Sendable {
         case .comments:         return "New comments are posted"
         }
     }
+
+    /// The banner's one-line reason when this signal re-flags a read PR
+    /// (`AppModel.bannerReason`). Kept beside `label` so adding a signal adds
+    /// its copy in the same place. `baseBranchMerges` never fires a banner
+    /// itself (it only widens `commits`), so it reads as commits.
+    var bannerPhrase: String {
+        switch self {
+        case .commits, .baseBranchMerges: return "New commits"
+        case .prose:                      return "Title or description edited"
+        case .review:                     return "Review decision changed"
+        case .status:                     return "Checks or status changed"
+        case .labels:                     return "Labels changed"
+        case .comments:                   return "New comments"
+        }
+    }
 }
 
 /// The per-signal fingerprint read/unread state is tracked against — the read

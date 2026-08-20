@@ -55,6 +55,26 @@ final class FakePRProvider: PRProvider {
     }
 }
 
+/// Recording notifier. Tests assert on what the model *asked for* — banners
+/// delivered, sweeps requested — never on UserNotifications itself, which the
+/// suite must not touch.
+final class FakeNotifier: PRNotifier {
+    var prOpened: ((String) -> Void)?
+    private(set) var authorizationRequests = 0
+    private(set) var delivered: [PRNotification] = []
+    private(set) var removedIDs: [String] = []
+    private(set) var removedAllCount = 0
+
+    func requestAuthorization() { authorizationRequests += 1 }
+    func deliver(_ notification: PRNotification) { delivered.append(notification) }
+    func removeDelivered(ids: [String]) { removedIDs.append(contentsOf: ids) }
+    func removeAllDelivered() { removedAllCount += 1 }
+
+    /// Simulate the user clicking a delivered banner (the real notifier would
+    /// also open the browser; the model side is what's under test).
+    func click(_ id: String) { prOpened?(id) }
+}
+
 // MARK: - Builders
 
 extension PRCommit {
@@ -122,6 +142,7 @@ func makePR(
 struct TestWorld {
     let model: AppModel
     let provider: FakePRProvider
+    let notifier: FakeNotifier
     let temp: TempDefaults
     let readStoreURL: URL
 
@@ -158,13 +179,15 @@ func makeWorld(
     secrets.set("ghp_test_token", for: .githubToken)   // "connected", so load() proceeds
 
     let provider = FakePRProvider()
+    let notifier = FakeNotifier()
     let model = AppModel(
         prProvider: provider,
         secrets: secrets,
         readStore: ReadStore(fileURL: readStoreURL),
         verdictCache: VerdictCache(fileURL: tempFileURL("verdict-cache.json")),
+        notifier: notifier,
         defaults: temp.defaults,
         observesSystemEvents: false
     )
-    return TestWorld(model: model, provider: provider, temp: temp, readStoreURL: readStoreURL)
+    return TestWorld(model: model, provider: provider, notifier: notifier, temp: temp, readStoreURL: readStoreURL)
 }

@@ -173,6 +173,26 @@ enum CardDetail: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// When a desktop banner fires (Settings → Unread → Notifications). Banners are
+/// not their own system: they draw from the same pool the menu-bar count reads
+/// (unread PRs in the badge groups), so a banner can only exist where the badge
+/// number rose. This picker just narrows which of those rises ring — `newPRs`
+/// rings only for PRs never read (the "new" flavor of unread), `follow` for any
+/// unread flip the user's signals produce.
+enum NotifyMode: String, CaseIterable, Identifiable, Sendable {
+    case off, newPRs, follow
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .off:    return "Off"
+        case .newPRs: return "New PRs only"
+        case .follow: return "Any unread activity"
+        }
+    }
+}
+
 /// The Settings window's tabs. Shared so the panel's ⋮ menu can deep-link to one
 /// (e.g. "About MergeMole" opens straight to About) instead of a separate window.
 enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
@@ -323,6 +343,9 @@ final class AppModel {
 
     private let verdictCache: VerdictCache
     private let readStore: ReadStore
+    /// Delivers desktop banners and sweeps them when their PR is caught up.
+    /// A seam like `prProvider`: the model decides, the notifier executes.
+    private let notifier: PRNotifier
     /// Where preferences persist. `.standard` in production; tests inject a
     /// throwaway suite so no run ever touches real settings.
     private let defaults: UserDefaults
@@ -634,6 +657,24 @@ final class AppModel {
             defaults.set(unreadSignals.map(\.rawValue).sorted(), forKey: Key.unreadSignals)
         }
     }
+
+    /// When desktop banners fire (Settings → Unread → Notifications). Persisted.
+    /// Ships off — no install gets a permission prompt or a banner it didn't ask
+    /// for. Turning it on asks macOS for permission (init re-asks on launch
+    /// while opted in, so a lost prompt can't strand the user undeliverable);
+    /// turning it off sweeps Notification Center — off means no MergeMole
+    /// presence there, not just no new banners.
+    var notifyMode: NotifyMode {
+        didSet {
+            guard notifyMode != oldValue else { return }
+            defaults.set(notifyMode.rawValue, forKey: Key.notifyMode)
+            if notifyMode == .off {
+                notifier.removeAllDelivered()
+            } else {
+                notifier.requestAuthorization()
+            }
+        }
+    }
     
     /// Whether PRs from archived repos show in the panel. A *display* filter — the
     /// archived PRs still live in `pullRequests`; this only gates what's surfaced, so
@@ -678,6 +719,7 @@ final class AppModel {
         static let cardDetail = "cardDetail"
         static let unreadMode = "unreadMode"
         static let unreadSignals = "unreadSignals"
+        static let notifyMode = "notifyMode"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
@@ -702,6 +744,7 @@ final class AppModel {
         currentUser: String? = nil,
         readStore: ReadStore = ReadStore(),
         verdictCache: VerdictCache = VerdictCache(),
+        notifier: PRNotifier? = nil,
         defaults: UserDefaults = .standard,
         observesSystemEvents: Bool = true
     ) {
@@ -712,6 +755,7 @@ final class AppModel {
         self.currentUser = currentUser ?? SampleData.currentUser
         self.readStore = readStore
         self.verdictCache = verdictCache
+        self.notifier = notifier ?? UserNotificationNotifier()
         self.defaults = defaults
 
         self.aiMode = AIMode(rawValue: defaults.string(forKey: Key.aiMode) ?? "") ?? .onDevice
@@ -728,6 +772,7 @@ final class AppModel {
         } else {
             self.unreadSignals = UnreadSignal.defaultEnabled
         }
+        self.notifyMode = NotifyMode(rawValue: defaults.string(forKey: Key.notifyMode) ?? "") ?? .off
         self.includeArchivedRepos = defaults.object(forKey: Key.includeArchivedRepos) as? Bool ?? true
         let hasToken = secrets.string(for: .githubToken) != nil
         self.isGitHubConnected = hasToken
@@ -781,6 +826,17 @@ final class AppModel {
         if hiddenTabs.contains(selectedTab) {
             selectedTab = visibleTabs.first ?? .reviewRequested
         }
+
+        // The banner click path closes the loop: the notifier has opened the PR
+        // in the browser; counting it read here drops the badge (and sweeps the
+        // banner) on the same gesture.
+        self.notifier.prOpened = { [weak self] id in self?.bannerOpened(id) }
+
+        // An opted-in user must always be deliverable. The enable-time request
+        // can die unanswered (app quit mid-prompt), leaving "not determined" —
+        // where macOS drops every delivery silently. Re-asking is free: granted
+        // and denied both no-op; only a still-undetermined state prompts.
+        if notifyMode != .off { self.notifier.requestAuthorization() }
 
         // Background freshness: periodic refetch + refresh on wake / network return.
         if observesSystemEvents {
@@ -839,6 +895,10 @@ final class AppModel {
         verdicts = [:]
         currentUserAvatarURL = nil
         loadError = nil
+        // The list the banners pointed at is gone, so they go too — and the next
+        // connection's first sync is a fresh baseline, not a wall of banners.
+        notifier.removeAllDelivered()
+        hasSyncedThisSession = false
         startAutoRefresh()   // cancels the scheduler (no-op while disconnected)
     }
 
@@ -893,7 +953,7 @@ final class AppModel {
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
     ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardLayout, cardDetail,
-    ///     unreadMode/unreadSignals, tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
+    ///     unreadMode/unreadSignals/notifyMode, tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/`) — the AI verdict
     ///     cache (`verdict-cache.json`) and read/unread state (`read-state.json`).
     ///   • Login item (SMAppService) — launch-at-login registration.
@@ -913,6 +973,7 @@ final class AppModel {
         cardDetail = .detailed
         unreadMode = .activity
         unreadSignals = UnreadSignal.defaultEnabled
+        notifyMode = .off
         includeArchivedRepos = true
         customTabs = []
         tabOrder = PRTab.builtin
@@ -1057,6 +1118,10 @@ final class AppModel {
     }
 
     func markRead(_ pr: PullRequest) {
+        // Sweep before the no-change guard: catching up through any door (card
+        // click, context menu, banner click) clears the banner, even when the
+        // read record itself has nothing to update.
+        notifier.removeDelivered(ids: [pr.id])
         let signature = readSignature(of: pr)
         guard readComponents[pr.id] != signature else { return }   // already read in this state
         readComponents[pr.id] = signature
@@ -1070,10 +1135,13 @@ final class AppModel {
     }
 
     /// Mark every PR in a tab read — the header's "Mark all read", scoped to the
-    /// current tab. One write for the whole batch.
+    /// current tab. One write for the whole batch, one banner sweep for the lot:
+    /// Notification Center empties on the same gesture as the dots.
     func markAllRead(in tab: PRTab) {
+        let prs = pullRequests(for: tab)
+        notifier.removeDelivered(ids: prs.map(\.id))
         var changed = false
-        for pr in pullRequests(for: tab) {
+        for pr in prs {
             let signature = readSignature(of: pr)
             guard readComponents[pr.id] != signature else { continue }
             readComponents[pr.id] = signature
@@ -1135,6 +1203,77 @@ final class AppModel {
         if readComponents.count != before { changed = true }
 
         if changed { readStore.save(readComponents) }
+    }
+
+    // MARK: Desktop notifications
+
+    /// True once a fetch has completed this session. The banner diff needs a
+    /// real "before" to compare against; a session's first sync is that
+    /// baseline — everything that changed while the app wasn't running lights
+    /// the badge, never Notification Center. Reset on disconnect so a
+    /// reconnect's first sync is a baseline again, not a wall of banners.
+    private var hasSyncedThisSession = false
+
+    /// The banner pass, run after each sync's reconcile and nowhere else.
+    /// Deliberately bracketed inside `load()`: spamming read/unread between
+    /// fetches can never ring, and a banner can only exist where the menu-bar
+    /// count rose — this reads the same pool (`unreadBadgePullRequests`) the
+    /// badge counts, under the same signals and merge-walk rules. Running
+    /// after `reconcileReadState()` means its absorbs (first-run seeding,
+    /// merge-only head moves, disabled signals) can never look like activity.
+    ///
+    /// One banner per unread episode: a PR already unread before the fetch is
+    /// not an edge, so further activity on it stays quiet until it's read.
+    private func notifyAfterSync(unreadBefore: Set<String>) {
+        let unreadNow = unreadBadgePullRequests
+        let unreadIDs = Set(unreadNow.map(\.id))
+
+        // Sweep banners whose PR this fetch settled — reviewed on github.com
+        // and absorbed, or gone from the list. A banner never outlives the
+        // badge count it announced.
+        notifier.removeDelivered(ids: Array(unreadBefore.subtracting(unreadIDs)))
+
+        // No banners while the panel is open: the user is already looking at
+        // the change. The PR is unread by then, so it isn't an edge at the
+        // next fetch either — seeing it in the panel *was* the notification.
+        guard notifyMode != .off, hasSyncedThisSession, !isPanelOpen else { return }
+
+        for pr in unreadNow where !unreadBefore.contains(pr.id) {
+            // No read record is the "new PR" flavor of unread; a record that
+            // stopped matching is activity on a read PR. `.newPRs` rings only
+            // for the former.
+            let isNew = readComponents[pr.id] == nil
+            if notifyMode == .newPRs && !isNew { continue }
+            notifier.deliver(PRNotification(
+                id: pr.id,
+                title: pr.title,
+                body: "\(bannerReason(for: pr, isNew: isNew)) · \(pr.repository) #\(pr.number)",
+                url: pr.url
+            ))
+        }
+    }
+
+    /// The banner's one-line "why": the first enabled signal whose stored
+    /// component no longer matches — the same comparison `isUnread` flagged
+    /// the PR on, so the reason always names a change the dot is showing.
+    private func bannerReason(for pr: PullRequest, isNew: Bool) -> String {
+        guard !isNew, let stored = readComponents[pr.id] else { return "New pull request" }
+        let current = readSignature(of: pr)
+        for signal in UnreadSignal.primary where unreadSignals.contains(signal) {
+            guard let now = current[signal.rawValue],
+                  let then = stored[signal.rawValue],
+                  then != now else { continue }
+            return signal.bannerPhrase
+        }
+        return "Updated"   // unreachable while isUnread and this walk agree; safe fallback
+    }
+
+    /// A banner was clicked. The notifier already opened the PR in the browser;
+    /// counting it read here drops the badge and dot on the same gesture, the
+    /// exact behavior clicking the card in the panel has.
+    private func bannerOpened(_ id: String) {
+        guard let pr = pullRequests.first(where: { $0.id == id }) else { return }
+        markRead(pr)
     }
 
     /// Whether verdicts should compute at all. Mirrors `activeEngine != nil` but
@@ -1380,10 +1519,17 @@ final class AppModel {
             let result = try await prProvider.fetchPullRequests(customTabs: customTabs)
             if let viewer = result.viewer { currentUser = viewer }
             if let avatar = result.viewerAvatarURL { currentUserAvatarURL = avatar }
+            // Which badge PRs are unread *before* this fetch's content lands.
+            // The banner diff below compares against exactly this, so a banner
+            // is always the fetch's doing — never a manual read/unread toggle,
+            // which changes state between fetches where no diff ever runs.
+            let unreadBefore = Set(unreadBadgePullRequests.map(\.id))
             pullRequests = result.pullRequests
             readSignatureByID = [:]   // fresh content → signatures recompute lazily
             lastSyncedAt = .now
             reconcileReadState()
+            notifyAfterSync(unreadBefore: unreadBefore)
+            hasSyncedThisSession = true
             isLoading = false
             await recomputeVerdicts()
         } catch {
