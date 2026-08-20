@@ -255,34 +255,6 @@ private struct UnreadSettings: View {
     var body: some View {
         @Bindable var model = model
         SettingsScaffold {
-            SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
-                SettingsRow(label: "Flag") {
-                    Picker("", selection: $model.unreadMode) {
-                        ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                }
-                // The activity signals define the right segment; the card grows to
-                // show them and collapses back to the mode row for New-only
-                // (the checkbox config is kept either way).
-                if model.unreadMode == .activity {
-                    Group {
-                        Hairline()
-                        UnreadSignalList()
-                    }
-                    .transition(.opacity)
-                }
-            }
-            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
-
-            SettingsSection("Menu-bar count",
-                            subtitle: "Pick which groups MergeMole watches. The menu-bar count and notifications both come only from these groups. Each PR counts once.",
-                            padded: false) {
-                BadgeTabList()
-            }
-
             SettingsSection("Notifications",
                             subtitle: "Desktop notifications when a watched pull request turns unread. They clear when you catch up.",
                             padded: false) {
@@ -314,6 +286,34 @@ private struct UnreadSettings: View {
                     .padding(.horizontal, Layout.roomy)
                     .padding(.vertical, Layout.base + 2)
                 }
+            }
+
+            SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
+                SettingsRow(label: "Flag") {
+                    Picker("", selection: $model.unreadMode) {
+                        ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                // The activity signals define the right segment; the card grows to
+                // show them and collapses back to the mode row for New-only
+                // (the checkbox config is kept either way).
+                if model.unreadMode == .activity {
+                    Group {
+                        Hairline()
+                        UnreadSignalList()
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
+
+            SettingsSection("Menu-bar count",
+                            subtitle: "Pick which groups MergeMole watches. The menu-bar count and notifications both come only from these groups. Each PR counts once.",
+                            padded: false) {
+                BadgeTabList()
             }
         }
         // On appear and again whenever the mode changes: enabling notifications
