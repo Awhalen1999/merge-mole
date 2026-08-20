@@ -660,12 +660,19 @@ final class AppModel {
 
     /// When desktop banners fire (Settings → Unread → Notifications). Persisted.
     /// Ships off — no install gets a permission prompt or a banner it didn't ask
-    /// for; enabling it is the moment we ask macOS for permission.
+    /// for. Turning it on asks macOS for permission (init re-asks on launch
+    /// while opted in, so a lost prompt can't strand the user undeliverable);
+    /// turning it off sweeps Notification Center — off means no MergeMole
+    /// presence there, not just no new banners.
     var notifyMode: NotifyMode {
         didSet {
             guard notifyMode != oldValue else { return }
             defaults.set(notifyMode.rawValue, forKey: Key.notifyMode)
-            if notifyMode != .off { notifier.requestAuthorization() }
+            if notifyMode == .off {
+                notifier.removeAllDelivered()
+            } else {
+                notifier.requestAuthorization()
+            }
         }
     }
     

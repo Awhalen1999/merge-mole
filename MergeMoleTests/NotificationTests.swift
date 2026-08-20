@@ -188,6 +188,14 @@ import Testing
         #expect(world.notifier.authorizationRequests == 1)
     }
 
+    @Test func turningBannersOffSweepsNotificationCenter() async {
+        // Off means no MergeMole presence in Notification Center, not just no
+        // new banners — whatever was delivered goes with the setting.
+        let world = notifyingWorld()
+        world.model.notifyMode = .off
+        #expect(world.notifier.removedAllCount == 1)
+    }
+
     @Test func optedInLaunchEnsuresPermission() async {
         // The enable-time prompt can go unanswered (app quit mid-prompt), which
         // strands macOS at "not determined" and drops every delivery silently.
