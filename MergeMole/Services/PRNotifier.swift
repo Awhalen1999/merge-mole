@@ -98,7 +98,10 @@ final class UserNotificationNotifier: NSObject, PRNotifier, UNUserNotificationCe
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler(.banner)
+        // .list as well as .banner: a banner that fires while nobody's looking
+        // must still land in Notification Center, or the sweep-on-read contract
+        // has nothing to sweep and the user has nothing to come back to.
+        completionHandler([.banner, .list])
     }
 }
 
