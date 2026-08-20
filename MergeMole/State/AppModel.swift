@@ -173,22 +173,23 @@ enum CardDetail: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// When a desktop banner fires (Settings → Unread → Notifications). Banners are
-/// not their own system: they draw from the same pool the menu-bar count reads
-/// (unread PRs in the badge groups), so a banner can only exist where the badge
-/// number rose. This picker just narrows which of those rises ring — `newPRs`
-/// rings only for PRs never read (the "new" flavor of unread), `follow` for any
-/// unread flip the user's signals produce.
+/// When a desktop notification fires (Settings → Unread → Notifications).
+/// Notifications are not their own system: they draw from the same pool the
+/// menu-bar count reads (unread PRs in the watched groups), so one can only
+/// fire where the badge number rose. This picker narrows which of those rises
+/// ring, and its labels deliberately reuse the Flag picker's vocabulary — "New
+/// PRs only" and "PR activity" mean exactly what they mean for the dot, so the
+/// two controls read as levels of the same thing, not two systems.
 enum NotifyMode: String, CaseIterable, Identifiable, Sendable {
-    case off, newPRs, follow
+    case off, newPRs, follow   // raw values are the persistence contract; labels are free to evolve
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .off:    return "Off"
+        case .off:    return "None"
         case .newPRs: return "New PRs only"
-        case .follow: return "Any unread activity"
+        case .follow: return "PR activity"
         }
     }
 }
@@ -898,7 +899,7 @@ final class AppModel {
         // The list the banners pointed at is gone, so they go too — and the next
         // connection's first sync is a fresh baseline, not a wall of banners.
         notifier.removeAllDelivered()
-        hasSyncedThisSession = false
+        bannerDiff.reset()
         startAutoRefresh()   // cancels the scheduler (no-op while disconnected)
     }
 
@@ -1118,14 +1119,7 @@ final class AppModel {
     }
 
     func markRead(_ pr: PullRequest) {
-        // Sweep before the no-change guard: catching up through any door (card
-        // click, context menu, banner click) clears the banner, even when the
-        // read record itself has nothing to update.
-        notifier.removeDelivered(ids: [pr.id])
-        let signature = readSignature(of: pr)
-        guard readComponents[pr.id] != signature else { return }   // already read in this state
-        readComponents[pr.id] = signature
-        readStore.save(readComponents)
+        recordRead([pr])
     }
 
     func markUnread(_ pr: PullRequest) {
@@ -1135,10 +1129,18 @@ final class AppModel {
     }
 
     /// Mark every PR in a tab read — the header's "Mark all read", scoped to the
-    /// current tab. One write for the whole batch, one banner sweep for the lot:
-    /// Notification Center empties on the same gesture as the dots.
+    /// current tab.
     func markAllRead(in tab: PRTab) {
-        let prs = pullRequests(for: tab)
+        recordRead(pullRequests(for: tab))
+    }
+
+    /// The one door read state changes through. Every way of catching up (card
+    /// click, context menu, Mark all read, notification click) lands here, so
+    /// the notification sweep can never be forgotten by a new caller — reading
+    /// a PR and its banner disappearing are the same event. Sweeps before the
+    /// no-change check on purpose: catching up clears the banner even when the
+    /// record itself has nothing to update. One save per batch.
+    private func recordRead(_ prs: [PullRequest]) {
         notifier.removeDelivered(ids: prs.map(\.id))
         var changed = false
         for pr in prs {
@@ -1207,50 +1209,49 @@ final class AppModel {
 
     // MARK: Desktop notifications
 
-    /// True once a fetch has completed this session. The banner diff needs a
-    /// real "before" to compare against; a session's first sync is that
-    /// baseline — everything that changed while the app wasn't running lights
-    /// the badge, never Notification Center. Reset on disconnect so a
-    /// reconnect's first sync is a baseline again, not a wall of banners.
-    private var hasSyncedThisSession = false
+    /// The notification rules live in `BannerDiff`, whole and pure; this model
+    /// only feeds it the before/after picture and applies the outcome. The
+    /// pass is deliberately bracketed inside `load()`: spamming read/unread
+    /// between fetches can never ring, and a banner can only exist where the
+    /// menu-bar count rose — the diff reads the same pool the badge counts,
+    /// under the same signals and merge-walk rules. Running after
+    /// `reconcileReadState()` means its absorbs (first-run seeding, merge-only
+    /// head moves, disabled signals) can never look like activity.
+    private var bannerDiff = BannerDiff()
 
-    /// The banner pass, run after each sync's reconcile and nowhere else.
-    /// Deliberately bracketed inside `load()`: spamming read/unread between
-    /// fetches can never ring, and a banner can only exist where the menu-bar
-    /// count rose — this reads the same pool (`unreadBadgePullRequests`) the
-    /// badge counts, under the same signals and merge-walk rules. Running
-    /// after `reconcileReadState()` means its absorbs (first-run seeding,
-    /// merge-only head moves, disabled signals) can never look like activity.
-    ///
-    /// One banner per unread episode: a PR already unread before the fetch is
-    /// not an edge, so further activity on it stays quiet until it's read.
+    /// True when macOS is refusing MergeMole notifications outright — the one
+    /// failure that is otherwise invisible (the app works, banners just never
+    /// appear). Refreshed when the Unread settings appear; drives the warning
+    /// row there and nothing else.
+    private(set) var notificationsBlocked = false
+
+    func refreshNotificationPermission() async {
+        notificationsBlocked = await notifier.authorizationDenied()
+    }
+
     private func notifyAfterSync(unreadBefore: Set<String>) {
         let unreadNow = unreadBadgePullRequests
-        let unreadIDs = Set(unreadNow.map(\.id))
-
-        // Sweep banners whose PR this fetch settled — reviewed on github.com
-        // and absorbed, or gone from the list. A banner never outlives the
-        // badge count it announced.
-        notifier.removeDelivered(ids: Array(unreadBefore.subtracting(unreadIDs)))
-
-        // No banners while the panel is open: the user is already looking at
-        // the change. The PR is unread by then, so it isn't an edge at the
-        // next fetch either — seeing it in the panel *was* the notification.
-        guard notifyMode != .off, hasSyncedThisSession, !isPanelOpen else { return }
-
-        for pr in unreadNow where !unreadBefore.contains(pr.id) {
+        let outcome = bannerDiff.afterSync(
+            before: unreadBefore,
             // No read record is the "new PR" flavor of unread; a record that
-            // stopped matching is activity on a read PR. `.newPRs` rings only
-            // for the former.
-            let isNew = readComponents[pr.id] == nil
-            if notifyMode == .newPRs && !isNew { continue }
-            notifier.deliver(PRNotification(
-                id: pr.id,
-                title: pr.title,
-                body: "\(bannerReason(for: pr, isNew: isNew)) · \(pr.repository) #\(pr.number)",
-                url: pr.url
-            ))
+            // stopped matching is activity on a read PR.
+            now: unreadNow.map { .init(id: $0.id, isNew: readComponents[$0.id] == nil) },
+            mode: notifyMode,
+            panelOpen: isPanelOpen
+        )
+        notifier.removeDelivered(ids: outcome.sweptIDs)
+        for pr in unreadNow where outcome.ringIDs.contains(pr.id) {
+            notifier.deliver(banner(for: pr))
         }
+    }
+
+    private func banner(for pr: PullRequest) -> PRNotification {
+        PRNotification(
+            id: pr.id,
+            title: pr.title,
+            body: "\(bannerReason(for: pr, isNew: readComponents[pr.id] == nil)) · \(pr.repository) #\(pr.number)",
+            url: pr.url
+        )
     }
 
     /// The banner's one-line "why": the first enabled signal whose stored
@@ -1529,7 +1530,6 @@ final class AppModel {
             lastSyncedAt = .now
             reconcileReadState()
             notifyAfterSync(unreadBefore: unreadBefore)
-            hasSyncedThisSession = true
             isLoading = false
             await recomputeVerdicts()
         } catch {

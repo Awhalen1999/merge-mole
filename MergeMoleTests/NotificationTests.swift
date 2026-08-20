@@ -196,6 +196,20 @@ import Testing
         #expect(world.notifier.removedAllCount == 1)
     }
 
+    @Test func blockedPermissionSurfacesAndClears() async {
+        // The one invisible failure: macOS denies delivery while everything in
+        // the app works. The model must reflect the live status both ways so
+        // the Settings warning appears, and disappears once the user fixes it.
+        let world = notifyingWorld()
+        world.notifier.denied = true
+        await world.model.refreshNotificationPermission()
+        #expect(world.model.notificationsBlocked)
+
+        world.notifier.denied = false
+        await world.model.refreshNotificationPermission()
+        #expect(!world.model.notificationsBlocked)
+    }
+
     @Test func optedInLaunchEnsuresPermission() async {
         // The enable-time prompt can go unanswered (app quit mid-prompt), which
         // strands macOS at "not determined" and drops every delivery silently.

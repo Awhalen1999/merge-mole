@@ -60,6 +60,8 @@ final class FakePRProvider: PRProvider {
 /// suite must not touch.
 final class FakeNotifier: PRNotifier {
     var prOpened: ((String) -> Void)?
+    /// Scripted permission state: set true to simulate a denied permission.
+    var denied = false
     private(set) var authorizationRequests = 0
     private(set) var delivered: [PRNotification] = []
     private(set) var removedIDs: [String] = []
@@ -67,6 +69,7 @@ final class FakeNotifier: PRNotifier {
 
     func requestAuthorization() { authorizationRequests += 1 }
     func deliver(_ notification: PRNotification) { delivered.append(notification) }
+    func authorizationDenied() async -> Bool { denied }
     func removeDelivered(ids: [String]) { removedIDs.append(contentsOf: ids) }
     func removeAllDelivered() { removedAllCount += 1 }
 

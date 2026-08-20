@@ -33,6 +33,11 @@ protocol PRNotifier: AnyObject {
 
     func deliver(_ notification: PRNotification)
 
+    /// Whether macOS is refusing delivery outright (permission denied). The
+    /// one failure mode that is otherwise invisible: everything in the app
+    /// works, banners just never appear. Drives the warning row in Settings.
+    func authorizationDenied() async -> Bool
+
     /// Drop delivered banners for these PR ids from Notification Center. A
     /// banner must never outlive its reason: once a PR reads as caught-up (or
     /// is gone), its banner goes too.
@@ -68,6 +73,10 @@ final class UserNotificationNotifier: NSObject, PRNotifier, UNUserNotificationCe
         content.body = notification.body
         content.userInfo = ["url": notification.url.absoluteString, "pr": notification.id]
         center.add(UNNotificationRequest(identifier: notification.id, content: content, trigger: nil))
+    }
+
+    func authorizationDenied() async -> Bool {
+        await center.notificationSettings().authorizationStatus == .denied
     }
 
     func removeDelivered(ids: [String]) {
@@ -115,6 +124,7 @@ final class NoopNotifier: PRNotifier {
     var prOpened: ((String) -> Void)?
     func requestAuthorization() {}
     func deliver(_ notification: PRNotification) {}
+    func authorizationDenied() async -> Bool { false }
     func removeDelivered(ids: [String]) {}
     func removeAllDelivered() {}
 }
