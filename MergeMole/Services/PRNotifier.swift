@@ -24,8 +24,11 @@ protocol PRNotifier: AnyObject {
     var prOpened: ((String) -> Void)? { get set }
 
     /// Ask macOS for permission to show banners. Called when the user enables
-    /// notifications in Settings — never at launch, so no install is ever
-    /// greeted by a permission prompt it didn't ask for.
+    /// notifications in Settings, and again at launch while they're opted in —
+    /// the enable-time prompt can die unanswered, and a user who asked for
+    /// banners must never sit silently undeliverable. Never called for `.off`,
+    /// so no install is greeted by a prompt it didn't ask for. Idempotent:
+    /// only a still-undetermined permission state actually prompts.
     func requestAuthorization()
 
     func deliver(_ notification: PRNotification)

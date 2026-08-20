@@ -181,10 +181,19 @@ import Testing
 
     @Test func enablingAsksPermissionDisablingDoesNot() async {
         let world = makeWorld()
-        #expect(world.notifier.authorizationRequests == 0, "never at launch")
+        #expect(world.notifier.authorizationRequests == 0, "opted-out installs are never prompted")
         world.model.notifyMode = .follow
         #expect(world.notifier.authorizationRequests == 1)
         world.model.notifyMode = .off
+        #expect(world.notifier.authorizationRequests == 1)
+    }
+
+    @Test func optedInLaunchEnsuresPermission() async {
+        // The enable-time prompt can go unanswered (app quit mid-prompt), which
+        // strands macOS at "not determined" and drops every delivery silently.
+        // A launch that restores an opted-in mode must re-ask; re-asking is a
+        // no-op once the user has actually answered.
+        let world = notifyingWorld()
         #expect(world.notifier.authorizationRequests == 1)
     }
 }

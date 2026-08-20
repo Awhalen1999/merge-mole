@@ -825,6 +825,12 @@ final class AppModel {
         // banner) on the same gesture.
         self.notifier.prOpened = { [weak self] id in self?.bannerOpened(id) }
 
+        // An opted-in user must always be deliverable. The enable-time request
+        // can die unanswered (app quit mid-prompt), leaving "not determined" —
+        // where macOS drops every delivery silently. Re-asking is free: granted
+        // and denied both no-op; only a still-undetermined state prompts.
+        if notifyMode != .off { self.notifier.requestAuthorization() }
+
         // Background freshness: periodic refetch + refresh on wake / network return.
         if observesSystemEvents {
             observeSystemEvents()
