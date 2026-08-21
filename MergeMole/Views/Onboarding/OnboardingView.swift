@@ -480,31 +480,68 @@ private struct PersonalizeStep: View {
 
 // MARK: - 5 · Unread
 
-/// The attention step — the same choice as Settings → Unread, framed as a
-/// question, plus which groups feed the menu-bar count (`BadgeTabList`) and a
-/// notifications opt-in. The toggle rides this step because notifications have
-/// no model of their own: they follow the choice the user just made, and
-/// flipping it on fires the macOS permission prompt at the moment of maximum
-/// intent (the `notificationsEnabled` didSet). Ships unchecked; a declined
-/// prompt is silently fine here — Settings → Unread surfaces the blocked state
-/// later, and the wizard never grows error branches. The per-signal checkboxes
-/// stay in Settings, with the subtitle pointing the way.
+/// The attention step. Two inputs multiply here — which activity counts, and
+/// which tabs are watched — and together they drive the unread dot, the
+/// menu-bar count, and notifications. The layout teaches that: the header
+/// states the equation, the two inputs get numbers, and each block's one-liner
+/// names the surface it drives. The notifications toggle sits *last* on
+/// purpose — in a wizard it reads as the payoff of the two choices above it,
+/// while Settings keeps it on top as the headline feature; same components,
+/// different jobs. Flipping it on fires the macOS permission prompt at the
+/// moment of maximum intent (the `notificationsEnabled` didSet). Ships
+/// unchecked; a declined prompt is silently fine here — Settings → Unread
+/// surfaces the blocked state later, and the wizard never grows error branches.
 private struct UnreadStep: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
         WizardPage {
-            StepHeader(title: "What counts as unread?",
-                       subtitle: "Pick what the unread dot, menu-bar count, and notifications flag. Fine-tune which activity counts anytime in Settings → Unread.")
+            StepHeader(title: "Choose what you're notified about",
+                       subtitle: "Pick the activity that counts and the tabs you watch. Together they drive the dot, the count, and notifications. Change any of it later in Settings.")
 
-            // Notifications lead, mirroring Settings → Unread exactly, so the
-            // step and the pane read as the same screen.
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "1 · What activity counts?",
+                              subtitle: "Flags the PR as unread: the dot in the panel.")
+                VStack(spacing: Layout.base) {
+                    ForEach(UnreadMode.allCases) { mode in
+                        // Activity grows its card to hold the signal checkboxes —
+                        // the same list as Settings → Unread, same expansion move
+                        // as the custom-model card on the AI step.
+                        if mode == .activity {
+                            RadioCard(title: mode.label,
+                                      detail: mode.detail,
+                                      selected: model.unreadMode == mode) {
+                                model.unreadMode = mode
+                            } expansion: {
+                                UnreadSignalList()
+                            }
+                        } else {
+                            RadioCard(title: mode.label,
+                                      detail: mode.detail,
+                                      selected: model.unreadMode == mode) {
+                                model.unreadMode = mode
+                            }
+                        }
+                    }
+                }
+                .animation(.easeOut(duration: 0.15), value: model.unreadMode)
+            }
+
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "2 · Which tabs do you watch?",
+                              subtitle: "Unread PRs here become the menu-bar count.")
+                VStack(spacing: 0) {
+                    BadgeTabList()
+                }
+                .cardSurface(padded: false)
+            }
+
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Notifications",
-                              subtitle: "A desktop notification when a watched PR turns unread. Follows the choices below and clears when you catch up.")
+                              subtitle: "A notification when a watched PR turns unread.")
                 HStack(spacing: Layout.roomy) {
-                    Text("Notify when a PR turns unread")
+                    Text("Show notifications")
                         .foregroundStyle(.appText)
                     Spacer(minLength: Layout.base)
                     Toggle("", isOn: $model.notificationsEnabled)
@@ -514,39 +551,6 @@ private struct UnreadStep: View {
                 }
                 .padding(.horizontal, Layout.roomy)
                 .padding(.vertical, Layout.base + 2)
-                .cardSurface(padded: false)
-            }
-
-            VStack(spacing: Layout.base) {
-                ForEach(UnreadMode.allCases) { mode in
-                    // Activity grows its card to hold the signal checkboxes —
-                    // the same list as Settings → Unread, same expansion move
-                    // as the custom-model card on the AI step.
-                    if mode == .activity {
-                        RadioCard(title: mode.label,
-                                  detail: mode.detail,
-                                  selected: model.unreadMode == mode) {
-                            model.unreadMode = mode
-                        } expansion: {
-                            UnreadSignalList()
-                        }
-                    } else {
-                        RadioCard(title: mode.label,
-                                  detail: mode.detail,
-                                  selected: model.unreadMode == mode) {
-                            model.unreadMode = mode
-                        }
-                    }
-                }
-            }
-            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
-
-            VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "Menu-bar count",
-                              subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.")
-                VStack(spacing: 0) {
-                    BadgeTabList()
-                }
                 .cardSurface(padded: false)
             }
         }
