@@ -196,7 +196,7 @@ private struct WelcomeStep: View {
                 .frame(width: 56, height: 56)
                 .clipShape(.rect(cornerRadius: 12, style: .continuous))
             StepHeader(title: "Welcome to MergeMole",
-                       subtitle: "The pull requests that need you, triaged by AI, right in your menu bar.")
+                       subtitle: "The pull requests that need your attention, triaged by AI, right in your menu bar.")
             DemoVideo()
         }
         .padding(Layout.generous * 2)
