@@ -500,31 +500,44 @@ private struct UnreadStep: View {
             StepHeader(title: "Choose what MergeMole notifies you about",
                        subtitle: "Pick what activity triggers a notification, then filter it to the tabs you care about. Change it anytime in Settings.")
 
+            // The same control as Settings → Unread: a Flag row with the
+            // segmented switch, the selected mode's one-liner beneath it, and
+            // the signal checkboxes when Activity is chosen — one component
+            // vocabulary across both surfaces.
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Activity",
                               subtitle: "The activity that flags a PR as unread.")
-                VStack(spacing: Layout.base) {
-                    ForEach(UnreadMode.allCases) { mode in
-                        // Activity grows its card to hold the signal checkboxes —
-                        // the same list as Settings → Unread, same expansion move
-                        // as the custom-model card on the AI step.
-                        if mode == .activity {
-                            RadioCard(title: mode.label,
-                                      detail: mode.detail,
-                                      selected: model.unreadMode == mode) {
-                                model.unreadMode = mode
-                            } expansion: {
-                                UnreadSignalList()
-                            }
-                        } else {
-                            RadioCard(title: mode.label,
-                                      detail: mode.detail,
-                                      selected: model.unreadMode == mode) {
-                                model.unreadMode = mode
-                            }
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: Layout.roomy) {
+                        Text("Flag")
+                            .foregroundStyle(.appText)
+                        Spacer(minLength: Layout.base)
+                        Picker("", selection: $model.unreadMode) {
+                            ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, Layout.roomy)
+                    .padding(.top, Layout.base + 2)
+                    .padding(.bottom, Layout.snug)
+
+                    Text(model.unreadMode.detail)
+                        .font(.caption)
+                        .foregroundStyle(.appTextSecondary)
+                        .padding(.horizontal, Layout.roomy)
+                        .padding(.bottom, Layout.base + 2)
+
+                    if model.unreadMode == .activity {
+                        Group {
+                            Hairline()
+                            UnreadSignalList()
+                        }
+                        .transition(.opacity)
                     }
                 }
+                .cardSurface(padded: false)
                 .animation(.easeOut(duration: 0.15), value: model.unreadMode)
             }
 

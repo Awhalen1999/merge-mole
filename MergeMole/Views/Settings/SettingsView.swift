@@ -256,9 +256,9 @@ private struct UnreadSettings: View {
         @Bindable var model = model
         SettingsScaffold {
             SettingsSection("Notifications",
-                            subtitle: "A desktop notification whenever a watched pull request turns unread. Your Flag and signal choices below decide what counts, so the dot and the notification always agree. They clear when you catch up.",
+                            subtitle: "Sent when a PR in your watched tabs turns unread. Clears when you catch up.",
                             padded: false) {
-                SettingsRow(label: "Notify when a PR turns unread") {
+                SettingsRow(label: "Send me notifications") {
                     Toggle("", isOn: $model.notificationsEnabled)
                         .labelsHidden()
                         .toggleStyle(.switch)
@@ -287,7 +287,7 @@ private struct UnreadSettings: View {
                 }
             }
 
-            SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
+            SettingsSection("Activity", subtitle: "The activity that flags a PR as unread.", padded: false) {
                 SettingsRow(label: "Flag") {
                     Picker("", selection: $model.unreadMode) {
                         ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
@@ -296,6 +296,14 @@ private struct UnreadSettings: View {
                     .labelsHidden()
                     .fixedSize()
                 }
+                // The selected mode keeps its one-line explanation, same as the
+                // onboarding step, so the segmented control never reads cryptic.
+                Text(model.unreadMode.detail)
+                    .font(.caption)
+                    .foregroundStyle(.appTextSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Layout.roomy)
+                    .padding(.bottom, Layout.base + 2)
                 // The activity signals define the right segment; the card grows to
                 // show them and collapses back to the mode row for New-only
                 // (the checkbox config is kept either way).
@@ -309,8 +317,8 @@ private struct UnreadSettings: View {
             }
             .animation(.easeOut(duration: 0.15), value: model.unreadMode)
 
-            SettingsSection("Menu-bar count",
-                            subtitle: "Pick which groups MergeMole watches. The menu-bar count and notifications both come only from these groups. Each PR counts once.",
+            SettingsSection("Watched tabs",
+                            subtitle: "The tabs you're notified about for new activity. These also feed the menu-bar count, each PR counted once.",
                             padded: false) {
                 BadgeTabList()
             }
