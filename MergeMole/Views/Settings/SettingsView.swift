@@ -196,7 +196,7 @@ private struct GeneralSettings: View {
                 }
             }
 
-            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
+            SettingsSection("Reset", subtitle: "Erases all local data: keys, connections, and preferences. MergeMole returns to a clean state.") {
                 Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
                     .buttonStyle(.bordered)
                     .tint(.appRed)
@@ -607,8 +607,8 @@ struct CustomModelForm: View {
             InlineStatus(kind: .progress("Connecting…"))
         case .loaded(let models):
             InlineStatus(kind: .ok(models.isEmpty
-                ? "Connected — endpoint listed no models, type one below."
-                : "Connected — \(models.count) models available. Choose one below."))
+                ? "Connected, but the endpoint listed no models. Type one below."
+                : "Connected: \(models.count) models available. Choose one below."))
         case .failed(let message):
             InlineStatus(kind: .error(message))
         }
@@ -619,16 +619,16 @@ struct CustomModelForm: View {
         switch model.byoStatus {
         case .untested:        EmptyView()
         case .testing:         InlineStatus(kind: .progress("Testing…"))
-        case .ok(let m):       InlineStatus(kind: .ok("Ready — triaging with \(m)"))
+        case .ok(let m):       InlineStatus(kind: .ok("Ready, triaging with \(m)"))
         case .failed(let m):   InlineStatus(kind: .error(m))
         }
     }
 
     /// Required for the hosted providers, optional for a local endpoint.
     private var keyPrompt: String {
-        if model.hasBYOKey { return "•••••• saved — press Connect to reuse it" }
+        if model.hasBYOKey { return "•••••• saved. Press Connect to reuse it" }
         return model.byoProvider == .compatible
-            ? "Optional — leave blank for local models"
+            ? "Optional: leave blank for local models"
             : "Paste your API key, then Connect"
     }
 
@@ -684,7 +684,7 @@ private struct ModelPickerField: View {
                 .disabled(!isEnabled)
             Menu {
                 if models.isEmpty {
-                    Text("No models — connect first")
+                    Text("No models, connect first")
                 } else {
                     ForEach(models, id: \.self) { id in
                         Button(id) { model.byoModel = id }

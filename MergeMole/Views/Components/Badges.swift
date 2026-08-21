@@ -171,7 +171,7 @@ struct BehindBadge: View {
     var body: some View {
         if isBehind {
             StatusItem(marker: .symbol("arrow.down"), text: "Behind base", tint: .appAmber)
-                .help("This branch is behind its base — needs an update or rebase")
+                .help("This branch is behind its base and needs an update or rebase")
         }
     }
 }

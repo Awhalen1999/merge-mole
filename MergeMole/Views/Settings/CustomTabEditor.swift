@@ -144,7 +144,7 @@ struct CustomTabEditor: View {
                 .foregroundStyle(.appTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            Text("Stack any GitHub search filters. They combine as AND — a PR appears only when every filter matches.")
+            Text("Stack any GitHub search filters. They combine as AND: a PR appears only when every filter matches.")
                 .font(.caption)
                 .foregroundStyle(.appTextTertiary)
                 .fixedSize(horizontal: false, vertical: true)
