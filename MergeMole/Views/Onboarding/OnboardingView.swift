@@ -498,6 +498,25 @@ private struct UnreadStep: View {
             StepHeader(title: "What counts as unread?",
                        subtitle: "Pick what the unread dot, menu-bar count, and notifications flag. Fine-tune which activity counts anytime in Settings → Unread.")
 
+            // Notifications lead, mirroring Settings → Unread exactly, so the
+            // step and the pane read as the same screen.
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "Notifications",
+                              subtitle: "A desktop notification when a watched PR turns unread. Follows the choices below and clears when you catch up.")
+                HStack(spacing: Layout.roomy) {
+                    Text("Notify when a PR turns unread")
+                        .foregroundStyle(.appText)
+                    Spacer(minLength: Layout.base)
+                    Toggle("", isOn: $model.notificationsEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.appAccent)
+                }
+                .padding(.horizontal, Layout.roomy)
+                .padding(.vertical, Layout.base + 2)
+                .cardSurface(padded: false)
+            }
+
             VStack(spacing: Layout.base) {
                 ForEach(UnreadMode.allCases) { mode in
                     // Activity grows its card to hold the signal checkboxes —
@@ -528,23 +547,6 @@ private struct UnreadStep: View {
                 VStack(spacing: 0) {
                     BadgeTabList()
                 }
-                .cardSurface(padded: false)
-            }
-
-            VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "Notifications",
-                              subtitle: "A desktop notification when a watched PR turns unread. Follows the choices above and clears when you catch up.")
-                HStack(spacing: Layout.roomy) {
-                    Text("Notify when a PR turns unread")
-                        .foregroundStyle(.appText)
-                    Spacer(minLength: Layout.base)
-                    Toggle("", isOn: $model.notificationsEnabled)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.appAccent)
-                }
-                .padding(.horizontal, Layout.roomy)
-                .padding(.vertical, Layout.base + 2)
                 .cardSurface(padded: false)
             }
         }
