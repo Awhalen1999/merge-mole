@@ -256,7 +256,7 @@ private struct UnreadSettings: View {
         @Bindable var model = model
         SettingsScaffold {
             SettingsSection("Notifications",
-                            subtitle: "Sent when a PR in your watched tabs turns unread. Clears when you catch up.",
+                            subtitle: "Sent when a PR in your watched tabs turns unread.",
                             padded: false) {
                 SettingsRow(label: "Send me notifications") {
                     Toggle("", isOn: $model.notificationsEnabled)
