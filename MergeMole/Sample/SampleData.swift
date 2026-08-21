@@ -65,7 +65,7 @@ enum SampleData {
             id: "PR_3",
             number: 77,
             title: "Bump SwiftLint to 0.55 and fix new warnings",
-            body: "Routine lint bump — mostly autofixes plus two manual rule suppressions.",
+            body: "Routine lint bump: mostly autofixes plus two manual rule suppressions.",
             repository: "acme/ios-app",
             author: currentUser,
             headBranch: "chore/swiftlint-0.55",
@@ -89,7 +89,7 @@ enum SampleData {
             id: "PR_4",
             number: 305,
             title: "WIP: redesign onboarding flow",
-            body: "Early draft of the new onboarding. Layout still in flux — not ready for review yet.",
+            body: "Early draft of the new onboarding. Layout still in flux, not ready for review yet.",
             repository: "acme/ios-app",
             author: currentUser,
             headBranch: "feat/onboarding-redesign",
@@ -113,7 +113,7 @@ enum SampleData {
             id: "PR_5",
             number: 56,
             title: "Add dark-mode tokens to the design system",
-            body: "Adds dark-mode color tokens to the design system. Pure additions — no existing tokens changed.",
+            body: "Adds dark-mode color tokens to the design system. Pure additions, no existing tokens changed.",
             repository: "acme/design-system",
             author: "priya",
             headBranch: "feat/dark-mode-tokens",
@@ -142,21 +142,21 @@ enum SampleData {
         let rationale: String
         if pr.isDraft {
             priority = .low
-            rationale = "Still a draft — not ready for review yet."
+            rationale = "Still a draft, not ready for review yet."
         } else if pr.checksState == .failing {
             priority = .low
             rationale = "CI is red; wait for the author to fix it."
         } else if pr.reviewState == .pending && pr.checksState == .passing {
             priority = pr.sizeBucket <= .s ? .high : .normal
             rationale = pr.sizeBucket <= .s
-                ? "Small, green, and waiting — a quick win to clear."
+                ? "Small, green, and waiting. A quick win to clear."
                 : "Green and waiting on your review."
         } else if pr.reviewState == .changesRequested {
             priority = .normal
             rationale = "Changes already requested; just a re-check."
         } else {
             priority = .low
-            rationale = "Already approved — nothing blocking from you."
+            rationale = "Already approved, nothing blocking from you."
         }
 
         return Verdict(

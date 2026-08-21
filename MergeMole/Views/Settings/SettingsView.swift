@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The Settings window (⌘,). Five tabs — General / Tabs / Unread / Providers /
-/// About — in the native macOS preferences `TabView`, so the chrome (centered
+/// The Settings window (⌘,). Five tabs — General / Tabs / Notifications /
+/// Providers / About — in the native macOS preferences `TabView`, so the chrome (centered
 /// title + toolbar tabs) is the system's. Content is Flexoki-skinned section
 /// cards on a *solid* window surface — glass is for the transient panel, not a
 /// settings window. Form controls stay native (segmented, pop-ups, switches,
@@ -20,7 +20,7 @@ struct SettingsView: View {
                 .tabItem { Label("Tabs", systemImage: "rectangle.3.group") }
                 .tag(SettingsTab.tabs)
             UnreadSettings()
-                .tabItem { Label("Unread", systemImage: "app.badge") }
+                .tabItem { Label("Notifications", systemImage: "app.badge") }
                 .tag(SettingsTab.unread)
             ProvidersSettings()
                 .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
@@ -196,7 +196,7 @@ private struct GeneralSettings: View {
                 }
             }
 
-            SettingsSection("Reset", subtitle: "Erases all local data — keys, connections, and preferences — and returns MergeMole to a clean state.") {
+            SettingsSection("Reset", subtitle: "Erases all local data: keys, connections, and preferences. MergeMole returns to a clean state.") {
                 Button("Reset MergeMole…", role: .destructive) { confirmingReset = true }
                     .buttonStyle(.bordered)
                     .tint(.appRed)
@@ -228,8 +228,8 @@ private struct TabsSettings: View {
 
     var body: some View {
         SettingsScaffold {
-            SettingsSection("Show these tabs",
-                            subtitle: "Drag to reorder. Uncheck to hide a tab from the panel. New Custom Tab turns any GitHub search into a tab of your own.",
+            SettingsSection("Your tabs",
+                            subtitle: "Drag to reorder. Uncheck to hide. Add custom tabs from GitHub searches, scoped to a repo, an organization, or anything else you can query.",
                             padded: false) {
                 TabReorderList { editing = .edit($0) }
                 Hairline()
@@ -256,9 +256,9 @@ private struct UnreadSettings: View {
         @Bindable var model = model
         SettingsScaffold {
             SettingsSection("Notifications",
-                            subtitle: "A desktop notification whenever a watched pull request turns unread. Your Flag and signal choices below decide what counts, so the dot and the notification always agree. They clear when you catch up.",
+                            subtitle: "Sent when a PR in your watched tabs turns unread.",
                             padded: false) {
-                SettingsRow(label: "Notify when a PR turns unread") {
+                SettingsRow(label: "Send me notifications") {
                     Toggle("", isOn: $model.notificationsEnabled)
                         .labelsHidden()
                         .toggleStyle(.switch)
@@ -287,7 +287,7 @@ private struct UnreadSettings: View {
                 }
             }
 
-            SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
+            SettingsSection("Activity", subtitle: "The activity that flags a PR as unread.", padded: false) {
                 SettingsRow(label: "Flag") {
                     Picker("", selection: $model.unreadMode) {
                         ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
@@ -296,6 +296,14 @@ private struct UnreadSettings: View {
                     .labelsHidden()
                     .fixedSize()
                 }
+                // The selected mode keeps its one-line explanation, same as the
+                // onboarding step, so the segmented control never reads cryptic.
+                Text(model.unreadMode.detail)
+                    .font(.caption)
+                    .foregroundStyle(.appTextSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Layout.roomy)
+                    .padding(.bottom, Layout.base + 2)
                 // The activity signals define the right segment; the card grows to
                 // show them and collapses back to the mode row for New-only
                 // (the checkbox config is kept either way).
@@ -309,8 +317,8 @@ private struct UnreadSettings: View {
             }
             .animation(.easeOut(duration: 0.15), value: model.unreadMode)
 
-            SettingsSection("Menu-bar count",
-                            subtitle: "Pick which groups MergeMole watches. The menu-bar count and notifications both come only from these groups. Each PR counts once.",
+            SettingsSection("Watched tabs",
+                            subtitle: "The tabs you're notified about for new activity. These also feed the menu-bar count, each PR counted once.",
                             padded: false) {
                 BadgeTabList()
             }
@@ -416,7 +424,7 @@ private struct AITriageSection: View {
         VStack(alignment: .leading, spacing: Layout.snug) {
             SectionHeader(
                 title: "AI Triage",
-                subtitle: "Choose how MergeMole rates priority. Disable it to use MergeMole as a plain PR organizer."
+                subtitle: "AI gives every PR a one-line summary, an effort rating, and a priority. Disable it to use MergeMole as a plain PR organizer."
             )
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
@@ -607,8 +615,8 @@ struct CustomModelForm: View {
             InlineStatus(kind: .progress("Connecting…"))
         case .loaded(let models):
             InlineStatus(kind: .ok(models.isEmpty
-                ? "Connected — endpoint listed no models, type one below."
-                : "Connected — \(models.count) models available. Choose one below."))
+                ? "Connected, but the endpoint listed no models. Type one below."
+                : "Connected: \(models.count) models available. Choose one below."))
         case .failed(let message):
             InlineStatus(kind: .error(message))
         }
@@ -619,16 +627,16 @@ struct CustomModelForm: View {
         switch model.byoStatus {
         case .untested:        EmptyView()
         case .testing:         InlineStatus(kind: .progress("Testing…"))
-        case .ok(let m):       InlineStatus(kind: .ok("Ready — triaging with \(m)"))
+        case .ok(let m):       InlineStatus(kind: .ok("Ready, triaging with \(m)"))
         case .failed(let m):   InlineStatus(kind: .error(m))
         }
     }
 
     /// Required for the hosted providers, optional for a local endpoint.
     private var keyPrompt: String {
-        if model.hasBYOKey { return "•••••• saved — press Connect to reuse it" }
+        if model.hasBYOKey { return "•••••• saved. Press Connect to reuse it" }
         return model.byoProvider == .compatible
-            ? "Optional — leave blank for local models"
+            ? "Optional: leave blank for local models"
             : "Paste your API key, then Connect"
     }
 
@@ -684,7 +692,7 @@ private struct ModelPickerField: View {
                 .disabled(!isEnabled)
             Menu {
                 if models.isEmpty {
-                    Text("No models — connect first")
+                    Text("No models, connect first")
                 } else {
                     ForEach(models, id: \.self) { id in
                         Button(id) { model.byoModel = id }

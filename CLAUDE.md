@@ -24,6 +24,20 @@ No em dashes in release notes or any user-facing copy.
   snapshot tests.
 - Match the codebase's style: heavy doc comments that explain why, not what.
 
+## Copy rules
+
+- One name per concept, on every surface: "watched tabs" (the notification and
+  menu-bar-count scope), "Activity" with its "Flag" control (what turns a PR
+  unread), "notifications" (never "banners" in UI), "the panel", "the menu-bar
+  count".
+- Settings and onboarding describe a feature with the same sentence; if one
+  changes, both change.
+- Subtitles are one sentence, two at most. Reassurance ("change it anytime in
+  Settings") is welcome; vague hedging is not.
+- Describing the AI means naming the whole verdict: a one-line summary, an
+  effort rating, and a priority.
+- No em dashes anywhere in user-facing copy. Code comments are exempt.
+
 ## Testing
 
 - Run with: `xcodebuild test -project MergeMole.xcodeproj -scheme MergeMole -destination 'platform=macOS'`

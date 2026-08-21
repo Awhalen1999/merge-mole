@@ -113,7 +113,7 @@ struct RootView: View {
         StatusScreen(
             title: model.tokenRejected ? "Reconnect to GitHub" : "Connect to GitHub",
             message: model.tokenRejected
-                ? "GitHub rejected your saved token — it may have expired or been revoked. Reconnect to keep triaging your pull requests."
+                ? "GitHub rejected your saved token. It may have expired or been revoked. Reconnect to keep triaging your pull requests."
                 : "MergeMole reads your pull requests to triage what needs your attention first. Your token stays on this Mac."
         ) {
             BrandMark(size: 46)

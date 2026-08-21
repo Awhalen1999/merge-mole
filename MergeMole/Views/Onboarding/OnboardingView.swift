@@ -196,7 +196,7 @@ private struct WelcomeStep: View {
                 .frame(width: 56, height: 56)
                 .clipShape(.rect(cornerRadius: 12, style: .continuous))
             StepHeader(title: "Welcome to MergeMole",
-                       subtitle: "The pull requests that need you, triaged by effort and priority, right in your menu bar.")
+                       subtitle: "The pull requests that need your attention, triaged by AI, right in your menu bar.")
             DemoVideo()
         }
         .padding(Layout.generous * 2)
@@ -377,7 +377,7 @@ private struct TriageStep: View {
     var body: some View {
         WizardPage {
             StepHeader(title: "How should MergeMole triage?",
-                       subtitle: "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
+                       subtitle: "Pick the engine that triages your PRs. You can change this anytime in Settings.")
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
                     if mode == .bringYourOwn {
@@ -421,7 +421,7 @@ private struct PersonalizeStep: View {
         @Bindable var model = model
         WizardPage {
             StepHeader(title: "Make it yours",
-                       subtitle: "A couple of defaults. Tweak everything later in Settings.")
+                       subtitle: "A few defaults to start from. Tweak everything later in Settings.")
 
             HStack(spacing: Layout.roomy) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -460,8 +460,8 @@ private struct PersonalizeStep: View {
             .cardSurface()
 
             VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "Show these tabs",
-                              subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Custom Tab turns any GitHub search into a tab of your own.")
+                SectionHeader(title: "Your tabs",
+                              subtitle: "Drag to reorder. Uncheck to hide. Add custom tabs from GitHub searches, scoped to a repo, an organization, or anything else you can query.")
                 VStack(spacing: 0) {
                     TabReorderList { editing = .edit($0) }
                     Hairline()
@@ -480,31 +480,81 @@ private struct PersonalizeStep: View {
 
 // MARK: - 5 · Unread
 
-/// The attention step — the same choice as Settings → Unread, framed as a
-/// question, plus which groups feed the menu-bar count (`BadgeTabList`) and a
-/// notifications opt-in. The toggle rides this step because notifications have
-/// no model of their own: they follow the choice the user just made, and
-/// flipping it on fires the macOS permission prompt at the moment of maximum
-/// intent (the `notificationsEnabled` didSet). Ships unchecked; a declined
-/// prompt is silently fine here — Settings → Unread surfaces the blocked state
-/// later, and the wizard never grows error branches. The per-signal checkboxes
-/// stay in Settings, with the subtitle pointing the way.
+/// The attention step. Two inputs multiply here — which activity counts, and
+/// which tabs are watched — and together they drive the unread dot, the
+/// menu-bar count, and notifications. The layout teaches that: the header
+/// states the equation, the two inputs get numbers, and each block's one-liner
+/// names the surface it drives. The notifications toggle sits *last* on
+/// purpose — in a wizard it reads as the payoff of the two choices above it,
+/// while Settings keeps it on top as the headline feature; same components,
+/// different jobs. Flipping it on fires the macOS permission prompt at the
+/// moment of maximum intent (the `notificationsEnabled` didSet). Ships
+/// unchecked; a declined prompt is silently fine here — Settings → Unread
+/// surfaces the blocked state later, and the wizard never grows error branches.
 private struct UnreadStep: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
         WizardPage {
-            StepHeader(title: "What counts as unread?",
-                       subtitle: "Pick what the unread dot, menu-bar count, and notifications flag. Fine-tune which activity counts anytime in Settings → Unread.")
+            StepHeader(title: "Choose what MergeMole notifies you about",
+                       subtitle: "Pick what activity triggers a notification, then filter it to the tabs you care about. Change it anytime in Settings.")
 
-            // Notifications lead, mirroring Settings → Unread exactly, so the
-            // step and the pane read as the same screen.
+            // The same control as Settings → Unread: a Flag row with the
+            // segmented switch, the selected mode's one-liner beneath it, and
+            // the signal checkboxes when Activity is chosen — one component
+            // vocabulary across both surfaces.
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "Activity",
+                              subtitle: "The activity that flags a PR as unread.")
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: Layout.roomy) {
+                        Text("Flag")
+                            .foregroundStyle(.appText)
+                        Spacer(minLength: Layout.base)
+                        Picker("", selection: $model.unreadMode) {
+                            ForEach(UnreadMode.allCases) { Text($0.label).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, Layout.roomy)
+                    .padding(.top, Layout.base + 2)
+                    .padding(.bottom, Layout.snug)
+
+                    Text(model.unreadMode.detail)
+                        .font(.caption)
+                        .foregroundStyle(.appTextSecondary)
+                        .padding(.horizontal, Layout.roomy)
+                        .padding(.bottom, Layout.base + 2)
+
+                    if model.unreadMode == .activity {
+                        Group {
+                            Hairline()
+                            UnreadSignalList()
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .cardSurface(padded: false)
+                .animation(.easeOut(duration: 0.15), value: model.unreadMode)
+            }
+
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "Watched tabs",
+                              subtitle: "The tabs you're notified about for new activity.")
+                VStack(spacing: 0) {
+                    BadgeTabList()
+                }
+                .cardSurface(padded: false)
+            }
+
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Notifications",
-                              subtitle: "A desktop notification when a watched PR turns unread. Follows the choices below and clears when you catch up.")
+                              subtitle: "Sent when one of these PRs turns unread.")
                 HStack(spacing: Layout.roomy) {
-                    Text("Notify when a PR turns unread")
+                    Text("Send me notifications")
                         .foregroundStyle(.appText)
                     Spacer(minLength: Layout.base)
                     Toggle("", isOn: $model.notificationsEnabled)
@@ -514,39 +564,6 @@ private struct UnreadStep: View {
                 }
                 .padding(.horizontal, Layout.roomy)
                 .padding(.vertical, Layout.base + 2)
-                .cardSurface(padded: false)
-            }
-
-            VStack(spacing: Layout.base) {
-                ForEach(UnreadMode.allCases) { mode in
-                    // Activity grows its card to hold the signal checkboxes —
-                    // the same list as Settings → Unread, same expansion move
-                    // as the custom-model card on the AI step.
-                    if mode == .activity {
-                        RadioCard(title: mode.label,
-                                  detail: mode.detail,
-                                  selected: model.unreadMode == mode) {
-                            model.unreadMode = mode
-                        } expansion: {
-                            UnreadSignalList()
-                        }
-                    } else {
-                        RadioCard(title: mode.label,
-                                  detail: mode.detail,
-                                  selected: model.unreadMode == mode) {
-                            model.unreadMode = mode
-                        }
-                    }
-                }
-            }
-            .animation(.easeOut(duration: 0.15), value: model.unreadMode)
-
-            VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "Menu-bar count",
-                              subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.")
-                VStack(spacing: 0) {
-                    BadgeTabList()
-                }
                 .cardSurface(padded: false)
             }
         }
@@ -577,8 +594,8 @@ private struct DoneStep: View {
         let tabs = model.visibleTabs.count
         parts.append("\(tabs) tab\(tabs == 1 ? "" : "s")")
         switch model.unreadMode {
-        case .newOnly:  parts.append("Unread: new PRs only")
-        case .activity: parts.append("Unread: PR activity")
+        case .newOnly:  parts.append("Flags new PRs only")
+        case .activity: parts.append("Flags PR activity")
         }
         if model.notificationsEnabled { parts.append("Notifications on") }
         return parts.joined(separator: " · ")
