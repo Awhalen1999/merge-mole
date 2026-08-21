@@ -498,11 +498,11 @@ private struct UnreadStep: View {
         @Bindable var model = model
         WizardPage {
             StepHeader(title: "Choose what MergeMole notifies you about",
-                       subtitle: "Pick the activity that triggers a notification, then filter it to the tabs you care about. Change it anytime in Settings.")
+                       subtitle: "Pick what activity triggers a notification, then filter it to the tabs you care about. Change it anytime in Settings.")
 
             VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "1 · What activity counts?",
-                              subtitle: "Flags the PR as unread.")
+                SectionHeader(title: "Activity",
+                              subtitle: "The activity that flags a PR as unread.")
                 VStack(spacing: Layout.base) {
                     ForEach(UnreadMode.allCases) { mode in
                         // Activity grows its card to hold the signal checkboxes —
@@ -529,8 +529,8 @@ private struct UnreadStep: View {
             }
 
             VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "2 · Which tabs notify you?",
-                              subtitle: "The menu-bar count and notifications come only from these tabs.")
+                SectionHeader(title: "Watched tabs",
+                              subtitle: "The tabs you're notified about for new activity.")
                 VStack(spacing: 0) {
                     BadgeTabList()
                 }
