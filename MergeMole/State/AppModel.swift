@@ -1225,20 +1225,24 @@ final class AppModel {
         }
     }
 
+    /// The body is one sentence, no separators: reason and location joined by
+    /// a preposition. "At" for the one repo-level event (a PR arrived at the
+    /// repo); "on" for everything that happens on an existing PR — two clearly
+    /// different words for two clearly different levels.
     private func banner(for pr: PullRequest) -> PRNotification {
-        PRNotification(
-            id: pr.id,
-            title: pr.title,
-            body: "\(bannerReason(for: pr, isNew: readComponents[pr.id] == nil)) · \(pr.repository) #\(pr.number)",
-            url: pr.url
-        )
+        let location = "\(pr.repository) #\(pr.number)"
+        let body = readComponents[pr.id] == nil
+            ? "New pull request at \(location)"
+            : "\(bannerReason(for: pr)) on \(location)"
+        return PRNotification(id: pr.id, title: pr.title, body: body, url: pr.url)
     }
 
-    /// The banner's one-line "why": the first enabled signal whose stored
-    /// component no longer matches — the same comparison `isUnread` flagged
-    /// the PR on, so the reason always names a change the dot is showing.
-    private func bannerReason(for pr: PullRequest, isNew: Bool) -> String {
-        guard !isNew, let stored = readComponents[pr.id] else { return "New pull request" }
+    /// The banner's "why" for a PR with a read record: the first enabled
+    /// signal whose stored component no longer matches — the same comparison
+    /// `isUnread` flagged the PR on, so the reason always names a change the
+    /// dot is showing.
+    private func bannerReason(for pr: PullRequest) -> String {
+        guard let stored = readComponents[pr.id] else { return "Updates" }
         let current = readSignature(of: pr)
         for signal in UnreadSignal.primary where unreadSignals.contains(signal) {
             guard let now = current[signal.rawValue],
@@ -1246,7 +1250,7 @@ final class AppModel {
                   then != now else { continue }
             return signal.bannerPhrase
         }
-        return "Updated"   // unreachable while isUnread and this walk agree; safe fallback
+        return "Updates"   // unreachable while isUnread and this walk agree; safe fallback
     }
 
     /// A banner was clicked. The notifier already opened the PR in the browser;

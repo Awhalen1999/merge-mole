@@ -39,6 +39,24 @@ import Testing
         #expect(world.notifier.delivered.count == 1)
     }
 
+    @Test func bannerBodiesReadAsOneSentence() async {
+        // The body is one line of English, no separators: "at" for a PR
+        // arriving at the repo, "on" for changes to one already read. Pinned
+        // exactly so the sentence frame can't drift silently.
+        let world = notifyingWorld()
+        await world.load([makePR(head: "a1", commits: [.real("a1")])])
+        world.model.markRead(pr(world))
+
+        await world.load([
+            makePR(head: "b2", commits: [.real("a1"), .real("b2")]),
+            makePR(id: "PR_kwDOAbc002", number: 55, title: "Add avatar caching",
+                   head: "c1", commits: [.real("c1")]),
+        ])
+        let bodies = Dictionary(uniqueKeysWithValues: world.notifier.delivered.map { ($0.id, $0.body) })
+        #expect(bodies[id] == "New commits on acme/checkout #41")
+        #expect(bodies["PR_kwDOAbc002"] == "New pull request at acme/checkout #55")
+    }
+
     @Test func firstSyncOfASessionIsQuiet() async {
         // Everything that changed while the app wasn't running lights the
         // badge, never Notification Center — there is no "before" to diff.
