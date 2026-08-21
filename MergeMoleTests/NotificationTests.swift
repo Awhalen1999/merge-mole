@@ -158,6 +158,16 @@ import Testing
         #expect(world.notifier.removedIDs.contains(id), "catching up clears Notification Center too")
     }
 
+    @Test func markAllReadSweepsTheTabsBanners() async {
+        // The tab-wide catch-up gesture empties Notification Center on the same
+        // click as the dots — through the same recordRead door as every other
+        // way of reading.
+        let world = notifyingWorld()
+        await world.load([makePR()])
+        world.model.markAllRead(in: .all)
+        #expect(world.notifier.removedIDs.contains(id))
+    }
+
     @Test func clickingABannerCountsAsReading() async {
         let world = notifyingWorld()
         await world.load([makePR(head: "a1", commits: [.real("a1")])])
