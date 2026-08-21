@@ -594,8 +594,8 @@ private struct DoneStep: View {
         let tabs = model.visibleTabs.count
         parts.append("\(tabs) tab\(tabs == 1 ? "" : "s")")
         switch model.unreadMode {
-        case .newOnly:  parts.append("Unread: new PRs only")
-        case .activity: parts.append("Unread: PR activity")
+        case .newOnly:  parts.append("Flags new PRs only")
+        case .activity: parts.append("Flags PR activity")
         }
         if model.notificationsEnabled { parts.append("Notifications on") }
         return parts.joined(separator: " · ")
