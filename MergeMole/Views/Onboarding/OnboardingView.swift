@@ -421,7 +421,7 @@ private struct PersonalizeStep: View {
         @Bindable var model = model
         WizardPage {
             StepHeader(title: "Make it yours",
-                       subtitle: "A couple of defaults. Tweak everything later in Settings.")
+                       subtitle: "A few defaults to start from. Tweak everything later in Settings.")
 
             HStack(spacing: Layout.roomy) {
                 VStack(alignment: .leading, spacing: 2) {
