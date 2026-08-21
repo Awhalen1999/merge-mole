@@ -497,8 +497,8 @@ private struct UnreadStep: View {
     var body: some View {
         @Bindable var model = model
         WizardPage {
-            StepHeader(title: "Choose what you're notified about",
-                       subtitle: "Pick the activity that counts and the tabs you watch. Together they drive the dot, the count, and notifications. Change any of it later in Settings.")
+            StepHeader(title: "Choose what MergeMole notifies you about",
+                       subtitle: "Pick the activity that triggers a notification, then filter it to the tabs you care about. Change it anytime in Settings.")
 
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "1 · What activity counts?",
@@ -529,8 +529,8 @@ private struct UnreadStep: View {
             }
 
             VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "2 · Which tabs do you watch?",
-                              subtitle: "Unread PRs here become the menu-bar count.")
+                SectionHeader(title: "2 · Which tabs notify you?",
+                              subtitle: "The menu-bar count and notifications come only from these tabs.")
                 VStack(spacing: 0) {
                     BadgeTabList()
                 }
@@ -539,9 +539,9 @@ private struct UnreadStep: View {
 
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "Notifications",
-                              subtitle: "A notification when a watched PR turns unread.")
+                              subtitle: "Sent when one of these PRs turns unread.")
                 HStack(spacing: Layout.roomy) {
-                    Text("Show notifications")
+                    Text("Send me notifications")
                         .foregroundStyle(.appText)
                     Spacer(minLength: Layout.base)
                     Toggle("", isOn: $model.notificationsEnabled)
