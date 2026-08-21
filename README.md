@@ -32,7 +32,7 @@ You'll need a GitHub personal access token (scopes: `repo`, `read:org`). MergeMo
 
 - [x] Menu bar panel: every PR waiting on you in one list
 - [x] Built-in tabs: review requested, assigned, created, mentioned, and reviewed
-- [x] AI triage: priority and effort ratings, plus a one-line summary of each PR
+- [x] AI triage: a one-line summary, an effort rating, and a priority for each PR
 - [x] On-device AI with Apple's Foundation Models
 - [x] Bring-your-own model: OpenAI-compatible, Anthropic, or local (Ollama)
 - [x] Smart verdict caching: a PR only re-analyzes when it meaningfully changes

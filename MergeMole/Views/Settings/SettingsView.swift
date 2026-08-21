@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The Settings window (⌘,). Five tabs — General / Tabs / Unread / Providers /
-/// About — in the native macOS preferences `TabView`, so the chrome (centered
+/// The Settings window (⌘,). Five tabs — General / Tabs / Notifications /
+/// Providers / About — in the native macOS preferences `TabView`, so the chrome (centered
 /// title + toolbar tabs) is the system's. Content is Flexoki-skinned section
 /// cards on a *solid* window surface — glass is for the transient panel, not a
 /// settings window. Form controls stay native (segmented, pop-ups, switches,
@@ -20,7 +20,7 @@ struct SettingsView: View {
                 .tabItem { Label("Tabs", systemImage: "rectangle.3.group") }
                 .tag(SettingsTab.tabs)
             UnreadSettings()
-                .tabItem { Label("Unread", systemImage: "app.badge") }
+                .tabItem { Label("Notifications", systemImage: "app.badge") }
                 .tag(SettingsTab.unread)
             ProvidersSettings()
                 .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
