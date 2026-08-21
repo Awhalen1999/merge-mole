@@ -25,8 +25,8 @@ enum AIMode: String, CaseIterable, Identifiable, Sendable {
     /// One-line explanation shown under the radio-card heading in Settings.
     var detail: String {
         switch self {
-        case .onDevice:     return "Private. Runs locally on this Mac — no PR data leaves your machine."
-        case .bringYourOwn: return "Bring your own — OpenAI, Anthropic, or any OpenAI-compatible endpoint."
+        case .onDevice:     return "Private. Runs locally on this Mac. No PR data leaves your machine."
+        case .bringYourOwn: return "Bring your own key: OpenAI, Anthropic, or any OpenAI-compatible endpoint."
         case .off:          return "Skip AI triage. MergeMole just lists and organizes your pull requests."
         }
     }

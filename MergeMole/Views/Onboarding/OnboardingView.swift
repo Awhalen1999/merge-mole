@@ -377,7 +377,7 @@ private struct TriageStep: View {
     var body: some View {
         WizardPage {
             StepHeader(title: "How should MergeMole triage?",
-                       subtitle: "Pick the engine that rates effort and priority. You can change this anytime in Settings.")
+                       subtitle: "Pick the engine that triages your PRs. You can change this anytime in Settings.")
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
                     if mode == .bringYourOwn {
@@ -502,7 +502,7 @@ private struct UnreadStep: View {
 
             VStack(alignment: .leading, spacing: Layout.snug) {
                 SectionHeader(title: "1 · What activity counts?",
-                              subtitle: "Flags the PR as unread: the dot in the panel.")
+                              subtitle: "Flags the PR as unread.")
                 VStack(spacing: Layout.base) {
                     ForEach(UnreadMode.allCases) { mode in
                         // Activity grows its card to hold the signal checkboxes —
