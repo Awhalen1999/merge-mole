@@ -250,10 +250,43 @@ private struct TabsSettings: View {
 /// menu bar showing 3?" should have a single answer screen.
 private struct UnreadSettings: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         @Bindable var model = model
         SettingsScaffold {
+            SettingsSection("Notifications",
+                            subtitle: "A desktop notification whenever a watched pull request turns unread. Your Flag and signal choices below decide what counts, so the dot and the notification always agree. They clear when you catch up.",
+                            padded: false) {
+                SettingsRow(label: "Notify when a PR turns unread") {
+                    Toggle("", isOn: $model.notificationsEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.appAccent)
+                }
+                // Delivery has exactly one invisible failure: permission denied,
+                // where the app works and banners silently never appear. Surface
+                // it right where the user just asked for them.
+                if model.notificationsEnabled && model.notificationsBlocked {
+                    Hairline()
+                    HStack(spacing: Layout.base) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.appAmber)
+                        Text("macOS is blocking MergeMole notifications.")
+                            .foregroundStyle(.appText)
+                        Spacer(minLength: Layout.base)
+                        Button("Open System Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+                                openURL(url)
+                            }
+                        }
+                        .buttonStyle(.link)
+                    }
+                    .padding(.horizontal, Layout.roomy)
+                    .padding(.vertical, Layout.base + 2)
+                }
+            }
+
             SettingsSection("Unread", subtitle: "What the unread dot means.", padded: false) {
                 SettingsRow(label: "Flag") {
                     Picker("", selection: $model.unreadMode) {
@@ -277,23 +310,14 @@ private struct UnreadSettings: View {
             .animation(.easeOut(duration: 0.15), value: model.unreadMode)
 
             SettingsSection("Menu-bar count",
-                            subtitle: "Pick which groups feed the unread count on the menu-bar icon. Each PR counts once.",
+                            subtitle: "Pick which groups MergeMole watches. The menu-bar count and notifications both come only from these groups. Each PR counts once.",
                             padded: false) {
                 BadgeTabList()
             }
-
-            SettingsSection("Notifications",
-                            subtitle: "Banners follow the menu-bar count: same groups, same signals, and they clear when you catch up. macOS also needs to allow MergeMole notifications in System Settings.",
-                            padded: false) {
-                SettingsRow(label: "Show banners") {
-                    Picker("", selection: $model.notifyMode) {
-                        ForEach(NotifyMode.allCases) { Text($0.label).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
-                }
-            }
         }
+        // On appear and again whenever the toggle flips: enabling notifications
+        // against a denied permission should show the warning immediately.
+        .task(id: model.notificationsEnabled) { await model.refreshNotificationPermission() }
     }
 }
 

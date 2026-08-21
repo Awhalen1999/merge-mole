@@ -481,17 +481,41 @@ private struct PersonalizeStep: View {
 // MARK: - 5 · Unread
 
 /// The attention step — the same choice as Settings → Unread, framed as a
-/// question, plus which groups feed the menu-bar count (`BadgeTabList`). Only
-/// the mode is asked here; the per-signal checkboxes stay in Settings, with the
-/// subtitle pointing the way. Radio cards echo the AI step, so both "pick one"
-/// screens read the same.
+/// question, plus which groups feed the menu-bar count (`BadgeTabList`) and a
+/// notifications opt-in. The toggle rides this step because notifications have
+/// no model of their own: they follow the choice the user just made, and
+/// flipping it on fires the macOS permission prompt at the moment of maximum
+/// intent (the `notificationsEnabled` didSet). Ships unchecked; a declined
+/// prompt is silently fine here — Settings → Unread surfaces the blocked state
+/// later, and the wizard never grows error branches. The per-signal checkboxes
+/// stay in Settings, with the subtitle pointing the way.
 private struct UnreadStep: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        @Bindable var model = model
         WizardPage {
             StepHeader(title: "What counts as unread?",
-                       subtitle: "Pick what the unread dot and menu-bar count flag. Fine-tune which activity counts anytime in Settings → Unread.")
+                       subtitle: "Pick what the unread dot, menu-bar count, and notifications flag. Fine-tune which activity counts anytime in Settings → Unread.")
+
+            // Notifications lead, mirroring Settings → Unread exactly, so the
+            // step and the pane read as the same screen.
+            VStack(alignment: .leading, spacing: Layout.snug) {
+                SectionHeader(title: "Notifications",
+                              subtitle: "A desktop notification when a watched PR turns unread. Follows the choices below and clears when you catch up.")
+                HStack(spacing: Layout.roomy) {
+                    Text("Notify when a PR turns unread")
+                        .foregroundStyle(.appText)
+                    Spacer(minLength: Layout.base)
+                    Toggle("", isOn: $model.notificationsEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.appAccent)
+                }
+                .padding(.horizontal, Layout.roomy)
+                .padding(.vertical, Layout.base + 2)
+                .cardSurface(padded: false)
+            }
 
             VStack(spacing: Layout.base) {
                 ForEach(UnreadMode.allCases) { mode in
@@ -556,6 +580,7 @@ private struct DoneStep: View {
         case .newOnly:  parts.append("Unread: new PRs only")
         case .activity: parts.append("Unread: PR activity")
         }
+        if model.notificationsEnabled { parts.append("Notifications on") }
         return parts.joined(separator: " · ")
     }
 
