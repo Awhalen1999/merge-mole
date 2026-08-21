@@ -460,8 +460,8 @@ private struct PersonalizeStep: View {
             .cardSurface()
 
             VStack(alignment: .leading, spacing: Layout.snug) {
-                SectionHeader(title: "Show these tabs",
-                              subtitle: "Drag to reorder. Uncheck to hide a tab from your panel. New Custom Tab turns any GitHub search into a tab of your own.")
+                SectionHeader(title: "Your tabs",
+                              subtitle: "Drag to reorder. Uncheck to hide. Add custom tabs from GitHub searches, scoped to a repo, an organization, or anything else you can query.")
                 VStack(spacing: 0) {
                     TabReorderList { editing = .edit($0) }
                     Hairline()

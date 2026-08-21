@@ -228,8 +228,8 @@ private struct TabsSettings: View {
 
     var body: some View {
         SettingsScaffold {
-            SettingsSection("Show these tabs",
-                            subtitle: "Drag to reorder. Uncheck to hide a tab from the panel. New Custom Tab turns any GitHub search into a tab of your own.",
+            SettingsSection("Your tabs",
+                            subtitle: "Drag to reorder. Uncheck to hide. Add custom tabs from GitHub searches, scoped to a repo, an organization, or anything else you can query.",
                             padded: false) {
                 TabReorderList { editing = .edit($0) }
                 Hairline()
