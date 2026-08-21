@@ -256,19 +256,18 @@ private struct UnreadSettings: View {
         @Bindable var model = model
         SettingsScaffold {
             SettingsSection("Notifications",
-                            subtitle: "Desktop notifications when a watched pull request turns unread. They clear when you catch up.",
+                            subtitle: "A desktop notification whenever a watched pull request turns unread. Your Flag and signal choices below decide what counts, so the dot and the notification always agree. They clear when you catch up.",
                             padded: false) {
-                SettingsRow(label: "Notify") {
-                    Picker("", selection: $model.notifyMode) {
-                        ForEach(NotifyMode.allCases) { Text($0.label).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+                SettingsRow(label: "Notify when a PR turns unread") {
+                    Toggle("", isOn: $model.notificationsEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.appAccent)
                 }
                 // Delivery has exactly one invisible failure: permission denied,
                 // where the app works and banners silently never appear. Surface
                 // it right where the user just asked for them.
-                if model.notifyMode != .off && model.notificationsBlocked {
+                if model.notificationsEnabled && model.notificationsBlocked {
                     Hairline()
                     HStack(spacing: Layout.base) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -316,9 +315,9 @@ private struct UnreadSettings: View {
                 BadgeTabList()
             }
         }
-        // On appear and again whenever the mode changes: enabling notifications
+        // On appear and again whenever the toggle flips: enabling notifications
         // against a denied permission should show the warning immediately.
-        .task(id: model.notifyMode) { await model.refreshNotificationPermission() }
+        .task(id: model.notificationsEnabled) { await model.refreshNotificationPermission() }
     }
 }
 

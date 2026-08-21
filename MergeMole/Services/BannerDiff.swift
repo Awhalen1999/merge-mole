@@ -5,6 +5,12 @@ import Foundation
 /// unread badge pool and applies the outcome; every rule lives here and nowhere
 /// else, so the rules are testable without a model and extendable in one file.
 ///
+/// Notifications deliberately have no filter of their own. They fire exactly
+/// when the unread dot would appear on a watched PR, so the user's Flag mode
+/// and signal choices tune both at once — in New-PRs-only mode, activity never
+/// turns a read PR unread, so the only edges that can exist are new PRs. That
+/// sync is structural: nothing here implements it, nothing can break it.
+///
 /// The rules, in the order they apply:
 ///   • Sweep first: a banner never outlives its reason. Any PR that was unread
 ///     before the sync and isn't now (read elsewhere and absorbed, or gone from
@@ -16,16 +22,7 @@ import Foundation
 ///     the PR stays unread so it isn't an edge at the next sync either.
 ///   • Only edges ring: a PR unread before the sync is not news. One banner
 ///     per unread episode; further activity stays quiet until it's read.
-///   • The mode narrows which edges ring: `.newPRs` only for PRs with no read
-///     record (the "new" flavor of unread), `.follow` for any edge.
 struct BannerDiff {
-
-    /// One currently-unread PR in the badge pool, as the decision sees it.
-    /// `isNew` is "no read record": the first branch of `isUnread`.
-    struct Candidate {
-        let id: String
-        let isNew: Bool
-    }
 
     /// What a sync decided: banners to remove, PRs to ring for.
     struct Outcome {
@@ -39,19 +36,17 @@ struct BannerDiff {
 
     mutating func afterSync(
         before: Set<String>,
-        now: [Candidate],
-        mode: NotifyMode,
+        now: Set<String>,
+        enabled: Bool,
         panelOpen: Bool
     ) -> Outcome {
-        let nowIDs = Set(now.map(\.id))
-        let swept = Array(before.subtracting(nowIDs))
+        let swept = Array(before.subtracting(now))
         defer { hasBaseline = true }   // even a silenced sync is a valid "before"
 
-        guard mode != .off, hasBaseline, !panelOpen else {
+        guard enabled, hasBaseline, !panelOpen else {
             return Outcome(sweptIDs: swept, ringIDs: [])
         }
-        let rings = now.filter { !before.contains($0.id) && (mode != .newPRs || $0.isNew) }
-        return Outcome(sweptIDs: swept, ringIDs: Set(rings.map(\.id)))
+        return Outcome(sweptIDs: swept, ringIDs: now.subtracting(before))
     }
 
     /// Forget the baseline — on disconnect, so a reconnect's first sync is a

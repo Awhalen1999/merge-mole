@@ -14,13 +14,13 @@ import Testing
         world.model.pullRequests.first { $0.id == id }!
     }
 
-    /// A world with banners enabled, preseeded like the other preferences so
-    /// the key stays part of the spelled-out persistence contract.
+    /// A world with notifications enabled, preseeded like the other preferences
+    /// so the key stays part of the spelled-out persistence contract.
     private func notifyingWorld(
-        mode: NotifyMode = .follow,
+        mode: UnreadMode = .activity,
         signals: Set<UnreadSignal>? = nil
     ) -> TestWorld {
-        makeWorld(signals: signals) { $0.set(mode.rawValue, forKey: "notifyMode") }
+        makeWorld(mode: mode, signals: signals) { $0.set(true, forKey: "notificationsEnabled") }
     }
 
     // MARK: The edge that rings
@@ -97,10 +97,13 @@ import Testing
         #expect(world.notifier.delivered.isEmpty)
     }
 
-    // MARK: Notify modes
+    // MARK: Notifications follow the Flag
 
-    @Test func newPRsOnlyModeRingsForNewPRsButNotActivity() async {
-        let world = notifyingWorld(mode: .newPRs)
+    @Test func newPRsOnlyFlagQuietsActivityForFree() async {
+        // Notifications have no filter of their own: in New-PRs-only Flag mode
+        // activity never turns a read PR unread, so only new PRs can ring.
+        // The sync with the dot is structural, not implemented.
+        let world = notifyingWorld(mode: .newOnly)
         await world.load([makePR(head: "a1", commits: [.real("a1")])])
         world.model.markRead(pr(world))
 
@@ -114,8 +117,8 @@ import Testing
         #expect(world.notifier.delivered.first?.body.hasPrefix("New pull request") == true)
     }
 
-    @Test func offModeNeverRingsButTheBadgeStillWorks() async {
-        let world = notifyingWorld(mode: .off)
+    @Test func disabledNeverRingsButTheBadgeStillWorks() async {
+        let world = makeWorld()   // notifications ship off
         await world.load([makePR(head: "a1", commits: [.real("a1")])])
         world.model.markRead(pr(world))
 
@@ -182,9 +185,9 @@ import Testing
     @Test func enablingAsksPermissionDisablingDoesNot() async {
         let world = makeWorld()
         #expect(world.notifier.authorizationRequests == 0, "opted-out installs are never prompted")
-        world.model.notifyMode = .follow
+        world.model.notificationsEnabled = true
         #expect(world.notifier.authorizationRequests == 1)
-        world.model.notifyMode = .off
+        world.model.notificationsEnabled = false
         #expect(world.notifier.authorizationRequests == 1)
     }
 
@@ -192,7 +195,7 @@ import Testing
         // Off means no MergeMole presence in Notification Center, not just no
         // new banners — whatever was delivered goes with the setting.
         let world = notifyingWorld()
-        world.model.notifyMode = .off
+        world.model.notificationsEnabled = false
         #expect(world.notifier.removedAllCount == 1)
     }
 

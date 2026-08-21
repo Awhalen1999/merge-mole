@@ -173,27 +173,6 @@ enum CardDetail: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// When a desktop notification fires (Settings → Unread → Notifications).
-/// Notifications are not their own system: they draw from the same pool the
-/// menu-bar count reads (unread PRs in the watched groups), so one can only
-/// fire where the badge number rose. This picker narrows which of those rises
-/// ring, and its labels deliberately reuse the Flag picker's vocabulary — "New
-/// PRs only" and "PR activity" mean exactly what they mean for the dot, so the
-/// two controls read as levels of the same thing, not two systems.
-enum NotifyMode: String, CaseIterable, Identifiable, Sendable {
-    case off, newPRs, follow   // raw values are the persistence contract; labels are free to evolve
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .off:    return "None"
-        case .newPRs: return "New PRs only"
-        case .follow: return "PR activity"
-        }
-    }
-}
-
 /// The Settings window's tabs. Shared so the panel's ⋮ menu can deep-link to one
 /// (e.g. "About MergeMole" opens straight to About) instead of a separate window.
 enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
@@ -659,20 +638,23 @@ final class AppModel {
         }
     }
 
-    /// When desktop banners fire (Settings → Unread → Notifications). Persisted.
-    /// Ships off — no install gets a permission prompt or a banner it didn't ask
-    /// for. Turning it on asks macOS for permission (init re-asks on launch
-    /// while opted in, so a lost prompt can't strand the user undeliverable);
-    /// turning it off sweeps Notification Center — off means no MergeMole
-    /// presence there, not just no new banners.
-    var notifyMode: NotifyMode {
+    /// Desktop notifications on/off (Settings → Unread → Notifications). Just a
+    /// switch, deliberately: notifications have no filter of their own — they
+    /// fire exactly when the unread dot appears on a watched PR, so the Flag
+    /// mode and signal checkboxes tune both at once and the two can never
+    /// disagree. Persisted; ships off, so no install gets a permission prompt
+    /// or a banner it didn't ask for. Turning it on asks macOS for permission
+    /// (init re-asks on launch while opted in, so a lost prompt can't strand
+    /// the user undeliverable); turning it off sweeps Notification Center —
+    /// off means no MergeMole presence there, not just no new banners.
+    var notificationsEnabled: Bool {
         didSet {
-            guard notifyMode != oldValue else { return }
-            defaults.set(notifyMode.rawValue, forKey: Key.notifyMode)
-            if notifyMode == .off {
-                notifier.removeAllDelivered()
-            } else {
+            guard notificationsEnabled != oldValue else { return }
+            defaults.set(notificationsEnabled, forKey: Key.notificationsEnabled)
+            if notificationsEnabled {
                 notifier.requestAuthorization()
+            } else {
+                notifier.removeAllDelivered()
             }
         }
     }
@@ -720,7 +702,7 @@ final class AppModel {
         static let cardDetail = "cardDetail"
         static let unreadMode = "unreadMode"
         static let unreadSignals = "unreadSignals"
-        static let notifyMode = "notifyMode"
+        static let notificationsEnabled = "notificationsEnabled"
         static let hiddenTabs = "hiddenTabs"
         static let tabOrder = "tabOrder"
         static let badgeTabs = "badgeTabs"
@@ -773,7 +755,7 @@ final class AppModel {
         } else {
             self.unreadSignals = UnreadSignal.defaultEnabled
         }
-        self.notifyMode = NotifyMode(rawValue: defaults.string(forKey: Key.notifyMode) ?? "") ?? .off
+        self.notificationsEnabled = defaults.object(forKey: Key.notificationsEnabled) as? Bool ?? false
         self.includeArchivedRepos = defaults.object(forKey: Key.includeArchivedRepos) as? Bool ?? true
         let hasToken = secrets.string(for: .githubToken) != nil
         self.isGitHubConnected = hasToken
@@ -837,7 +819,7 @@ final class AppModel {
         // can die unanswered (app quit mid-prompt), leaving "not determined" —
         // where macOS drops every delivery silently. Re-asking is free: granted
         // and denied both no-op; only a still-undetermined state prompts.
-        if notifyMode != .off { self.notifier.requestAuthorization() }
+        if notificationsEnabled { self.notifier.requestAuthorization() }
 
         // Background freshness: periodic refetch + refresh on wake / network return.
         if observesSystemEvents {
@@ -954,7 +936,7 @@ final class AppModel {
     ///   • Keychain (`app.mergemole.MergeMole`) — GitHub token + BYO API key.
     ///   • UserDefaults (`~/Library/Preferences/app.mergemole.MergeMole.plist`) —
     ///     aiMode, byoProvider/Endpoint/Model, refreshInterval, panelBackground, cardLayout, cardDetail,
-    ///     unreadMode/unreadSignals/notifyMode, tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
+    ///     unreadMode/unreadSignals/notificationsEnabled, tabOrder/hiddenTabs/badgeTabs/customTabs, checkForUpdates (@AppStorage).
     ///   • Application Support (`…/Application Support/MergeMole/`) — the AI verdict
     ///     cache (`verdict-cache.json`) and read/unread state (`read-state.json`).
     ///   • Login item (SMAppService) — launch-at-login registration.
@@ -974,7 +956,7 @@ final class AppModel {
         cardDetail = .detailed
         unreadMode = .activity
         unreadSignals = UnreadSignal.defaultEnabled
-        notifyMode = .off
+        notificationsEnabled = false
         includeArchivedRepos = true
         customTabs = []
         tabOrder = PRTab.builtin
@@ -1233,10 +1215,8 @@ final class AppModel {
         let unreadNow = unreadBadgePullRequests
         let outcome = bannerDiff.afterSync(
             before: unreadBefore,
-            // No read record is the "new PR" flavor of unread; a record that
-            // stopped matching is activity on a read PR.
-            now: unreadNow.map { .init(id: $0.id, isNew: readComponents[$0.id] == nil) },
-            mode: notifyMode,
+            now: Set(unreadNow.map(\.id)),
+            enabled: notificationsEnabled,
             panelOpen: isPanelOpen
         )
         notifier.removeDelivered(ids: outcome.sweptIDs)
