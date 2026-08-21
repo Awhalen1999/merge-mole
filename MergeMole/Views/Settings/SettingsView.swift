@@ -416,7 +416,7 @@ private struct AITriageSection: View {
         VStack(alignment: .leading, spacing: Layout.snug) {
             SectionHeader(
                 title: "AI Triage",
-                subtitle: "Choose how MergeMole rates priority. Disable it to use MergeMole as a plain PR organizer."
+                subtitle: "AI gives every PR a one-line summary, an effort rating, and a priority. Disable it to use MergeMole as a plain PR organizer."
             )
             VStack(spacing: Layout.base) {
                 ForEach(AIMode.allCases) { mode in
