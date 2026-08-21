@@ -8,6 +8,26 @@
         <description>Most recent updates for MergeMole.</description>
         <language>en</language>
         <item>
+            <title>1.5.0</title>
+            <pubDate>Fri, 21 Aug 2026 16:38:12 +0000</pubDate>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+<p>MergeMole 1.5.0</p>
+<ul>
+<li>Added desktop notifications. Off by default. When enabled, MergeMole notifies you when a PR in your watched tabs turns unread, using the same signals as the menu bar count. Clicking a notification opens the PR and marks it read. Notifications clear when you catch up.</li>
+<li>One notification per unread episode. Nothing fires on first launch, while the panel is open, or for activity already seen.</li>
+<li>Settings shows a warning with a System Settings shortcut when macOS is blocking notifications.</li>
+<li>Reworked the Notifications tab in Settings: Activity, Watched tabs, and the notifications toggle.</li>
+<li>Onboarding includes a notifications opt-in and reworded setup steps.</li>
+<li>Wording cleanup across the app.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/Awhalen1999/merge-mole/releases/download/v1.5.0/MergeMole.dmg" sparkle:edSignature="rYgyVTx0r+oeV3nFcgoIeKlBposrcBMrEgDS+oo3PNQy2BlUS8TAutbU6MDvkjHbC4NLkZjQMTVpvPpoUInJDg==" length="7998324" type="application/octet-stream"/>
+        </item>
+
+        <item>
             <title>1.4.1</title>
             <pubDate>Sun, 16 Aug 2026 15:00:52 +0000</pubDate>
             <sparkle:version>16</sparkle:version>

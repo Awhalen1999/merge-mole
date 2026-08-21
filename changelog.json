@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.5.0",
+    "build": "17",
+    "date": "2026-08-21",
+    "notes": "MergeMole 1.5.0\n\n- Added desktop notifications. Off by default. When enabled, MergeMole notifies you when a PR in your watched tabs turns unread, using the same signals as the menu bar count. Clicking a notification opens the PR and marks it read. Notifications clear when you catch up.\n- One notification per unread episode. Nothing fires on first launch, while the panel is open, or for activity already seen.\n- Settings shows a warning with a System Settings shortcut when macOS is blocking notifications.\n- Reworked the Notifications tab in Settings: Activity, Watched tabs, and the notifications toggle.\n- Onboarding includes a notifications opt-in and reworded setup steps.\n- Wording cleanup across the app."
+  },
+  {
     "version": "1.4.1",
     "build": "16",
     "date": "2026-08-16",
